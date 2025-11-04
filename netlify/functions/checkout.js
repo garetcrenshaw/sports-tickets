@@ -12,7 +12,7 @@ export default async function handler(req, res) {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'payment',
-      success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${req.headers.origin}/success`,
       cancel_url: req.headers.origin,
       customer_email: email,
     });
