@@ -10,7 +10,13 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+let stripePromise;
+const getStripe = () => {
+  if (!stripePromise) {
+    stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+  }
+  return stripePromise;
+};
 
 function Home() {
   const [events, setEvents] = useState([]);
@@ -38,12 +44,16 @@ function Home() {
     const email = prompt('Enter your email:');
     if (!email) return;
 
-    const stripe = await stripePromise;
+    const stripe = await getStripe();
+    if (!stripe) {
+      alert('Stripe failed to load');
+      return;
+    }
 
     const { error } = await stripe.redirectToCheckout({
       lineItems: [
         {
-          price: event.stripe_price_id, // ← MUST BE IN events TABLE
+          price: event.stripe_price_id,
           quantity: 1,
         },
       ],
@@ -53,7 +63,10 @@ function Home() {
       clientReferenceId: email,
     });
 
-    if (error) alert('Payment error: ' + error.message);
+    if (error) {
+      console.error('Stripe error:', error);
+      alert('Payment error: ' + error.message);
+    }
   };
 
   if (loading) {
