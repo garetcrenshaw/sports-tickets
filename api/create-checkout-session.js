@@ -17,8 +17,8 @@ export default async function handler(req, res) {
       customer_email: email,
     });
 
-    res.status(200).json({ sessionId: session.id });
+    res.status(200).json({ url: session.url });
   } catch (err) {
-  res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 }

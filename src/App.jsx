@@ -32,11 +32,10 @@ function Home() {
       body: JSON.stringify({ priceId: event.stripe_price_id, email }),
     });
 
-    const { sessionId } = await res.json();
+    const { url } = await res.json();
 
-    const { loadStripe } = await import('@stripe/stripe-js');
-    const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-    await stripe.redirectToCheckout({ sessionId });
+    // REDIRECT TO STRIPE CHECKOUT URL
+    window.location.href = url;
   };
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
