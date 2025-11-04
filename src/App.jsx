@@ -4,19 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 import { loadStripe } from '@stripe/stripe-js';
 import Success from './pages/Success';
 
-// CONFIG
+// SINGLE SUPABASE CLIENT
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
-
-let stripePromise;
-const getStripe = () => {
-  if (!stripePromise) {
-    stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-  }
-  return stripePromise;
-};
 
 function Home() {
   const [events, setEvents] = useState([]);
@@ -29,12 +21,9 @@ function Home() {
         .select('*')
         .order('date', { ascending: true });
 
-      if (error) {
-        console.error('Error loading events:', error);
-        setEvents([]);
-      } else {
-        setEvents(data || []);
-      }
+      if (error) console.error('Supabase error:', error);
+      else setEvents(data ?? []);
+
       setLoading(false);
     };
     loadEvents();
@@ -44,21 +33,16 @@ function Home() {
     const email = prompt('Enter your email:');
     if (!email) return;
 
-    const response = await fetch('/api/checkout', {
+    const res = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ eventId: event.stripe_price_id, email }),
     });
 
-    const { id: sessionId } = await response.json();
+    const { id: sessionId } = await res.json();
 
-    const stripe = await getStripe();
-    const { error } = await stripe.redirectToCheckout({ sessionId });
-
-    if (error) {
-      console.error('Stripe redirect error:', error);
-      alert('Checkout failed: ' + error.message);
-    }
+    const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+    await stripe.redirectToCheckout({ sessionId });
   };
 
   if (loading) {
