@@ -12,13 +12,13 @@ export default async function handler(req, res) {
       payment_method_types: ['card'],
       line_items: [{ price: eventId, quantity: 1 }],
       mode: 'payment',
-      success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${req.headers.origin}/success?session_id={CHECKOUT_SESSION_ID}&event_id=${eventId}&email=${email}`,
       cancel_url: req.headers.origin,
       customer_email: email,
     });
 
     res.status(200).json({ id: session.id });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 }
