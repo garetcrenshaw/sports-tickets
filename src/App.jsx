@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
-import { loadStripe } from '@stripe/stripe-js';
 import Success from './pages/Success';
 
 const supabase = createClient(
@@ -27,18 +26,17 @@ function Home() {
     const email = prompt('Enter your email:');
     if (!email) return;
 
-    const res = await fetch('/api/checkout', {
+    const res = await fetch('/api/create-checkout-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventId: event.stripe_price_id, email }),
+      body: JSON.stringify({ priceId: event.stripe_price_id, email }),
     });
 
-    const { id: sessionId } = await res.json();
+    const { sessionId } = await res.json();
 
+    const { loadStripe } = await import('@stripe/stripe-js');
     const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-    const { error } = await stripe.redirectToCheckout({ sessionId });
-
-    if (error) alert('Checkout failed: ' + error.message);
+    await stripe.redirectToCheckout({ sessionId });
   };
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
