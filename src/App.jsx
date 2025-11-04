@@ -34,7 +34,7 @@ function Home() {
 
     const { url } = await res.json();
 
-    // REDIRECT TO STRIPE CHECKOUT URL
+    // OFFICIAL STRIPE REPLACEMENT
     window.location.href = url;
   };
 
