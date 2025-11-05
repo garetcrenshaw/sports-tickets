@@ -11,15 +11,23 @@ function Home() {
   const [clientSecret, setClientSecret] = useState('');
 
   const startPayment = async () => {
-    if (!email) return alert('Enter email');
-    const res = await fetch('/api/create-payment-intent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: 2500, email, eventId: 'test' }),
-    });
-    const data = await res.json();
-    if (!res.ok) return alert(data.error);
-    setClientSecret(data.clientSecret);
+    console.log('BUY TICKET CLICKED', { email });
+    if (!email) return alert('Enter your email');
+
+    try {
+      const res = await fetch('/api/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: 2500, email, eventId: 'test' }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Payment failed');
+
+      setClientSecret(data.clientSecret);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   if (clientSecret) {
@@ -37,15 +45,15 @@ function Home() {
         type="email"
         placeholder="Your email"
         value={email}
-        onChange={e => setEmail(e.target.value)}
+        onChange={(e) => setEmail(e.target.value)}
         className="mt-4 p-3 border rounded w-full"
       />
-      <div className="mt-8 border p-6 rounded-lg">
+      <div className="mt-8 border p-6 rounded-lg shadow-sm">
         <h2 className="text-2xl font-semibold">Lakers vs Warriors</h2>
         <p className="text-xl mt-2">$25.00</p>
         <button
           onClick={startPayment}
-          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg"
+          className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition w-full"
         >
           BUY TICKET
         </button>
@@ -59,6 +67,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/success" element={<div className="p-8 text-center"><h1 className="text-3xl font-bold text-green-600">TICKET PURCHASED!</h1><p>Check your email for QR code.</p></div>} />
       </Routes>
     </BrowserRouter>
   );
