@@ -9,7 +9,7 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_PKr5A44H_LV76MnULHVUhiEK9R5GbwkPN');
 
-// YOUR REAL EVENT ID
+// YOUR REAL EVENT ID FROM SUPABASE
 const REAL_EVENT_ID = '651486fd-2912-4572-9595-034c4d666d77';
 
 exports.handler = async (event) => {
