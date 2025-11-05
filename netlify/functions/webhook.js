@@ -9,6 +9,9 @@ const supabase = createClient(
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_PKr5A44H_LV76MnULHVUhiEK9R5GbwkPN');
 
+// YOUR REAL EVENT ID
+const REAL_EVENT_ID = '651486fd-2912-4572-9595-034c4d666d77';
+
 exports.handler = async (event) => {
   console.log('WEBHOOK HIT:', event.body);
 
@@ -19,7 +22,7 @@ exports.handler = async (event) => {
 
   const intent = payload.data.object;
   const email = intent.metadata?.email || 'test@example.com';
-  const eventId = intent.metadata?.eventId || '651486fd-2912-457d-a3b5-8c9b0d1e2f3a'; // YOUR EVENT ID
+  const eventId = intent.metadata?.eventId || REAL_EVENT_ID;
 
   // Generate QR
   const qrBuffer = await QRCode.toBuffer(`ticket:${intent.id}`);
