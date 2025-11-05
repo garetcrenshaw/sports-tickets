@@ -1,18 +1,21 @@
+const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 const QRCode = require('qrcode');
 const { Resend } = require('resend');
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
 const supabase = createClient(
-  'https://xjvzehjpgbwiiuvsnflk.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqdnplaGpwZ2J3aWl1dnNuZmxrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTYwOTU1OSwiZXhwIjoyMDc3MTg1NTU5fQ.ex9XtLSqMnlKta9Vg-ZQE98klbN7W6DhKZcRZLNd6OU'
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
 );
 
-const resend = new Resend('re_PKr5A44H_LV76MnULHVUhiEK9R5GbwkPN');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405 };
 
-  // SKIP STRIPE SIGNATURE CHECK FOR MVP
+  // SKIP SIGNATURE FOR MVP — ADD LATER
   const payload = JSON.parse(event.body);
   if (payload.type !== 'payment_intent.succeeded') {
     return { statusCode: 200, body: 'Ignored' };
