@@ -3,13 +3,13 @@ const QRCode = require('qrcode');
 const { Resend } = require('resend');
 
 const supabase = createClient(
-  process.env.SUPABASE_URL || 'https://xjvzehjpgbwiiuvsnflk.supabase.co',
-  process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqdnplaGpwZ2J3aWl1dnNuZmxrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTYwOTU1OSwiZXhwIjoyMDc3MTg1NTU5fQ.ex9XtLSqMnlKta9Vg-ZQE98klbN7W6DhKZcRZLNd6OU'
+  'https://xjvzehjpgbwiiuvsnflk.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqdnplaGpwZ2J3aWl1dnNuZmxrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTYwOTU1OSwiZXhwIjoyMDc3MTg1NTU5fQ.ex9XtLSqMnlKta9Vg-ZQE98klbN7W6DhKZcRZLNd6OU'
 );
 
-const resend = new Resend(process.env.RESEND_API_KEY || 're_PKr5A44H_LV76MnULHVUhiEK9R5GbwkPN');
+const resend = new Resend('re_PKr5A44H_LV76MnULHVUhiEK9R5GbwkPN');
 
-// YOUR REAL EVENT ID FROM SUPABASE
+// YOUR REAL EVENT ID
 const REAL_EVENT_ID = '651486fd-2912-4572-9595-034c4d666d77';
 
 exports.handler = async (event) => {
@@ -41,7 +41,7 @@ exports.handler = async (event) => {
   const { data: { publicUrl } } = supabase.storage.from('qrs').getPublicUrl(fileName);
 
   // Save to DB
-  const { error: dbError } = await supabase.from('tickets').insert({
+  const { error: dberror } = await supabase.from('tickets').insert({
     event_id: eventId,
     email,
     stripe_intent_id: intent.id,
@@ -49,9 +49,9 @@ exports.handler = async (event) => {
     status: 'purchased'
   });
 
-  if (dbError) {
-    console.error('DB ERROR:', dbError.message);
-    return { statusCode: 500, body: `DB failed: ${dbError.message}` };
+  if (dberror) {
+    console.error('DB ERROR:', dberror.message);
+    return { statusCode: 500, body: `DB failed: ${dberror.message}` };
   }
 
   // Send email
