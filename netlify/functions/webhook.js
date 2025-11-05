@@ -1,44 +1,71 @@
-const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 const QRCode = require('qrcode');
 const { Resend } = require('resend');
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+console.log('WEBHOOK STARTED');
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.SUPABASE_URL || 'https://xjvzehjpgbwiiuvsnflk.supabase.co',
+  process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqdnplaGpwZ2J3aWl1dnNuZmxrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTYwOTU1OSwiZXhwIjoyMDc3MTg1NTU5fQ.ex9XtLSqMnlKta9Vg-ZQE98klbN7W6DhKZcRZLNd6OU'
 );
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || 're_PKr5A44H_LV76MnULHVUhiEK9R5GbwkPN');
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') return { statusCode: 405 };
+  console.log('WEBHOOK HIT:', event.body);
 
-  // SKIP SIGNATURE FOR MVP — ADD LATER
-  const payload = JSON.parse(event.body);
+  if (event.httpMethod !== 'POST') {
+    console.log('NOT POST');
+    return { statusCode: 405 };
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(event.body);
+    console.log('PAYLOAD PARSED');
+  } catch (err) {
+    console.log('JSON PARSE ERROR:', err.message);
+    return { statusCode: 400, body: 'Invalid JSON' };
+  }
+
   if (payload.type !== 'payment_intent.succeeded') {
+    console.log('IGNORED TYPE:', payload.type);
     return { statusCode: 200, body: 'Ignored' };
   }
 
   const intent = payload.data.object;
-  const { email = 'test@example.com', eventId = 'test' } = intent.metadata || {};
+  const email = intent.metadata?.email || 'test@example.com';
+  const eventId = intent.metadata?.eventId || 'test';
 
-  const qrData = `ticket:${intent.id || 'test'}`;
-  const qrBuffer = await QRCode.toBuffer(qrData);
+  console.log('PROCESSING TICKET FOR:', email);
+
+  // Generate QR
+  let qrBuffer;
+  try {
+    qrBuffer = await QRCode.toBuffer(`ticket:${intent.id || 'test'}`);
+    console.log('QR GENERATED');
+  } catch (err) {
+    console.log('QR ERROR:', err.message);
+    return { statusCode: 500, body: 'QR failed' };
+  }
+
   const fileName = `${intent.id || 'test'}.png`;
 
+  // Upload
   const { error: uploadError } = await supabase.storage
     .from('qrs')
     .upload(fileName, qrBuffer, { contentType: 'image/png', upsert: true });
 
   if (uploadError) {
-    console.error('UPLOAD ERROR:', uploadError);
+    console.log('UPLOAD ERROR:', uploadError.message);
     return { statusCode: 500, body: 'Upload failed' };
   }
 
+  console.log('QR UPLOADED');
+
   const { data: { publicUrl } } = supabase.storage.from('qrs').getPublicUrl(fileName);
 
+  // Save to DB
   const { error: dbError } = await supabase.from('tickets').insert({
     event_id: eventId,
     email,
@@ -47,16 +74,25 @@ exports.handler = async (event) => {
   });
 
   if (dbError) {
-    console.error('DB ERROR:', dbError);
+    console.log('DB ERROR:', dbError.message);
     return { statusCode: 500, body: 'DB failed' };
   }
 
-  await resend.emails.send({
-    from: 'tickets@sports-tickets.netlify.app',
-    to: email,
-    subject: 'Your Ticket QR Code',
-    html: `<p>Thanks! Here's your ticket:</p><img src="${publicUrl}" alt="QR Code" /><p>Show this at the gate.</p>`,
-  });
+  console.log('TICKET SAVED');
+
+  // Send email
+  try {
+    await resend.emails.send({
+      from: 'tickets@sports-tickets.netlify.app',
+      to: email,
+      subject: 'Your Ticket QR Code',
+      html: `<p>Thanks! Here's your ticket:</p><img src="${publicUrl}" alt="QR Code" /><p>Show this at the gate.</p>`,
+    });
+    console.log('EMAIL SENT');
+  } catch (err) {
+    console.log('EMAIL ERROR:', err.message);
+    return { statusCode: 500, body: 'Email failed' };
+  }
 
   return { statusCode: 200, body: 'OK' };
 };
