@@ -15,6 +15,7 @@ export default function CheckoutForm({ email, event, onBack }) {
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
+        // USE LIVE NETLIFY URL
         return_url: `${window.location.origin}/success?eventId=${event.id}`,
       },
     });
