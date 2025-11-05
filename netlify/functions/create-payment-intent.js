@@ -1,5 +1,5 @@
 const Stripe = require('stripe');
-const stripe = new Stripe('sk_test_51SNPmgRrKoC9NoMdHtrwLaiY1dH1coDH5FAzq5nn8527rtrHHMOMvsM0CcGLZZaagYb8gjM6k7Ug8hPIA6bdGfmK00gdaF2qzn');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405 };
