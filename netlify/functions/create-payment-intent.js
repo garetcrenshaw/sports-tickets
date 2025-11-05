@@ -12,7 +12,7 @@ exports.handler = async (event) => {
       currency: 'usd',
       receipt_email: email,
       metadata: { eventId, email },
-      // REMOVED: application_fee_amount (requires Connect)
+      // REMOVED: application_fee_amount — NOT USING CONNECT
     });
 
     return {
