@@ -54,7 +54,7 @@ exports.handler = async (event) => {
     return { statusCode: 500, body: `DB failed: ${dbError.message}` };
   }
 
-  // Send email from YOUR EMAIL
+  // SEND FROM YOUR PERSONAL EMAIL
   await resend.emails.send({
     from: 'garetcrenshaw@gmail.com',
     to: email,
