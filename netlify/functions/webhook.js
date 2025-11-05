@@ -2,8 +2,6 @@ const { createClient } = require('@supabase/supabase-js');
 const QRCode = require('qrcode');
 const { Resend } = require('resend');
 
-console.log('WEBHOOK STARTED');
-
 const supabase = createClient(
   process.env.SUPABASE_URL || 'https://xjvzehjpgbwiiuvsnflk.supabase.co',
   process.env.SUPABASE_SERVICE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqdnplaGpwZ2J3aWl1dnNuZmxrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MTYwOTU1OSwiZXhwIjoyMDc3MTg1NTU5fQ.ex9XtLSqMnlKta9Vg-ZQE98klbN7W6DhKZcRZLNd6OU'
@@ -14,42 +12,18 @@ const resend = new Resend(process.env.RESEND_API_KEY || 're_PKr5A44H_LV76MnULHVU
 exports.handler = async (event) => {
   console.log('WEBHOOK HIT:', event.body);
 
-  if (event.httpMethod !== 'POST') {
-    console.log('NOT POST');
-    return { statusCode: 405 };
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(event.body);
-    console.log('PAYLOAD PARSED');
-  } catch (err) {
-    console.log('JSON PARSE ERROR:', err.message);
-    return { statusCode: 400, body: 'Invalid JSON' };
-  }
-
+  const payload = JSON.parse(event.body);
   if (payload.type !== 'payment_intent.succeeded') {
-    console.log('IGNORED TYPE:', payload.type);
     return { statusCode: 200, body: 'Ignored' };
   }
 
   const intent = payload.data.object;
   const email = intent.metadata?.email || 'test@example.com';
-  const eventId = intent.metadata?.eventId || 'test';
-
-  console.log('PROCESSING TICKET FOR:', email);
+  const eventId = intent.metadata?.eventId || '651486fd-2912-457d-a3b5-8c9b0d1e2f3a'; // YOUR EVENT ID
 
   // Generate QR
-  let qrBuffer;
-  try {
-    qrBuffer = await QRCode.toBuffer(`ticket:${intent.id || 'test'}`);
-    console.log('QR GENERATED');
-  } catch (err) {
-    console.log('QR ERROR:', err.message);
-    return { statusCode: 500, body: 'QR failed' };
-  }
-
-  const fileName = `${intent.id || 'test'}.png`;
+  const qrBuffer = await QRCode.toBuffer(`ticket:${intent.id}`);
+  const fileName = `${intent.id}.png`;
 
   // Upload
   const { error: uploadError } = await supabase.storage
@@ -57,11 +31,9 @@ exports.handler = async (event) => {
     .upload(fileName, qrBuffer, { contentType: 'image/png', upsert: true });
 
   if (uploadError) {
-    console.log('UPLOAD ERROR:', uploadError.message);
+    console.error('UPLOAD ERROR:', uploadError);
     return { statusCode: 500, body: 'Upload failed' };
   }
-
-  console.log('QR UPLOADED');
 
   const { data: { publicUrl } } = supabase.storage.from('qrs').getPublicUrl(fileName);
 
@@ -69,30 +41,23 @@ exports.handler = async (event) => {
   const { error: dbError } = await supabase.from('tickets').insert({
     event_id: eventId,
     email,
-    stripe_intent_id: intent.id || 'test',
+    stripe_intent_id: intent.id,
     qr_code_url: publicUrl,
+    status: 'purchased'
   });
 
   if (dbError) {
-    console.log('DB ERROR:', dbError.message);
-    return { statusCode: 500, body: 'DB failed' };
+    console.error('DB ERROR:', dbError.message);
+    return { statusCode: 500, body: `DB failed: ${dbError.message}` };
   }
-
-  console.log('TICKET SAVED');
 
   // Send email
-  try {
-    await resend.emails.send({
-      from: 'tickets@sports-tickets.netlify.app',
-      to: email,
-      subject: 'Your Ticket QR Code',
-      html: `<p>Thanks! Here's your ticket:</p><img src="${publicUrl}" alt="QR Code" /><p>Show this at the gate.</p>`,
-    });
-    console.log('EMAIL SENT');
-  } catch (err) {
-    console.log('EMAIL ERROR:', err.message);
-    return { statusCode: 500, body: 'Email failed' };
-  }
+  await resend.emails.send({
+    from: 'tickets@sports-tickets.netlify.app',
+    to: email,
+    subject: 'Your Ticket QR Code',
+    html: `<p>Thanks! Here's your ticket:</p><img src="${publicUrl}" alt="QR Code" /><p>Show this at the gate.</p>`,
+  });
 
   return { statusCode: 200, body: 'OK' };
 };
