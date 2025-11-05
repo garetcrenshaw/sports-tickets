@@ -15,7 +15,7 @@ function Home() {
     if (!email) return alert('Enter your email');
 
     try {
-      const res = await fetch('/api/create-payment-intent', {
+      const res = await fetch('/.netlify/functions/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: 2500, email, eventId: 'test' }),
