@@ -10,8 +10,7 @@ exports.handler = async () => {
   try {
     const { data, error } = await supabase
       .from('events')
-      .select('id, name')  // lowercase 'name'
-      .order('created_at', { ascending: false });
+      .select('id, name');
 
     if (error) throw error;
 
