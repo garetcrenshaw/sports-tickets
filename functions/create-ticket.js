@@ -68,7 +68,7 @@ exports.handler = async (event) => {
 
     // SEND EMAIL
     try {
-      await fetch('/.netlify/functions/send-ticket', {
+      const response = await fetch('https://' + event.headers.host + '/.netlify/functions/send-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -79,14 +79,12 @@ exports.handler = async (event) => {
           ticketType,
         }),
       });
+
+      if (!response.ok) {
+        console.error('EMAIL SEND FAILED:', await response.text());
+      }
     } catch (emailErr) {
       console.error('EMAIL SEND FAILED:', emailErr);
-      // Don't fail the whole function
-    }
-
-    if (error) {
-      console.error('SUPABASE ERROR:', error);
-      throw error;
     }
 
     return {
