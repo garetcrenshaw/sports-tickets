@@ -89,7 +89,6 @@ export default function App() {
         events.map(event => (
           <div key={event.id} style={{ marginBottom: '3rem' }}>
             <h2>{event.name}</h2>
-            <p>{event.date}</p>
 
             {tickets.map((t) => (
               <div
