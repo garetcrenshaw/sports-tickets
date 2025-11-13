@@ -1,5 +1,5 @@
 // src/App.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 const tickets = [
@@ -19,12 +19,12 @@ export default function App() {
   const stripe = useStripe();
   const elements = useElements();
 
-  // Fetch events from Supabase (Phase 4)
-  React.useEffect(() => {
+  useEffect(() => {
+    // Fetch events from Supabase
     fetch('/.netlify/functions/get-events')
       .then(res => res.json())
       .then(data => setEvents(data))
-      .catch(() => setEvents([{ id: 1, name: 'Default Event', date: 'Soon' }]));
+      .catch(() => setEvents([{ id: 1, name: 'GameDay Event', date: 'Soon' }]));
   }, []);
 
   const handlePurchase = async (ticketType) => {
@@ -83,72 +83,78 @@ export default function App() {
         style={{ width: '100%', padding: '0.5rem', marginBottom: '2rem' }}
       />
 
-      {events.map(event => (
-        <div key={event.id}>
-          <h2>{event.name}</h2>
-          {tickets.map((t) => (
-            <div
-              key={t.type}
-              style={{
-                border: '1px solid #ddd',
-                borderRadius: '8px',
-                padding: '1rem',
-                marginBottom: '1rem',
-                background: selectedTicket?.type === t.type ? '#f0f8ff' : 'white',
-              }}
-            >
-              <strong>{t.label}</strong> — ${t.price.toFixed(2)}
-              <br />
-              <button
-                onClick={() => {
-                  setSelectedTicket(t);
-                  if (t.type === 'free') handlePurchase(t.type);
-                }}
-                disabled={loading}
+      {events.length === 0 ? (
+        <p>Loading events...</p>
+      ) : (
+        events.map(event => (
+          <div key={event.id} style={{ marginBottom: '3rem' }}>
+            <h2>{event.name}</h2>
+            <p>{event.date}</p>
+
+            {tickets.map((t) => (
+              <div
+                key={t.type}
                 style={{
-                  marginTop: '0.5rem',
-                  padding: '0.5rem 1rem',
-                  background: t.price === 0 ? '#28a745' : '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                  background: selectedTicket?.type === t.type ? '#f0f8ff' : 'white',
                 }}
               >
-                {t.price === 0 ? 'Claim Free' : 'Buy Now'}
-              </button>
-            </div>
-          ))}
+                <strong>{t.label}</strong> — ${t.price.toFixed(2)}
+                <br />
+                <button
+                  onClick={() => {
+                    setSelectedTicket(t);
+                    if (t.type === 'free') handlePurchase(t.type);
+                  }}
+                  disabled={loading}
+                  style={{
+                    marginTop: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    background: t.price === 0 ? '#28a745' : '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t.price === 0 ? 'Claim Free' : 'Buy Now'}
+                </button>
+              </div>
+            ))}
 
-          {selectedTicket && selectedTicket.type !== 'free' && (
-            <div style={{ marginTop: '2rem', padding: '1rem', border: '1px solid #ddd', borderRadius: '8px' }}>
-              <CardElement options={{ style: { base: { fontSize: '16px' } } }} />
-              <button
-                onClick={() => handlePurchase(selectedTicket.type)}
-                disabled={loading || !stripe}
-                style={{
-                  marginTop: '1rem',
-                  padding: '0.75rem 1.5rem',
-                  background: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  width: '100%',
-                }}
-              >
-                {loading ? 'Processing...' : 'Pay Now'}
-              </button>
-            </div>
-          )}
+            {selectedTicket && selectedTicket.type !== 'free' && (
+              <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #ddd', borderRadius: '8px' }}>
+                <CardElement options={{ style: { base: { fontSize: '16px' } } }} />
+                <button
+                  onClick={() => handlePurchase(selectedTicket.type)}
+                  disabled={loading || !stripe}
+                  style={{
+                    marginTop: '1rem',
+                    padding: '0.75rem 1.5rem',
+                    background: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    width: '100%',
+                  }}
+                >
+                  {loading ? 'Processing...' : 'Pay Now'}
+                </button>
+              </div>
+            )}
 
-          {message && (
-            <p style={{ marginTop: '1rem', color: message.includes('success') || message.includes('confirmed') ? 'green' : 'red' }}>
-              {message}
-            </p>
-          )}
-        </div>
-      ))}
+            {message && (
+              <p style={{ marginTop: '1rem', color: message.includes('success') || message.includes('confirmed') ? 'green' : 'red' }}>
+                {message}
+              </p>
+            )}
+          </div>
+        ))
+      )}
     </div>
   );
 }
