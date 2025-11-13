@@ -1,6 +1,7 @@
 // src/App.jsx
 import { useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
 import CheckoutForm from './components/CheckoutForm';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -21,10 +22,6 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [selectedTicket, setSelectedTicket] = useState(null);
-
-  const handleSelect = (ticket) => {
-    setSelectedTicket(ticket);
-  };
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'Arial', maxWidth: '600px', margin: '0 auto' }}>
@@ -61,7 +58,7 @@ export default function App() {
           <strong>{t.label}</strong> — ${t.price.toFixed(2)}
           <br />
           <button
-            onClick={() => handleSelect(t)}
+            onClick={() => setSelectedTicket(t)}
             style={{
               marginTop: '0.5rem',
               padding: '0.5rem 1rem',
@@ -78,13 +75,14 @@ export default function App() {
       ))}
 
       {selectedTicket && (
-        <CheckoutForm
-          email={email}
-          name={name}
-          eventId={event.id}
-          ticketType={selectedTicket.type}
-          stripePromise={stripePromise}
-        />
+        <Elements stripe={stripePromise}>
+          <CheckoutForm
+            email={email}
+            name={name}
+            eventId={event.id}
+            ticketType={selectedTicket.type}
+          />
+        </Elements>
       )}
     </div>
   );
