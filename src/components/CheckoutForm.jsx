@@ -1,46 +1,72 @@
-import { useState } from 'react';
-import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-export default function CheckoutForm({ email, event, onBack }) {
+// src/components/CheckoutForm.jsx
+import { useState } from 'react';
+import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+export default function CheckoutForm({ email, name, eventId, ticketType, stripePromise }) {
   const stripe = useStripe();
   const elements = useElements();
-  const [error, setError] = useState(null);
-  const [processing, setProcessing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+    if (!email || !name) return setMessage('Fill in name & email');
 
-    setProcessing(true);
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        // USE LIVE NETLIFY URL
-        return_url: `${window.location.origin}/success?eventId=${event.id}`,
-      },
+    setLoading(true);
+    setMessage('');
+
+    const res = await fetch('/.netlify/functions/create-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticketType, email, name, eventId }),
     });
 
-    if (error) {
-      setError(error.message);
+    const data = await res.json();
+
+    if (data.isFree) {
+      setMessage('Free ticket confirmed! Check your email.');
+      setLoading(false);
+      return;
     }
-    setProcessing(false);
+
+    if (data.clientSecret) {
+      const result = await stripe.confirmCardPayment(data.clientSecret, {
+        payment_method: { card: elements.getElement(CardElement) },
+      });
+
+      if (result.error) {
+        setMessage(result.error.message);
+      } else {
+        setMessage('Payment successful! Check your email.');
+      }
+    }
+
+    setLoading(false);
   };
 
   return (
-    <div className="p-6 max-w-md mx-auto">
-      <button onClick={onBack} className="mb-4 text-blue-600 hover:underline">&larr; Back</button>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="p-4 border rounded-lg bg-gray-50">
-          <PaymentElement />
+    <form onSubmit={handleSubmit} style={{ marginTop: '2rem' }}>
+      {ticketType !== 'free' && (
+        <div style={{ padding: '1rem', border: '1px solid #ddd', borderRadius: '8px', marginBottom: '1rem' }}>
+          <CardElement />
         </div>
-        {error && <div className="text-red-600 text-sm">{error}</div>}
-        <button
-          disabled={processing || !stripe}
-          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition disabled:opacity-50"
-        >
-          {processing ? 'Processing...' : `Pay $${(event.priceCents / 100).toFixed(2)}`}
-        </button>
-      </form>
-    </div>
+      )}
+      <button
+        type="submit"
+        disabled={loading || !stripe}
+        style={{
+          padding: '0.75rem 1.5rem',
+          background: '#007bff',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+        }}
+      >
+        {loading ? 'Processing...' : ticketType === 'free' ? 'Claim Ticket' : 'Pay Now'}
+      </button>
+      {message && <p style={{ marginTop: '1rem', color: message.includes('success') ? 'green' : 'red' }}>{message}</p>}
+    </form>
   );
 }
