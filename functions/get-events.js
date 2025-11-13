@@ -15,8 +15,8 @@ exports.handler = async () => {
 
     if (error) throw error;
 
-    // Return real events or fallback
-    const events = data.length > 0 ? data : [{ id: '1', name: 'GameDay Event' }];
+    // ALWAYS return array
+    const events = Array.isArray(data) ? data : [];
 
     return {
       statusCode: 200,
@@ -25,6 +25,9 @@ exports.handler = async () => {
     };
   } catch (err) {
     console.error('GET EVENTS ERROR:', err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message }),
+    };
   }
 };

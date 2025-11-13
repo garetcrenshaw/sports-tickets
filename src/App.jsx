@@ -83,9 +83,9 @@ export default function App() {
         style={{ width: '100%', padding: '0.5rem', marginBottom: '2rem' }}
       />
 
-      {events.length === 0 ? (
-        <p>Loading events...</p>
-      ) : (
+     {events.length === 0 ? (
+  <p>No events found.</p>
+) : (
         events.map(event => (
           <div key={event.id} style={{ marginBottom: '3rem' }}>
             <h2>{event.name}</h2>
