@@ -2,6 +2,10 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const { createClient } = require('@supabase/supabase-js');
 
+console.log('STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? 'SET' : 'MISSING');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'MISSING');
+console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -14,6 +18,8 @@ const PRICE_MAP = {
 };
 
 exports.handler = async (event) => {
+  console.log('EVENT:', event.body);
+
   try {
     const { ticketType, email, name, eventId } = JSON.parse(event.body);
 
@@ -22,18 +28,17 @@ exports.handler = async (event) => {
     }
 
     const priceId = PRICE_MAP[ticketType];
+    console.log('PRICE ID:', priceId);
 
-    // Get price to check if $0
     const price = await stripe.prices.retrieve(priceId);
     const amount = price.unit_amount;
+    console.log('AMOUNT:', amount);
 
     let paymentIntent;
 
     if (amount === 0) {
-      // FREE TICKET — SKIP PAYMENT
       paymentIntent = { id: 'free_' + Date.now(), amount: 0, status: 'succeeded' };
     } else {
-      // REAL PAYMENT
       paymentIntent = await stripe.paymentIntents.create({
         amount,
         currency: 'usd',
@@ -42,7 +47,6 @@ exports.handler = async (event) => {
       });
     }
 
-    // Save ticket to Supabase
     const { data: ticket, error } = await supabase
       .from('tickets')
       .insert({
@@ -57,7 +61,10 @@ exports.handler = async (event) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('SUPABASE ERROR:', error);
+      throw error;
+    }
 
     return {
       statusCode: 200,
@@ -68,6 +75,7 @@ exports.handler = async (event) => {
       }),
     };
   } catch (err) {
+    console.error('FUNCTION ERROR:', err);
     return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };

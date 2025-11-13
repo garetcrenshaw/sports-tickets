@@ -14,3 +14,6 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[build.environment]
+  VITE_STRIPE_PUBLISHABLE_KEY = "pk_live_51SNPmWRzFa5vaG1DSyH15sVD6ZEj2jJW8iHsV1DCJkqBvsAMyxifYe36SVDFLX5eLTIg2cq5oiaMV1i9frK1bxqQ00PsIEF7IR"
