@@ -1,9 +1,6 @@
 // src/App.jsx
 import { useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 const event = {
   id: 1,
