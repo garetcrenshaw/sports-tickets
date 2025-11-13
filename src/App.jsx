@@ -74,13 +74,16 @@ export default function App() {
         </div>
       ))}
 
-   {selectedTicket && (
-  <Elements stripe={stripePromise}>
-    <CheckoutForm
-      email={email}
-      name={name}
-      eventId={event.id}
-      ticketType={selectedTicket.type}
-    />
-  </Elements>
-)}
+      {selectedTicket && (
+        <Elements stripe={stripePromise}>
+          <CheckoutForm
+            email={email}
+            name={name}
+            eventId={event.id}
+            ticketType={selectedTicket.type}
+          />
+        </Elements>
+      )}
+    </div>
+  );
+}
