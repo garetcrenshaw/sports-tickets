@@ -1,6 +1,8 @@
 // src/App.jsx
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import Validate from './pages/Validate';
 
 const tickets = [
   { type: 'ga', label: 'General Admission', price: 15 },
@@ -8,7 +10,7 @@ const tickets = [
   { type: 'parking', label: 'Parking Pass', price: 15 },
 ];
 
-export default function App() {
+function Home() {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -20,11 +22,10 @@ export default function App() {
   const elements = useElements();
 
   useEffect(() => {
-    // Fetch events from Supabase
     fetch('/.netlify/functions/get-events')
       .then(res => res.json())
-      .then(data => setEvents(data))
-      .catch(() => setEvents([{ id: 1, name: 'GameDay Event', date: 'Soon' }]));
+      .then(data => setEvents(Array.isArray(data) ? data : []))
+      .catch(() => setEvents([{ id: '1', name: 'GameDay Events' }]));
   }, []);
 
   const handlePurchase = async (ticketType) => {
@@ -83,9 +84,9 @@ export default function App() {
         style={{ width: '100%', padding: '0.5rem', marginBottom: '2rem' }}
       />
 
-     {events.length === 0 ? (
-  <p>No events found.</p>
-) : (
+      {events.length === 0 ? (
+        <p>Loading events...</p>
+      ) : (
         events.map(event => (
           <div key={event.id} style={{ marginBottom: '3rem' }}>
             <h2>{event.name}</h2>
@@ -155,5 +156,16 @@ export default function App() {
         ))
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/validate" element={<Validate />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
