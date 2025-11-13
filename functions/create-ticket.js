@@ -47,7 +47,7 @@ exports.handler = async (event) => {
       });
     }
 
-    const { data: ticket, error } = await supabase
+      const { data: ticket, error } = await supabase
       .from('tickets')
       .insert({
         email,
@@ -60,6 +60,29 @@ exports.handler = async (event) => {
       })
       .select()
       .single();
+
+    if (error) {
+      console.error('SUPABASE ERROR:', error);
+      throw error;
+    }
+
+    // SEND EMAIL
+    try {
+      await fetch('/.netlify/functions/send-ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketId: ticket.id,
+          email,
+          name,
+          eventName: 'GameDay Event',
+          ticketType,
+        }),
+      });
+    } catch (emailErr) {
+      console.error('EMAIL SEND FAILED:', emailErr);
+      // Don't fail the whole function
+    }
 
     if (error) {
       console.error('SUPABASE ERROR:', error);
