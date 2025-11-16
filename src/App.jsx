@@ -88,22 +88,25 @@ function Home() {
         style={{ width: '100%', padding: '0.5rem', marginBottom: '1rem' }}
       />
 
-      <div style={{ marginBottom: '2rem' }}>
-        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
-          Quantity (1-10):
-        </label>
+      <div className="flex items-center gap-2 mb-6">
+        <label>Quantity:</label>
         <select
           value={quantity}
           onChange={(e) => setQuantity(parseInt(e.target.value))}
-          style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+          className="border rounded px-2 py-1"
         >
-          {[...Array(10)].map((_, i) => (
-            <option key={i + 1} value={i + 1}>
-              {i + 1}
-            </option>
+          {[1,2,3,4,5,6,7,8,9,10].map(n => (
+            <option key={n} value={n}>{n}</option>
           ))}
         </select>
       </div>
+
+      {selectedTicket && (
+        <p className="font-bold mb-4">
+          Total: ${(selectedTicket.price * quantity).toFixed(2)}
+          {quantity > 1 && `($${selectedTicket.price.toFixed(2)} each)`}
+        </p>
+      )}
 
       {events.length === 0 ? (
         <p>Loading events...</p>
