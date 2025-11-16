@@ -13,30 +13,28 @@ exports.handler = async (event) => {
       ? ` (Ticket ${ticketNumber} of ${totalQuantity})`
       : '';
 
-    const subject = totalQuantity > 1
-      ? `Your ${ticketType} tickets for ${eventName}${ticketInfo}`
-      : `Your ${ticketType} for ${eventName}`;
+    const subject = `Your ${totalQuantity} General Admission Ticket${totalQuantity > 1 ? 's' : ''}`;
 
     await resend.emails.send({
       from: 'GameDay Tickets <tickets@gamedaytickets.io>',
       to: email,
       subject,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
-          <h2 style="color: #1a73e8;">Hey ${name}!</h2>
-          ${totalQuantity > 1
-            ? `<p>Your tickets are ready!${ticketInfo}</p>`
-            : '<p>Your ticket is ready!</p>'
-          }
-          <p><strong>Event:</strong> ${eventName}</p>
-          <p><strong>Type:</strong> ${ticketType}</p>
-          ${totalQuantity > 1 ? `<p><strong>Quantity:</strong> ${totalQuantity} tickets</p>` : ''}
-          <div style="text-align: center; margin: 30px 0;">
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(validateUrl)}" alt="QR Code" />
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px;">
+          <h2>Hi ${name}!</h2>
+          <p>You purchased <strong>${totalQuantity} General Admission ticket${totalQuantity > 1 ? 's' : ''}</strong></p>
+          <p><strong>Total: $${(15 * totalQuantity).toFixed(2)}</strong></p>
+          <hr>
+
+          <h3>TICKET ${ticketNumber} OF ${totalQuantity}</h3>
+          <div style="text-align: center; margin: 20px 0;">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(validateUrl)}" width="200" alt="QR Code" />
           </div>
-          <p>Show this QR at the door.</p>
+          <p><strong>General Admission</strong></p>
+          <hr>
+
+          <p>Doors open at 6:00 PM. See you there!</p>
           <p><a href="${validateUrl}" style="color: #1a73e8; text-decoration: none;">Validate Ticket</a></p>
-          ${totalQuantity > 1 ? '<p style="color: #666; font-size: 14px;">You will receive a separate email for each ticket.</p>' : ''}
         </div>
       `,
     });

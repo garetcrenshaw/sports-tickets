@@ -29,7 +29,7 @@ function Home() {
     fetch('/.netlify/functions/get-events')
       .then(res => res.json())
       .then(data => setEvents(Array.isArray(data) ? data : []))
-      .catch(() => setEvents([{ id: '1', name: 'GameDay Events' }]));
+      .catch(() => setEvents([{ id: '1', name: 'General Admission Event' }]));
   }, []);
 
   const handlePurchase = async (ticketType, quantity) => {
@@ -136,7 +136,7 @@ function Home() {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <strong>{t.label} — ${t.price.toFixed(2)}</strong>
+                    <strong>{t.label} — ${t.price.toFixed(2)} each</strong>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontSize: '0.9em' }}>Qty:</span>
                       <select

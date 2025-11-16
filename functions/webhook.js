@@ -32,10 +32,27 @@ async function sendTicketEmail(tickets, eventData, session) {
   const firstTicket = tickets[0];
   const email = firstTicket.email;
   const name = firstTicket.name;
-  const eventName = eventData.eventName || 'GameDay Event';
+  const eventName = eventData.eventName || 'General Admission Event';
   const ticketType = firstTicket.ticket_type;
   const quantity = tickets.length;
   const totalAmount = session.amount_total / 100; // Convert from cents
+
+  // Generate QR codes for all tickets
+  const qrCodes = [];
+  for (let i = 0; i < tickets.length; i++) {
+    const ticket = tickets[i];
+    const validateUrl = `https://nsgamedaytickets.netlify.app/validate?ticket=${ticket.id}`;
+
+    // Generate QR code as base64 data URL
+    const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(validateUrl)}&format=png`;
+
+    qrCodes.push({
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticket_number,
+      qrUrl: qrDataUrl,
+      validateUrl
+    });
+  }
 
   // Create subject
   const subject = quantity === 1
@@ -44,15 +61,16 @@ async function sendTicketEmail(tickets, eventData, session) {
 
   // Create HTML body with all tickets
   let ticketsHtml = '';
-  tickets.forEach((ticket, index) => {
-    const validateUrl = `https://nsgamedaytickets.netlify.app/validate?ticket=${ticket.id}`;
-    const qrDataUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(validateUrl)}&format=png`;
-
+  qrCodes.forEach((qr, index) => {
     ticketsHtml += `
-      <hr>
-      <h3>TICKET ${ticket.ticket_number} OF ${quantity}</h3>
-      <img src="${qrDataUrl}" width="200" />
-      <p><strong>Section 101, Row A, Seat ${5 + index}</strong></p>
+      <div style="border: 1px solid #eee; border-radius: 8px; padding: 15px; margin: 10px 0; background: #f9f9f9;">
+        <h3 style="margin: 0 0 10px 0; color: #333;">Ticket ${qr.ticketNumber}${quantity > 1 ? ` of ${quantity}` : ''}</h3>
+        <div style="text-align: center; margin: 15px 0;">
+          <img src="${qr.qrUrl}" alt="QR Code for Ticket ${qr.ticketNumber}" style="max-width: 150px;" />
+        </div>
+        <p style="margin: 5px 0;"><strong>Ticket ID:</strong> ${qr.ticketId}</p>
+        <p style="margin: 5px 0;"><a href="${qr.validateUrl}" style="color: #1a73e8; text-decoration: none;">Validate This Ticket</a></p>
+      </div>
     `;
   });
 
@@ -62,13 +80,21 @@ async function sendTicketEmail(tickets, eventData, session) {
       to: email,
       subject,
       html: `
-        <div style="font-family: Arial;">
-          <h2>Hi ${name}!</h2>
-          <p>You purchased <strong>${quantity} ${ticketType === 'ga' ? 'General Admission' : ticketType} ticket${quantity > 1 ? 's' : ''}</strong> for <strong>${eventName}</strong></p>
-          <p><strong>Total: $${totalAmount.toFixed(2)}</strong></p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+          <h2 style="color: #1a73e8;">Hey ${name}!</h2>
+          <p>Your ${quantity === 1 ? 'ticket is' : 'tickets are'} ready!</p>
+          <p><strong>Event:</strong> ${eventName}</p>
+          <p><strong>Type:</strong> ${ticketType}</p>
+          <p><strong>Quantity:</strong> ${quantity} ticket${quantity > 1 ? 's' : ''}</p>
+          ${totalAmount > 0 ? `<p><strong>Total Paid:</strong> $${totalAmount.toFixed(2)}</p>` : '<p><strong>Free Tickets</strong></p>'}
+
+          <h3 style="color: #333; border-bottom: 2px solid #1a73e8; padding-bottom: 5px;">Your Tickets:</h3>
           ${ticketsHtml}
-          <hr>
-          <p>See you at the game! 🎉</p>
+
+          <p style="color: #666; font-size: 14px; margin-top: 20px;">
+            Show the QR code(s) at the door for entry. Each QR code is unique to its ticket.
+          </p>
+          <p style="color: #1a73e8; font-weight: bold; margin-top: 20px;">See you at the game!</p>
         </div>
       `,
     });
@@ -141,7 +167,7 @@ exports.handler = async (event) => {
 
       // Send one email with all tickets
       try {
-        await sendTicketEmail(tickets, { eventName: 'GameDay Event' }, session);
+        await sendTicketEmail(tickets, { eventName: 'General Admission Event' }, session);
         console.log(`Successfully sent one email with ${tickets.length} tickets`);
       } catch (emailErr) {
         console.error('EMAIL SEND FAILED:', emailErr);
