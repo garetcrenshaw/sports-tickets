@@ -3,7 +3,37 @@
 
 const http = require('http');
 const url = require('url');
-require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+
+// Manually load .env file (no dotenv dependency)
+function loadEnv() {
+  try {
+    const envPath = path.join(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      const lines = envContent.split('\n');
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const [key, ...valueParts] = trimmed.split('=');
+          if (key && valueParts.length > 0) {
+            const value = valueParts.join('=').replace(/^["']|["']$/g, '');
+            process.env[key.trim()] = value;
+          }
+        }
+      }
+      console.log('✅ Loaded .env file');
+    } else {
+      console.log('⚠️  No .env file found');
+    }
+  } catch (error) {
+    console.log('⚠️  Error loading .env file:', error.message);
+  }
+}
+
+loadEnv();
 
 // Import our functions
 const createTicket = require('./netlify/functions/create-ticket.js').handler;

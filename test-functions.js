@@ -5,8 +5,8 @@ console.log('🧪 Testing local function server...\n');
 
 const testData = {
   ticketType: 'ga',
-  email: 'test@example.com',
-  name: 'Test User',
+  email: 'garetcrenshaw@gmail.com',
+  name: 'Garet Crenshaw',
   eventId: 1,
   quantity: 1
 };
