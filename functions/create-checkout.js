@@ -13,15 +13,11 @@ const supabase = createClient(
 
 const PRICE_MAP = {
   ga: process.env.GA_PRICE_ID,
-  free: process.env.FREE_PRICE_ID,
-  parking: process.env.PARKING_PRICE_ID,
 };
 
 // Log price IDs on startup
 console.log('PRICE MAP:', {
-  ga: PRICE_MAP.ga || 'MISSING',
-  free: PRICE_MAP.free || 'MISSING',
-  parking: PRICE_MAP.parking || 'MISSING'
+  ga: PRICE_MAP.ga || 'MISSING'
 });
 
 exports.handler = async (event) => {
@@ -32,23 +28,23 @@ exports.handler = async (event) => {
     const { ticketType, email, name, eventId, quantity = 1 } = JSON.parse(event.body);
     console.log('PARSED:', { ticketType, email, name, eventId, quantity });
 
-    if (!PRICE_MAP[ticketType]) {
+    if (ticketType !== 'ga') {
       console.error('Invalid ticket type:', ticketType);
-      return { 
-        statusCode: 400, 
+      return {
+        statusCode: 400,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: `Invalid ticket type: ${ticketType}` }) 
+        body: JSON.stringify({ error: `Only General Admission tickets are available. Invalid ticket type: ${ticketType}` })
       };
     }
 
-    const priceId = PRICE_MAP[ticketType];
+    const priceId = PRICE_MAP.ga;
     if (!priceId) {
-      console.error(`Missing price ID for ${ticketType}. Check environment variables.`);
+      console.error('Missing GA_PRICE_ID. Check environment variables.');
       return {
         statusCode: 500,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          error: `Configuration error: Missing price ID for ${ticketType}. Please set ${ticketType.toUpperCase()}_PRICE_ID in environment variables.` 
+        body: JSON.stringify({
+          error: 'Configuration error: Missing GA_PRICE_ID. Please set GA_PRICE_ID in environment variables.'
         })
       };
     }

@@ -9,8 +9,6 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const tickets = [
   { type: 'ga', label: 'General Admission', price: 15 },
-  { type: 'free', label: 'Free Admission', price: 0 },
-  { type: 'parking', label: 'Parking Pass', price: 15 },
 ];
 
 function Home() {
