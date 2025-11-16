@@ -14,6 +14,7 @@ function Home() {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [events, setEvents] = useState([]);
@@ -30,19 +31,21 @@ function Home() {
 
   const handlePurchase = async (ticketType) => {
     if (!email || !name) return setMessage('Fill in name & email');
+    if (quantity < 1 || quantity > 10) return setMessage('Quantity must be between 1 and 10');
     setLoading(true);
     setMessage('');
 
     const res = await fetch('/.netlify/functions/create-ticket', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ticketType, email, name, eventId: 1 }),
+      body: JSON.stringify({ ticketType, email, name, eventId: 1, quantity }),
     });
 
     const data = await res.json();
 
     if (data.isFree) {
-      setMessage('Free ticket confirmed! Check your email.');
+      const ticketCount = data.quantity || 1;
+      setMessage(`${ticketCount} free ticket${ticketCount > 1 ? 's' : ''} confirmed! Check your email${ticketCount > 1 ? 's' : ''}.`);
       setLoading(false);
       return;
     }
@@ -58,7 +61,8 @@ function Home() {
       if (result.error) {
         setMessage(result.error.message);
       } else {
-        setMessage('Payment successful! Check your email.');
+        const ticketCount = data.quantity || 1;
+        setMessage(`Payment successful! Check your email${ticketCount > 1 ? 's' : ''} for ${ticketCount} ticket${ticketCount > 1 ? 's' : ''}.`);
       }
     }
 
@@ -81,8 +85,25 @@ function Home() {
         placeholder="Your name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        style={{ width: '100%', padding: '0.5rem', marginBottom: '2rem' }}
+        style={{ width: '100%', padding: '0.5rem', marginBottom: '1rem' }}
       />
+
+      <div style={{ marginBottom: '2rem' }}>
+        <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>
+          Quantity (1-10):
+        </label>
+        <select
+          value={quantity}
+          onChange={(e) => setQuantity(parseInt(e.target.value))}
+          style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #ddd' }}
+        >
+          {[...Array(10)].map((_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {i + 1}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {events.length === 0 ? (
         <p>Loading events...</p>
@@ -102,7 +123,7 @@ function Home() {
                   background: selectedTicket?.type === t.type ? '#f0f8ff' : 'white',
                 }}
               >
-                <strong>{t.label}</strong> — ${t.price.toFixed(2)}
+                <strong>{t.label}</strong> — ${(t.price * quantity).toFixed(2)} {quantity > 1 && `(${t.price.toFixed(2)} each × ${quantity})`}
                 <br />
                 <button
                   onClick={() => {
@@ -142,7 +163,7 @@ function Home() {
                     width: '100%',
                   }}
                 >
-                  {loading ? 'Processing...' : 'Pay Now'}
+                  {loading ? 'Processing...' : `Pay $${(selectedTicket.price * quantity).toFixed(2)}`}
                 </button>
               </div>
             )}

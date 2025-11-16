@@ -21,68 +21,99 @@ exports.handler = async (event) => {
   console.log('EVENT:', event.body);
 
   try {
-    const { ticketType, email, name, eventId } = JSON.parse(event.body);
+    const { ticketType, email, name, eventId, quantity = 1 } = JSON.parse(event.body);
 
     if (!PRICE_MAP[ticketType]) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid ticket type' }) };
     }
 
+    // Validate quantity
+    if (quantity < 1 || quantity > 10) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Quantity must be between 1 and 10' }) };
+    }
+
+    // Simple inventory check (mock: assume 100 seats available per ticket type)
+    const AVAILABLE_SEATS = 100;
+    if (quantity > AVAILABLE_SEATS) {
+      return { statusCode: 400, body: JSON.stringify({ error: `Only ${AVAILABLE_SEATS} seats available for ${ticketType}` }) };
+    }
+
     const priceId = PRICE_MAP[ticketType];
     console.log('PRICE ID:', priceId);
+    console.log('QUANTITY:', quantity);
 
     const price = await stripe.prices.retrieve(priceId);
-    const amount = price.unit_amount;
-    console.log('AMOUNT:', amount);
+    const unitAmount = price.unit_amount;
+    const totalAmount = unitAmount * quantity;
+    console.log('UNIT AMOUNT:', unitAmount, 'TOTAL AMOUNT:', totalAmount);
 
     let paymentIntent;
 
-    if (amount === 0) {
+    if (totalAmount === 0) {
       paymentIntent = { id: 'free_' + Date.now(), amount: 0, status: 'succeeded' };
     } else {
       paymentIntent = await stripe.paymentIntents.create({
-        amount,
+        amount: totalAmount,
         currency: 'usd',
         payment_method_types: ['card'],
-        metadata: { ticketType, eventId, email },
+        metadata: { ticketType, eventId, email, quantity: quantity.toString() },
       });
     }
 
-      const { data: ticket, error } = await supabase
-      .from('tickets')
-      .insert({
+    // Create multiple tickets (one for each quantity)
+    const ticketsData = [];
+    for (let i = 0; i < quantity; i++) {
+      ticketsData.push({
         email,
         name,
         event_id: eventId,
         ticket_type: ticketType,
         stripe_pi_id: paymentIntent.id,
-        status: amount === 0 ? 'confirmed' : 'pending',
-        amount: amount / 100,
-      })
-      .select()
-      .single();
+        status: totalAmount === 0 ? 'confirmed' : 'pending',
+        amount: unitAmount / 100, // Store unit amount per ticket
+        ticket_number: i + 1, // Add ticket number within the batch
+      });
+    }
+
+    const { data: tickets, error } = await supabase
+      .from('tickets')
+      .insert(ticketsData)
+      .select();
 
     if (error) {
       console.error('SUPABASE ERROR:', error);
       throw error;
     }
 
-    // SEND EMAIL
-    try {
-      const response = await fetch('https://' + event.headers.host + '/.netlify/functions/send-ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticketId: ticket.id,
-          email,
-          name,
-          eventName: 'GameDay Event',
-          ticketType,
-        }),
-      });
+    console.log(`Created ${tickets.length} tickets for quantity ${quantity}`);
 
-      if (!response.ok) {
-        console.error('EMAIL SEND FAILED:', await response.text());
+    // SEND EMAIL FOR EACH TICKET
+    try {
+      const emailPromises = tickets.map(ticket =>
+        fetch('https://' + event.headers.host + '/.netlify/functions/send-ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ticketId: ticket.id,
+            email,
+            name,
+            eventName: 'GameDay Event',
+            ticketType,
+            ticketNumber: ticket.ticket_number,
+            totalQuantity: quantity,
+          }),
+        })
+      );
+
+      const responses = await Promise.all(emailPromises);
+
+      for (let i = 0; i < responses.length; i++) {
+        if (!responses[i].ok) {
+          console.error(`EMAIL SEND FAILED for ticket ${tickets[i].id}:`, await responses[i].text());
+        }
       }
+
+      console.log(`Sent ${responses.length} emails for ${quantity} tickets`);
     } catch (emailErr) {
       console.error('EMAIL SEND FAILED:', emailErr);
     }
@@ -90,9 +121,10 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       body: JSON.stringify({
-        clientSecret: amount === 0 ? null : paymentIntent.client_secret,
-        ticketId: ticket.id,
-        isFree: amount === 0,
+        clientSecret: totalAmount === 0 ? null : paymentIntent.client_secret,
+        ticketIds: tickets.map(t => t.id),
+        isFree: totalAmount === 0,
+        quantity,
       }),
     };
   } catch (err) {
