@@ -1,13 +1,9 @@
-// Simple Express server for local development
-// Mimics Netlify function endpoints
+// Simple Node.js HTTP server for local development
+// Mimics Netlify function endpoints (no external dependencies)
 
-const express = require('express');
-const cors = require('cors');
+const http = require('http');
+const url = require('url');
 require('dotenv').config();
-
-const app = express();
-app.use(cors());
-app.use(express.json());
 
 // Import our functions
 const createTicket = require('./netlify/functions/create-ticket.js').handler;
@@ -17,80 +13,121 @@ console.log('📍 Frontend: http://localhost:5173');
 console.log('🔧 Functions: http://localhost:8888/.netlify/functions/*');
 
 // Mock Netlify function context
-const createNetlifyContext = (event) => ({
-  body: JSON.stringify(event.body),
-  headers: event.headers || {},
-  httpMethod: event.method || 'POST',
-  path: event.path || '/.netlify/functions/create-ticket'
+const createNetlifyContext = (req, body) => ({
+  body: body,
+  headers: req.headers || {},
+  httpMethod: req.method || 'POST',
+  path: req.url || '/.netlify/functions/create-ticket'
 });
 
-// Route to mimic Netlify functions
-app.all('/.netlify/functions/:functionName', async (req, res) => {
-  const { functionName } = req.params;
-
-  console.log(`📡 Calling function: ${functionName}`);
-  console.log(`📝 Method: ${req.method}`);
-  console.log(`📦 Body:`, req.body);
-
-  try {
-    let result;
-
-    switch (functionName) {
-      case 'create-ticket':
-        const context = createNetlifyContext({
-          body: req.body,
-          headers: req.headers,
-          method: req.method,
-          path: req.path
-        });
-
-        result = await createTicket(context, {});
-        break;
-
-      default:
-        return res.status(404).json({ error: `Function ${functionName} not found` });
-    }
-
-    console.log('✅ Function result:', result);
-
-    // Set status code
-    res.status(result.statusCode || 200);
-
-    // Set headers
-    if (result.headers) {
-      Object.entries(result.headers).forEach(([key, value]) => {
-        res.set(key, value);
-      });
-    }
-
-    // Send response
-    if (typeof result.body === 'string') {
-      res.send(result.body);
-    } else {
-      res.json(result.body);
-    }
-
-  } catch (error) {
-    console.error('❌ Function error:', error);
-    res.status(500).json({
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+// Parse JSON body
+function parseJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
     });
-  }
-});
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    timestamp: new Date().toISOString(),
-    environment: 'development'
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (e) {
+        reject(e);
+      }
+    });
+    req.on('error', reject);
   });
+}
+
+// Create HTTP server
+const server = http.createServer(async (req, res) => {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  const parsedUrl = url.parse(req.url, true);
+  const pathname = parsedUrl.pathname;
+
+  console.log(`📡 ${req.method} ${pathname}`);
+
+  // Health check
+  if (pathname === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'OK',
+      timestamp: new Date().toISOString(),
+      environment: 'development'
+    }));
+    return;
+  }
+
+  // Function routing
+  const functionMatch = pathname.match(/^\/\.netlify\/functions\/([^\/]+)$/);
+  if (functionMatch) {
+    const functionName = functionMatch[1];
+
+    try {
+      let body = {};
+      if (req.method === 'POST' || req.method === 'PUT') {
+        body = await parseJsonBody(req);
+      }
+
+      console.log(`📦 Body:`, body);
+
+      let result;
+
+      switch (functionName) {
+        case 'create-ticket':
+          const context = createNetlifyContext(req, JSON.stringify(body));
+          result = await createTicket(context, {});
+          break;
+
+        default:
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `Function ${functionName} not found` }));
+          return;
+      }
+
+      console.log('✅ Function result:', result);
+
+      // Set status code
+      const statusCode = result.statusCode || 200;
+
+      // Set headers
+      const headers = { 'Content-Type': 'application/json' };
+      if (result.headers) {
+        Object.assign(headers, result.headers);
+      }
+
+      res.writeHead(statusCode, headers);
+      res.end(result.body);
+
+    } catch (error) {
+      console.error('❌ Function error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }));
+    }
+    return;
+  }
+
+  // 404 for unknown routes
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'Not found' }));
 });
 
 const PORT = process.env.PORT || 8888;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🌐 Local function server running on port ${PORT}`);
   console.log(`💡 Test functions at: http://localhost:${PORT}/.netlify/functions/create-ticket`);
   console.log(`🔄 Make sure Vite is also running on port 5173`);
