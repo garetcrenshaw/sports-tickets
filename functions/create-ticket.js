@@ -20,21 +20,6 @@ const PRICE_MAP = {
 exports.handler = async (event) => {
   console.log('EVENT:', event.body);
 
-  // LOCAL TESTING: Mock success response
-  const isLocalTest = process.env.NETLIFY_DEV === 'true' || event.headers.host?.includes('localhost');
-  if (isLocalTest) {
-    console.log('🧪 LOCAL TEST MODE: Returning mock success');
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        success: true, 
-        sessionId: 'test_' + Date.now(),
-        message: 'Local test - payment skipped'
-      })
-    };
-  }
-
   try {
     const { ticketType, email, name, eventId, quantity = 1 } = JSON.parse(event.body);
 

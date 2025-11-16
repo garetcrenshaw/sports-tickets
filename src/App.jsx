@@ -39,16 +39,30 @@ function Home() {
     setMessage('');
 
     try {
-      const res = await fetch('/api/create-checkout', {
+      // LOCAL TESTING: Use localhost URL when running netlify dev
+      const baseUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:8888'  // Netlify Dev default port
+        : '';
+      
+      const res = await fetch(`${baseUrl}/.netlify/functions/create-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticketType, email, name, eventId: 1, quantity }),
       });
 
       const data = await res.json();
+      console.log('Response data:', data);
 
       if (!res.ok) {
         throw new Error(data.error || 'Purchase failed');
+      }
+
+      // LOCAL TEST: Handle mock success response
+      if (data.success && data.sessionId) {
+        console.log('✅ LOCAL TEST SUCCESS:', data);
+        setMessage(`✅ LOCAL TEST: ${quantity} ticket${quantity > 1 ? 's' : ''} - ${data.message}`);
+        setLoading(false);
+        return;
       }
 
       if (data.isFree) {
@@ -61,6 +75,7 @@ function Home() {
         setLoading(false);
       }
     } catch (error) {
+      console.error('Purchase error:', error);
       setMessage(error.message || 'Purchase failed. Please try again.');
       setLoading(false);
     }

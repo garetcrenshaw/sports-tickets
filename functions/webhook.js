@@ -109,6 +109,18 @@ async function sendTicketEmail(tickets, eventData, session) {
 exports.handler = async (event) => {
   console.log('WEBHOOK EVENT TYPE:', event.headers['stripe-signature'] ? 'SIGNED' : 'UNSIGNED');
 
+  // LOCAL TESTING: Mock success response
+  const isLocalTest = process.env.NETLIFY_DEV === 'true' || event.headers.host?.includes('localhost');
+  if (isLocalTest) {
+    console.log('🧪 MOCK: 3 tickets created (local test mode)');
+    console.log('MOCK: Email sending skipped');
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ received: true, mock: true })
+    };
+  }
+
   try {
     // Verify webhook signature
     let stripeEvent;
