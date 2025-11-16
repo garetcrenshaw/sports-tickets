@@ -24,30 +24,18 @@ exports.handler = async (event) => {
     const { ticketType, email, name, eventId, quantity = 1 } = JSON.parse(event.body);
 
     if (!PRICE_MAP[ticketType]) {
-      return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Invalid ticket type' })
-      };
+      return { statusCode: 400, body: JSON.stringify({ error: 'Invalid ticket type' }) };
     }
 
     // Validate quantity
     if (quantity < 1 || quantity > 10) {
-      return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Quantity must be between 1 and 10' })
-      };
+      return { statusCode: 400, body: JSON.stringify({ error: 'Quantity must be between 1 and 10' }) };
     }
 
     // Simple inventory check (mock: assume 100 seats available per ticket type)
     const AVAILABLE_SEATS = 100;
     if (quantity > AVAILABLE_SEATS) {
-      return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: `Only ${AVAILABLE_SEATS} seats available for ${ticketType}` })
-      };
+      return { statusCode: 400, body: JSON.stringify({ error: `Only ${AVAILABLE_SEATS} seats available for ${ticketType}` }) };
     }
 
     const priceId = PRICE_MAP[ticketType];
@@ -83,7 +71,6 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         clientSecret: totalAmount === 0 ? null : paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
@@ -94,10 +81,6 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     console.error('FUNCTION ERROR:', err);
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: err.message })
-    };
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
