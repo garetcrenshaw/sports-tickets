@@ -39,17 +39,18 @@ function Home() {
     setMessage('');
 
     try {
-      const res = await fetch('/api/create-checkout', {
+      const res = await fetch('/.netlify/functions/create-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticketType, email, name, eventId: 1, quantity }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.error || 'Purchase failed');
+        const errorData = await res.json().catch(() => ({ error: 'Purchase failed' }));
+        throw new Error(errorData.error || 'Purchase failed');
       }
+
+      const data = await res.json();
 
       if (data.isFree) {
         const ticketCount = data.quantity || 1;
