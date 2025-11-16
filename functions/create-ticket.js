@@ -66,71 +66,17 @@ exports.handler = async (event) => {
       });
     }
 
-    // Create multiple tickets (one for each quantity)
-    const ticketsData = [];
-    for (let i = 0; i < quantity; i++) {
-      ticketsData.push({
-        email,
-        name,
-        event_id: eventId,
-        ticket_type: ticketType,
-        stripe_pi_id: paymentIntent.id,
-        status: totalAmount === 0 ? 'confirmed' : 'pending',
-        amount: unitAmount / 100, // Store unit amount per ticket
-        ticket_number: i + 1, // Add ticket number within the batch
-      });
-    }
-
-    const { data: tickets, error } = await supabase
-      .from('tickets')
-      .insert(ticketsData)
-      .select();
-
-    if (error) {
-      console.error('SUPABASE ERROR:', error);
-      throw error;
-    }
-
-    console.log(`Created ${tickets.length} tickets for quantity ${quantity}`);
-
-    // SEND EMAIL FOR EACH TICKET
-    try {
-      const emailPromises = tickets.map(ticket =>
-        fetch('https://' + event.headers.host + '/.netlify/functions/send-ticket', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ticketId: ticket.id,
-            email,
-            name,
-            eventName: 'GameDay Event',
-            ticketType,
-            ticketNumber: ticket.ticket_number,
-            totalQuantity: quantity,
-          }),
-        })
-      );
-
-      const responses = await Promise.all(emailPromises);
-
-      for (let i = 0; i < responses.length; i++) {
-        if (!responses[i].ok) {
-          console.error(`EMAIL SEND FAILED for ticket ${tickets[i].id}:`, await responses[i].text());
-        }
-      }
-
-      console.log(`Sent ${responses.length} emails for ${quantity} tickets`);
-    } catch (emailErr) {
-      console.error('EMAIL SEND FAILED:', emailErr);
-    }
+    // Tickets and emails will be created by webhook on successful payment
+    console.log(`Payment intent created for ${quantity} tickets, total: $${totalAmount / 100}`);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         clientSecret: totalAmount === 0 ? null : paymentIntent.client_secret,
-        ticketIds: tickets.map(t => t.id),
+        paymentIntentId: paymentIntent.id,
         isFree: totalAmount === 0,
         quantity,
+        totalAmount: totalAmount / 100, // Amount in dollars
       }),
     };
   } catch (err) {
