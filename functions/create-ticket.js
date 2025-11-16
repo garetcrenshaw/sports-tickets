@@ -17,6 +17,13 @@ const PRICE_MAP = {
   parking: process.env.PARKING_PRICE_ID,
 };
 
+// Log price IDs on startup
+console.log('PRICE MAP:', {
+  ga: PRICE_MAP.ga || 'MISSING',
+  free: PRICE_MAP.free || 'MISSING',
+  parking: PRICE_MAP.parking || 'MISSING'
+});
+
 exports.handler = async (event) => {
   console.log('=== CREATE-TICKET CALLED ===');
   console.log('EVENT BODY:', event.body);
@@ -26,21 +33,35 @@ exports.handler = async (event) => {
     console.log('PARSED:', { ticketType, email, name, eventId, quantity });
 
     if (!PRICE_MAP[ticketType]) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Invalid ticket type' }) };
+      console.error('Invalid ticket type:', ticketType);
+      return { 
+        statusCode: 400, 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: `Invalid ticket type: ${ticketType}` }) 
+      };
+    }
+
+    const priceId = PRICE_MAP[ticketType];
+    if (!priceId) {
+      console.error(`Missing price ID for ${ticketType}. Check environment variables.`);
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          error: `Configuration error: Missing price ID for ${ticketType}. Please set ${ticketType.toUpperCase()}_PRICE_ID in environment variables.` 
+        })
+      };
     }
 
     // Validate quantity
     if (quantity < 1 || quantity > 10) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Quantity must be between 1 and 10' }) };
+      return { 
+        statusCode: 400, 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Quantity must be between 1 and 10' }) 
+      };
     }
 
-    // Simple inventory check (mock: assume 100 seats available per ticket type)
-    const AVAILABLE_SEATS = 100;
-    if (quantity > AVAILABLE_SEATS) {
-      return { statusCode: 400, body: JSON.stringify({ error: `Only ${AVAILABLE_SEATS} seats available for ${ticketType}` }) };
-    }
-
-    const priceId = PRICE_MAP[ticketType];
     console.log('PRICE ID:', priceId);
     console.log('QUANTITY:', quantity);
 
