@@ -15,7 +15,7 @@ const postData = JSON.stringify(testData);
 
 const options = {
   hostname: 'localhost',
-  port: 8888,
+  port: 9999,
   path: '/.netlify/functions/create-ticket',
   method: 'POST',
   headers: {
@@ -57,7 +57,7 @@ const req = http.request(options, (res) => {
 req.on('error', (e) => {
   console.log('❌ Request failed - is the server running?');
   console.log('💡 Start with: npm run dev:server');
-  console.log('🔗 Test URL: http://localhost:8888/.netlify/functions/create-ticket');
+  console.log('🔗 Test URL: http://localhost:9999/.netlify/functions/create-ticket');
 });
 
 req.write(postData);

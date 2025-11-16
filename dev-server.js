@@ -142,7 +142,7 @@ const server = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 
-const PORT = process.env.PORT || 8888;
+const PORT = process.env.PORT || 9999;
 
 server.listen(PORT, () => {
   console.log(`🌐 Local function server running on port ${PORT}`);
