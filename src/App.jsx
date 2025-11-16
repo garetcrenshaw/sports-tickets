@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { loadStripe } from '@stripe/stripe-js'
 import Validate from './pages/Validate'
+import Success from './pages/Success'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
@@ -28,6 +29,8 @@ function Home() {
     setMessage('')
 
     try {
+      console.log('🛒 Calling /api/create-checkout with:', { email, name, quantity });
+      
       const response = await fetch('/api/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -40,20 +43,29 @@ function Home() {
         })
       })
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', response.headers.get('content-type'));
+
       if (!response.ok) {
         const errorText = await response.text()
+        console.error('❌ Error response:', errorText);
         throw new Error(errorText || 'Purchase failed. Please try again.')
       }
 
       const data = await response.json()
+      console.log('✅ Received session:', data);
+      
       const stripe = await stripePromise
+      console.log('🔄 Redirecting to Stripe Checkout...');
+      
       const { error } = await stripe.redirectToCheckout({ sessionId: data.sessionId })
 
       if (error) {
+        console.error('❌ Stripe redirect error:', error);
         throw error
       }
     } catch (error) {
-      console.error('Checkout error:', error)
+      console.error('❌ Checkout error:', error)
       setMessage(error.message || 'Purchase failed. Please try again.')
     } finally {
       setLoading(false)
@@ -166,6 +178,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/success" element={<Success />} />
         <Route path="/validate" element={<Validate />} />
       </Routes>
     </BrowserRouter>

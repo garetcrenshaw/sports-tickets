@@ -9,6 +9,10 @@ function jsonResponse(statusCode, body) {
 }
 
 exports.handler = async (event) => {
+  console.log('=== CREATE-CHECKOUT CALLED ===');
+  console.log('METHOD:', event.httpMethod);
+  console.log('BODY:', event.body);
+  
   if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { error: 'Method Not Allowed' });
   }
@@ -29,6 +33,8 @@ exports.handler = async (event) => {
     const stripe = getStripeClient();
     const siteUrl = process.env.SITE_URL || 'http://localhost:5173';
 
+    console.log('Creating Stripe session with:', { email, name, quantity, priceId });
+    
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
@@ -50,6 +56,7 @@ exports.handler = async (event) => {
       ],
     });
 
+    console.log('✅ Stripe session created:', session.id);
     return jsonResponse(200, { sessionId: session.id });
   } catch (error) {
     console.error('CREATE-CHECKOUT ERROR:', error);
