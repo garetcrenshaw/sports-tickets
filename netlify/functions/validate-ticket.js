@@ -1,38 +1,47 @@
-// functions/validate-ticket.js
-const { createClient } = require('@supabase/supabase-js');
+const { getTicketById, markTicketValidated } = require('../../src/lib/db');
+const { requireEnv } = require('../../src/lib/stripe');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+function jsonResponse(statusCode, body) {
+  return {
+    statusCode,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
 
 exports.handler = async (event) => {
-  const { ticketId } = JSON.parse(event.body);
+  if (event.httpMethod !== 'POST') {
+    return jsonResponse(405, { error: 'Method Not Allowed' });
+  }
 
   try {
-    const { data: ticket, error } = await supabase
-      .from('tickets')
-      .select('*')
-      .eq('id', ticketId)
-      .single();
+    const payload = JSON.parse(event.body || '{}');
+    const { ticketId, password } = payload;
 
-    if (error || !ticket) {
-      return { statusCode: 404, body: JSON.stringify({ error: 'Ticket not found' }) };
+    if (!ticketId) {
+      return jsonResponse(400, { error: 'ticketId is required' });
     }
 
-    if (ticket.status === 'used') {
-      return { statusCode: 200, body: JSON.stringify({ valid: false, ticket }) };
+    const requiredPassword = requireEnv('VALIDATE_PASSWORD');
+    if (!password || password !== requiredPassword) {
+      return jsonResponse(401, { error: 'Invalid validation password' });
     }
 
-    // Mark as used
-    await supabase
-      .from('tickets')
-      .update({ status: 'used', used_at: new Date().toISOString() })
-      .eq('id', ticketId);
+    const ticket = await getTicketById(ticketId);
 
-    return { statusCode: 200, body: JSON.stringify({ valid: true, ticket }) };
-  } catch (err) {
-    console.error('VALIDATE ERROR:', err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    if (!ticket) {
+      return jsonResponse(404, { error: 'Ticket not found' });
+    }
+
+    if (ticket.status === 'validated') {
+      return jsonResponse(200, { valid: false, ticket, message: 'Ticket already validated' });
+    }
+
+    const updatedTicket = await markTicketValidated(ticketId);
+
+    return jsonResponse(200, { valid: true, ticket: updatedTicket });
+  } catch (error) {
+    console.error('VALIDATE TICKET ERROR:', error);
+    return jsonResponse(500, { error: error.message });
   }
 };

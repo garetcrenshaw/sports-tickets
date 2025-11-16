@@ -1,31 +1,18 @@
-// functions/get-events.js
-const { createClient } = require('@supabase/supabase-js');
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 exports.handler = async () => {
   try {
-    const { data, error } = await supabase
-      .from('events')
-      .select('id, name');
-
-    if (error) throw error;
-
-    const events = Array.isArray(data) ? data : [];
-
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(events),
+      body: JSON.stringify([
+        { id: 'general-admission', name: 'General Admission Ticket' }
+      ]),
     };
-  } catch (err) {
-    console.error('GET EVENTS ERROR:', err);
+  } catch (error) {
+    console.error('GET EVENTS ERROR:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: error.message }),
     };
   }
 };
