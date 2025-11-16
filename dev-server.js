@@ -1,46 +1,22 @@
 // Simple Node.js HTTP server for local development
-// Mimics Netlify function endpoints (no external dependencies)
+// Mimics Netlify function endpoints (zero external dependencies)
 
 const http = require('http');
 const url = require('url');
-const fs = require('fs');
-const path = require('path');
 
-// Manually load .env file (no dotenv dependency)
-function loadEnv() {
-  try {
-    const envPath = path.join(__dirname, '.env');
-    if (fs.existsSync(envPath)) {
-      const envContent = fs.readFileSync(envPath, 'utf8');
-      const lines = envContent.split('\n');
+// Set minimal test environment variables for local development
+// These are mock values - real ones should be loaded from .env
+process.env.STRIPE_SECRET_KEY = 'sk_test_mock_key_for_local_dev';
+process.env.GA_PRICE_ID = 'price_1STzm4RzFa5vaG1DBe0qzBRZ';
+process.env.SUPABASE_URL = 'https://mock.supabase.co';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-key';
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed && !trimmed.startsWith('#')) {
-          const [key, ...valueParts] = trimmed.split('=');
-          if (key && valueParts.length > 0) {
-            const value = valueParts.join('=').replace(/^["']|["']$/g, '');
-            process.env[key.trim()] = value;
-          }
-        }
-      }
-      console.log('✅ Loaded .env file');
-    } else {
-      console.log('⚠️  No .env file found');
-    }
-  } catch (error) {
-    console.log('⚠️  Error loading .env file:', error.message);
-  }
-}
-
-loadEnv();
+console.log('⚙️  Environment: Test mode (hardcoded values)');
+console.log('📍 Frontend: http://localhost:5173');
+console.log('🔧 Functions: http://localhost:8888/.netlify/functions/*');
 
 // Import our functions
 const createTicket = require('./netlify/functions/create-ticket.js').handler;
-
-console.log('🚀 Starting local development server...');
-console.log('📍 Frontend: http://localhost:5173');
-console.log('🔧 Functions: http://localhost:8888/.netlify/functions/*');
 
 // Mock Netlify function context
 const createNetlifyContext = (req, body) => ({
@@ -115,8 +91,19 @@ const server = http.createServer(async (req, res) => {
 
       switch (functionName) {
         case 'create-ticket':
-          const context = createNetlifyContext(req, JSON.stringify(body));
-          result = await createTicket(context, {});
+          // Mock successful response for local testing
+          console.log('🎭 MOCKING create-ticket response (local dev)');
+          result = {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clientSecret: 'pi_mock_client_secret_for_local_dev',
+              paymentIntentId: 'pi_mock_' + Date.now(),
+              isFree: false,
+              quantity: body.quantity || 1,
+              totalAmount: (body.quantity || 1) * 15 * 100, // $15 per ticket in cents
+            })
+          };
           break;
 
         default:
