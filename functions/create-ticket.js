@@ -56,7 +56,13 @@ exports.handler = async (event) => {
         amount: totalAmount,
         currency: 'usd',
         payment_method_types: ['card'],
-        metadata: { ticketType, eventId, email, quantity: quantity.toString() },
+        metadata: {
+          ticketType,
+          eventId,
+          email,
+          quantity: quantity.toString(),
+          unitPrice: unitAmount.toString()
+        },
       });
     }
 
