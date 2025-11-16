@@ -39,7 +39,7 @@ function Home() {
     setMessage('');
 
     try {
-      const res = await fetch('/.netlify/functions/create-ticket', {
+      const res = await fetch('/api/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticketType, email, name, eventId: 1, quantity }),
