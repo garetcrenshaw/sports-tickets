@@ -1,25 +1,21 @@
 [build]
   command = "npm run build"
   publish = "dist"
-  functions = "functions"
-  node_bundler = "esbuild"
+
+[functions]
+  directory = "netlify/functions"
 
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
-  force = true
 
 [[redirects]]
   from = "/webhook"
   to = "/.netlify/functions/webhook"
   status = 200
-  force = true
 
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-[build.environment]
-  VITE_STRIPE_PUBLISHABLE_KEY = "pk_live_51SNPmWRzFa5vaG1DSyH15sVD6ZEj2jJW8iHsV1DCJkqBvsAMyxifYe36SVDFLX5eLTIg2cq5oiaMV1i9frK1bxqQ00PsIEF7IR"
