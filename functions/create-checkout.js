@@ -18,25 +18,12 @@ const PRICE_MAP = {
 };
 
 exports.handler = async (event) => {
-  console.log('EVENT:', event.body);
-
-  // LOCAL TESTING: Return mock response when env variable is set
-  const isLocalTest = process.env.NETLIFY_DEV === 'true' || process.env.LOCAL_TEST === 'true';
-  if (isLocalTest) {
-    console.log('🧪 LOCAL TEST MODE: Returning mock response');
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        success: true, 
-        sessionId: 'test123',
-        message: 'Local test - no real payment processed'
-      })
-    };
-  }
+  console.log('=== CREATE-CHECKOUT CALLED ===');
+  console.log('EVENT BODY:', event.body);
 
   try {
     const { ticketType, email, name, eventId, quantity = 1 } = JSON.parse(event.body);
+    console.log('PARSED:', { ticketType, email, name, eventId, quantity });
 
     if (!PRICE_MAP[ticketType]) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid ticket type' }) };
@@ -84,18 +71,27 @@ exports.handler = async (event) => {
     // Tickets and emails will be created by webhook on successful payment
     console.log(`Payment intent created for ${quantity} tickets, total: $${totalAmount / 100}`);
 
+    const response = {
+      clientSecret: totalAmount === 0 ? null : paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      isFree: totalAmount === 0,
+      quantity,
+      totalAmount: totalAmount / 100, // Amount in dollars
+    };
+
+    console.log('RETURNING SUCCESS:', response);
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        clientSecret: totalAmount === 0 ? null : paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-        isFree: totalAmount === 0,
-        quantity,
-        totalAmount: totalAmount / 100, // Amount in dollars
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(response),
     };
   } catch (err) {
     console.error('FUNCTION ERROR:', err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: err.message })
+    };
   }
 };

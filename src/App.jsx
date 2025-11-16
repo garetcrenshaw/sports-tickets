@@ -39,31 +39,25 @@ function Home() {
     setMessage('');
 
     try {
-      // LOCAL TESTING: Use localhost URL when running netlify dev
-      const baseUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:8888'  // Netlify Dev default port
-        : '';
+      console.log('Calling create-ticket with:', { ticketType, email, name, eventId: 1, quantity });
       
-      const res = await fetch(`${baseUrl}/.netlify/functions/create-checkout`, {
+      const res = await fetch('/.netlify/functions/create-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticketType, email, name, eventId: 1, quantity }),
       });
 
-      const data = await res.json();
-      console.log('Response data:', data);
+      console.log('Response status:', res.status);
+      console.log('Response headers:', res.headers.get('content-type'));
 
       if (!res.ok) {
-        throw new Error(data.error || 'Purchase failed');
+        const errorText = await res.text();
+        console.error('Error response:', errorText);
+        throw new Error(errorText || 'Purchase failed');
       }
 
-      // LOCAL TEST: Handle mock success response
-      if (data.success && data.sessionId) {
-        console.log('✅ LOCAL TEST SUCCESS:', data);
-        setMessage(`✅ LOCAL TEST: ${quantity} ticket${quantity > 1 ? 's' : ''} - ${data.message}`);
-        setLoading(false);
-        return;
-      }
+      const data = await res.json();
+      console.log('Response data:', data);
 
       if (data.isFree) {
         const ticketCount = data.quantity || 1;
@@ -76,7 +70,8 @@ function Home() {
       }
     } catch (error) {
       console.error('Purchase error:', error);
-      setMessage(error.message || 'Purchase failed. Please try again.');
+      const errorMessage = error.message || 'Purchase failed. Please try again.';
+      setMessage(`Error: ${errorMessage}`);
       setLoading(false);
     }
   };
