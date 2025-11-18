@@ -4,6 +4,14 @@ const QRCode = require('qrcode');
 const { Resend } = require('resend');
 const { v4: uuidv4 } = require('uuid');
 
+// Log environment variables (for debugging)
+console.log('🔧 Initializing webhook function...');
+console.log('🔑 SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Set' : '❌ Missing');
+console.log('🔑 SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing');
+console.log('🔑 RESEND_API_KEY:', process.env.RESEND_API_KEY ? '✅ Set' : '❌ Missing');
+console.log('🔑 STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? '✅ Set' : '❌ Missing');
+console.log('🔑 STRIPE_WEBHOOK_SECRET:', process.env.STRIPE_WEBHOOK_SECRET ? '✅ Set' : '❌ Missing');
+
 // Initialize clients
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -11,6 +19,9 @@ const supabase = createClient(
 );
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+console.log('✅ Clients initialized');
+console.log('');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -24,6 +35,8 @@ async function generateQRCode(ticketId) {
   try {
     // Generate QR code as data URL (base64 PNG)
     const qrValue = `https://yoursite.com/verify?ticket=${ticketId}`;
+    console.log('📱 QR code value:', qrValue);
+    
     const qrDataUrl = await QRCode.toDataURL(qrValue, {
       width: 400,
       margin: 2,
@@ -32,21 +45,27 @@ async function generateQRCode(ticketId) {
         light: '#FFFFFF'
       }
     });
+    
+    console.log('✅ QR code data URL generated (length:', qrDataUrl.length, 'chars)');
     return qrDataUrl;
   } catch (error) {
-    console.error('Error generating QR code:', error);
+    console.error('❌ Error generating QR code:', error);
     throw error;
   }
 }
 
 async function uploadQRToSupabase(ticketId, qrDataUrl) {
   try {
+    console.log('☁️  Converting QR to buffer...');
     // Convert data URL to buffer
     const base64Data = qrDataUrl.replace(/^data:image\/png;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
+    console.log('✅ Buffer created, size:', buffer.length, 'bytes');
     
     // Upload to Supabase Storage
     const fileName = `${ticketId}.png`;
+    console.log('☁️  Uploading to bucket "qrcodes" as:', fileName);
+    
     const { data, error } = await supabase.storage
       .from('qrcodes')
       .upload(fileName, buffer, {
@@ -55,23 +74,30 @@ async function uploadQRToSupabase(ticketId, qrDataUrl) {
       });
 
     if (error) {
-      console.error('Supabase upload error:', error);
+      console.error('❌ Supabase upload error:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
       throw error;
     }
 
+    console.log('✅ Upload successful:', data);
+
     // Get public URL
+    console.log('🔗 Getting public URL...');
     const { data: publicUrlData } = supabase.storage
       .from('qrcodes')
       .getPublicUrl(fileName);
 
+    console.log('✅ Public URL obtained:', publicUrlData.publicUrl);
     return publicUrlData.publicUrl;
   } catch (error) {
-    console.error('Error uploading QR to Supabase:', error);
+    console.error('❌ Error uploading QR to Supabase:', error);
     throw error;
   }
 }
 
 async function createTicketInDatabase(ticketData) {
+  console.log('📝 Inserting into database:', ticketData);
+  
   const { data, error } = await supabase
     .from('tickets')
     .insert([ticketData])
@@ -79,15 +105,21 @@ async function createTicketInDatabase(ticketData) {
     .single();
 
   if (error) {
-    console.error('Database insert error:', error);
+    console.error('❌ Database insert error:', error);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
     throw error;
   }
 
+  console.log('✅ Row inserted successfully:', data);
   return data;
 }
 
 async function sendTicketEmail(email, name, tickets, quantity, ticketType) {
   try {
+    console.log('📧 Building email HTML...');
+    console.log('📧 Recipients:', email);
+    console.log('📧 Tickets to include:', tickets.length);
+    
     // Build HTML email with all QR codes
     const ticketRows = tickets.map((ticket, index) => `
       <tr>
@@ -157,6 +189,8 @@ async function sendTicketEmail(email, name, tickets, quantity, ticketType) {
       </html>
     `;
 
+    console.log('📧 Sending email via Resend...');
+    
     const { data, error } = await resend.emails.send({
       from: 'Sports Tickets <onboarding@resend.dev>', // Update with your verified domain
       to: [email],
@@ -165,23 +199,30 @@ async function sendTicketEmail(email, name, tickets, quantity, ticketType) {
     });
 
     if (error) {
-      console.error('Resend email error:', error);
+      console.error('❌ Resend email error:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
       throw error;
     }
 
-    console.log('✅ Email sent successfully:', data);
+    console.log('✅ Email sent successfully!');
+    console.log('✅ Email ID:', data?.id);
     return data;
   } catch (error) {
-    console.error('Error sending email:', error);
+    console.error('❌ Error sending email:', error);
     throw error;
   }
 }
 
 exports.handler = async (event) => {
-  console.log('=== STRIPE WEBHOOK RECEIVED ===');
-  console.log('Method:', event.httpMethod);
+  console.log('');
+  console.log('=================================================');
+  console.log('🔔 STRIPE WEBHOOK RECEIVED');
+  console.log('=================================================');
+  console.log('⏰ Timestamp:', new Date().toISOString());
+  console.log('📍 Method:', event.httpMethod);
   
   if (event.httpMethod !== 'POST') {
+    console.log('❌ Wrong method, rejecting');
     return jsonResponse(405, { error: 'Method not allowed' });
   }
 
@@ -189,33 +230,43 @@ exports.handler = async (event) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!webhookSecret) {
-    console.error('❌ STRIPE_WEBHOOK_SECRET not configured');
+    console.error('❌ STRIPE_WEBHOOK_SECRET not configured in environment');
     return jsonResponse(500, { error: 'Webhook secret not configured' });
   }
+
+  console.log('🔐 Webhook secret found');
+  console.log('🔐 Signature present:', sig ? 'Yes' : 'No');
 
   let stripeEvent;
 
   try {
     // Verify webhook signature
+    console.log('🔐 Verifying webhook signature...');
     stripeEvent = stripe.webhooks.constructEvent(
       event.body,
       sig,
       webhookSecret
     );
-    console.log('✅ Webhook signature verified');
+    console.log('✅ Webhook signature verified successfully');
+    console.log('📦 Event type:', stripeEvent.type);
   } catch (err) {
-    console.error('❌ Webhook signature verification failed:', err.message);
+    console.error('❌ Webhook signature verification FAILED');
+    console.error('❌ Error:', err.message);
     return jsonResponse(400, { error: `Webhook Error: ${err.message}` });
   }
 
   // Handle the event
   if (stripeEvent.type === 'checkout.session.completed') {
-    console.log('💳 Processing checkout.session.completed');
+    console.log('=================================================');
+    console.log('💳 Starting webhook: checkout.session.completed');
+    console.log('=================================================');
     
     const session = stripeEvent.data.object;
     const metadata = session.metadata;
 
-    console.log('Session metadata:', metadata);
+    console.log('📦 Session ID:', session.id);
+    console.log('📦 Session metadata:', JSON.stringify(metadata, null, 2));
+    console.log('💰 Amount total:', session.amount_total);
 
     try {
       // Extract metadata
@@ -229,52 +280,73 @@ exports.handler = async (event) => {
 
       const quantity = parseInt(quantityStr, 10);
 
-      console.log(`Creating ${quantity} tickets for ${name} (${email})`);
+      console.log('👤 Purchaser name:', name);
+      console.log('📧 Purchaser email:', email);
+      console.log('🎫 Ticket type:', ticketType);
+      console.log('🔢 Quantity:', quantity);
+      console.log('🏟️  Event ID:', eventId);
+
+      if (!name || !email) {
+        throw new Error('Missing name or email in metadata');
+      }
 
       // Create tickets array
       const tickets = [];
 
       // Loop to create each individual ticket
       for (let i = 0; i < quantity; i++) {
-        console.log(`Creating ticket ${i + 1}/${quantity}...`);
+        console.log('');
+        console.log(`🎫 ========== Creating ticket ${i + 1}/${quantity} ==========`);
 
         // Generate unique ticket ID
         const ticketId = uuidv4();
+        console.log('🆔 Generated ticket ID:', ticketId);
         
         // Generate QR code
+        console.log('📱 Generating QR code...');
         const qrDataUrl = await generateQRCode(ticketId);
+        console.log('✅ QR code generated');
         
         // Upload QR to Supabase Storage
+        console.log('☁️  Uploading QR to Supabase Storage...');
         const qrPublicUrl = await uploadQRToSupabase(ticketId, qrDataUrl);
+        console.log('✅ QR uploaded. Public URL:', qrPublicUrl);
         
-        // Create ticket data
+        // Create ticket data - ONLY using columns that exist in your table
         const ticketData = {
-          id: ticketId,
-          ticket_id: ticketId,
-          event_id: eventId,
-          ticket_type: ticketType,
-          purchaser_name: name,
-          purchaser_email: email,
-          qr_code_url: qrPublicUrl,
-          status: 'valid',
-          stripe_session_id: session.id,
-          price_paid_cents: session.amount_total,
-          created_at: new Date().toISOString()
+          ticket_id: ticketId,           // text
+          event_id: eventId,             // text
+          ticket_type: ticketType,       // text
+          purchaser_name: name,          // text
+          purchaser_email: email,        // text
+          qr_code_url: qrPublicUrl,      // text
+          status: 'valid'                // text (or 'purchased' if that's your default)
+          // Note: id, created_at, used_at will be auto-generated by database
         };
+
+        console.log('💾 Ticket data to insert:', JSON.stringify(ticketData, null, 2));
 
         // Insert into database
         const createdTicket = await createTicketInDatabase(ticketData);
         
         tickets.push(createdTicket);
-        console.log(`✅ Ticket ${i + 1}/${quantity} created: ${ticketId}`);
+        console.log(`✅ Ticket ${i + 1}/${quantity} created successfully!`);
+        console.log('');
       }
 
+      console.log('=================================================');
       console.log(`✅ All ${quantity} tickets created successfully`);
+      console.log('=================================================');
 
       // Send email with all tickets
-      console.log('📧 Sending email with all QR codes...');
+      console.log('📧 Preparing to send email...');
+      console.log('📧 Recipient:', email);
+      console.log('📧 Number of QR codes:', tickets.length);
+      
       await sendTicketEmail(email, name, tickets, quantity, ticketType);
-      console.log('✅ Email sent successfully');
+      
+      console.log('✅ Email sent successfully!');
+      console.log('=================================================');
 
       return jsonResponse(200, {
         received: true,
@@ -283,7 +355,12 @@ exports.handler = async (event) => {
       });
 
     } catch (error) {
-      console.error('❌ Error processing webhook:', error);
+      console.error('=================================================');
+      console.error('❌❌❌ ERROR PROCESSING WEBHOOK ❌❌❌');
+      console.error('=================================================');
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('=================================================');
       
       // Return 200 to acknowledge receipt (prevent retries)
       // but log the error for investigation
