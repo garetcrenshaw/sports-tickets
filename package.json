@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "vite","dev:functions": "node dev-server.js",
+    "dev": "vite",
+    "dev:functions": "node dev-server.js",
     "build": "vite build",
     "preview": "vite preview",
     "postbuild": "cp _redirects dist/"
@@ -18,7 +19,8 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2",
     "resend": "^4.0.0",
-    "stripe": "^19.2.1"
+    "stripe": "^19.2.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
