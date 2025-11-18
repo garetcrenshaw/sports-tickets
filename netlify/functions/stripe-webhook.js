@@ -4,14 +4,6 @@ const QRCode = require('qrcode');
 const { Resend } = require('resend');
 const { v4: uuidv4 } = require('uuid');
 
-// Log environment variables (for debugging)
-console.log('🔧 Initializing webhook function...');
-console.log('🔑 SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Set' : '❌ Missing');
-console.log('🔑 SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing');
-console.log('🔑 RESEND_API_KEY:', process.env.RESEND_API_KEY ? '✅ Set' : '❌ Missing');
-console.log('🔑 STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? '✅ Set' : '❌ Missing');
-console.log('🔑 STRIPE_WEBHOOK_SECRET:', process.env.STRIPE_WEBHOOK_SECRET ? '✅ Set' : '❌ Missing');
-
 // Initialize clients
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -19,9 +11,6 @@ const supabase = createClient(
 );
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
-console.log('✅ Clients initialized');
-console.log('');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -214,12 +203,21 @@ async function sendTicketEmail(email, name, tickets, quantity, ticketType) {
 }
 
 exports.handler = async (event) => {
+  // Log environment check on first call
   console.log('');
   console.log('=================================================');
   console.log('🔔 STRIPE WEBHOOK RECEIVED');
   console.log('=================================================');
   console.log('⏰ Timestamp:', new Date().toISOString());
   console.log('📍 Method:', event.httpMethod);
+  console.log('');
+  console.log('🔧 Environment Check:');
+  console.log('🔑 SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Set' : '❌ Missing');
+  console.log('🔑 SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing');
+  console.log('🔑 RESEND_API_KEY:', process.env.RESEND_API_KEY ? '✅ Set' : '❌ Missing');
+  console.log('🔑 STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? '✅ Set' : '❌ Missing');
+  console.log('🔑 STRIPE_WEBHOOK_SECRET:', process.env.STRIPE_WEBHOOK_SECRET ? '✅ Set' : '❌ Missing');
+  console.log('');
   
   if (event.httpMethod !== 'POST') {
     console.log('❌ Wrong method, rejecting');
