@@ -1,4 +1,38 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// ===== STRIPE KEY VALIDATION =====
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+
+// Safety check: key exists
+if (!stripeKey) {
+  console.error("❌ STRIPE_SECRET_KEY is missing entirely");
+  console.error("Available env vars:", Object.keys(process.env).filter(k => k.includes('STRIPE')));
+}
+
+// Safety check: key type
+if (stripeKey && !stripeKey.startsWith("sk_test_") && !stripeKey.startsWith("sk_live_")) {
+  console.error("❌ STRIPE_SECRET_KEY does not start with sk_test_ or sk_live_");
+  console.error("   This is likely the PUBLISHABLE key (pk_test_...) by mistake!");
+  console.error("   You need the SECRET key from Stripe dashboard");
+}
+
+// Log what we got
+if (stripeKey) {
+  console.log("✅ Stripe key loaded");
+  console.log("   Starts with:", stripeKey.substring(0, 10) + "...");
+  console.log("   Length:", stripeKey.length, "(expected: ~90-100 chars)");
+  
+  if (stripeKey.length < 80) {
+    console.error("⚠️  WARNING: Key is too short! Expected ~90-100 chars, got", stripeKey.length);
+    console.error("   Key might be truncated or wrong type");
+  }
+} else {
+  console.error("❌ No Stripe key found!");
+}
+
+// Clean the key (remove any whitespace)
+const cleanKey = stripeKey ? stripeKey.trim() : null;
+
+// Initialize Stripe (will fail if key is invalid)
+const stripe = cleanKey ? require('stripe')(cleanKey) : null;
 
 function jsonResponse(statusCode, body) {
   return {
@@ -25,6 +59,15 @@ exports.handler = async (event) => {
   
   if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { error: 'Method Not Allowed' });
+  }
+
+  // Check if Stripe is configured
+  if (!stripe) {
+    console.error('❌ Stripe client not initialized - check your STRIPE_SECRET_KEY');
+    return jsonResponse(500, { 
+      error: 'Server configuration error - Stripe key missing or invalid',
+      hint: 'Check server logs for details'
+    });
   }
 
   try {
