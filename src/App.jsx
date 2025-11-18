@@ -93,6 +93,20 @@ function Home() {
   return (
     <div style={{ padding: '2rem', fontFamily: 'Arial', maxWidth: '600px', margin: '0 auto' }}>
       <h1>General Admission Tickets</h1>
+      
+      {/* Test Mode Notice */}
+      <div style={{
+        background: '#fef3c7',
+        border: '2px solid #f59e0b',
+        borderRadius: '8px',
+        padding: '12px 16px',
+        marginBottom: '24px',
+        fontSize: '14px',
+        color: '#92400e',
+        textAlign: 'center'
+      }}>
+        🧪 <strong>TEST MODE:</strong> Use card <code style={{ background: '#fde68a', padding: '2px 6px', borderRadius: '4px' }}>4242 4242 4242 4242</code> • Exp: any future date • CVC: any 3 digits
+      </div>
 
       <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
         <input
