@@ -47,8 +47,20 @@ export default function Success() {
         lineHeight: '1.6'
       }}>
         🎉 Your ticket purchase is complete!<br />
-        Check your email for your QR code tickets.
+        <strong>Your tickets are being processed and will be emailed to you in a few seconds.</strong>
       </p>
+
+      <div style={{
+        background: '#f0f9ff',
+        border: '2px solid #3b82f6',
+        borderRadius: '8px',
+        padding: '16px',
+        marginBottom: '24px',
+        fontSize: '14px',
+        color: '#1e40af'
+      }}>
+        ⏱️ <strong>Processing:</strong> You'll receive an email with your QR code ticket{sessionId ? 's' : ''} shortly. Check your inbox (and spam folder just in case)!
+      </div>
 
       {/* Session Info */}
       {sessionId && (
