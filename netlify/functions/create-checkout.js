@@ -96,7 +96,7 @@ exports.handler = async (event) => {
       return jsonResponse(500, { error: 'Stripe not configured' });
     }
 
-    const siteUrl = process.env.SITE_URL || 'http://localhost:8888';
+    const siteUrl = process.env.SITE_URL || 'http://localhost:5173';
 
     console.log('Creating Stripe session with:', { 
       email, 
@@ -110,8 +110,8 @@ exports.handler = async (event) => {
       mode: 'payment',
       payment_method_types: ['card'],
       customer_email: email,
-      success_url: `${siteUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}`,
+      success_url: 'http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: 'http://localhost:5173',
       metadata: {
         email,
         name,
