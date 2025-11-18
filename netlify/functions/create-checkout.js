@@ -96,7 +96,7 @@ exports.handler = async (event) => {
       return jsonResponse(500, { error: 'Stripe not configured' });
     }
 
-    const siteUrl = process.env.SITE_URL || 'http://localhost:5173';
+    const siteUrl = process.env.SITE_URL || 'http://localhost:8888';
 
     console.log('Creating Stripe session with:', { 
       email, 
@@ -129,7 +129,13 @@ exports.handler = async (event) => {
     });
 
     console.log('✅ Stripe session created:', session.id);
-    return jsonResponse(200, { sessionId: session.id });
+    console.log('✅ Checkout URL:', session.url);
+    
+    // Return URL for direct redirect (simpler method)
+    return jsonResponse(200, { 
+      url: session.url,
+      sessionId: session.id // fallback for old method
+    });
   } catch (error) {
     console.error('CREATE-CHECKOUT ERROR:', error);
     return jsonResponse(500, { error: error.message });

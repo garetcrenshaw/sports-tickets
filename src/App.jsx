@@ -55,15 +55,26 @@ function Home() {
       const data = await response.json()
       console.log('✅ Received session:', data);
       
-      const stripe = await stripePromise
-      console.log('🔄 Redirecting to Stripe Checkout...');
-      
-      const { error } = await stripe.redirectToCheckout({ sessionId: data.sessionId })
-
-      if (error) {
-        console.error('❌ Stripe redirect error:', error);
-        throw error
+      // Use direct URL redirect (simpler, recommended method)
+      if (data.url) {
+        console.log('🔄 Redirecting to Stripe Checkout URL...');
+        window.location.href = data.url;
+        return;
       }
+      
+      // Fallback: use old redirectToCheckout method
+      if (data.sessionId) {
+        console.log('🔄 Using fallback redirectToCheckout method...');
+        const stripe = await stripePromise;
+        const { error } = await stripe.redirectToCheckout({ sessionId: data.sessionId });
+        if (error) {
+          console.error('❌ Stripe redirect error:', error);
+          throw error;
+        }
+        return;
+      }
+      
+      throw new Error('No redirect URL or session ID received from server');
     } catch (error) {
       console.error('❌ Checkout error:', error)
       setMessage(error.message || 'Purchase failed. Please try again.')
