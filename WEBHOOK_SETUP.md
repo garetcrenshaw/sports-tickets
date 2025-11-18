@@ -1,355 +1,297 @@
-# 🔗 Stripe Webhook Setup Guide
+# 🔔 Stripe Webhook Setup Instructions
 
-## 📋 Prerequisites
+## ⚠️ CRITICAL: Complete These Steps for Tickets to Work
 
-Before setting up the webhook, you need:
-- ✅ Stripe account (test mode)
-- ✅ Supabase project
-- ✅ Resend account
+The webhook is what creates tickets and sends emails after payment. Without it, customers will pay but receive nothing.
 
 ---
 
-## 1️⃣ Create Supabase Table
+## 📋 Prerequisites
 
-### **SQL to Run in Supabase SQL Editor:**
+Make sure you have these in your `.env` file:
+
+```bash
+# Stripe
+STRIPE_SECRET_KEY=sk_test_51SNPmW...  ✅ (you already have this)
+STRIPE_WEBHOOK_SECRET=whsec_...       ❌ (get from step 4 below)
+
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...  (service role, not anon)
+
+# Resend
+RESEND_API_KEY=re_...
+```
+
+---
+
+## 🎯 Step 1: Set Up Supabase Database
+
+### **A. Create the `tickets` table:**
+
+Go to Supabase SQL Editor and run:
 
 ```sql
--- Create tickets table
-CREATE TABLE IF NOT EXISTS public.tickets (
+CREATE TABLE tickets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ticket_id TEXT UNIQUE NOT NULL,
-  event_id INTEGER NOT NULL,
+  event_id TEXT NOT NULL,
   ticket_type TEXT NOT NULL,
   purchaser_name TEXT NOT NULL,
   purchaser_email TEXT NOT NULL,
   qr_code_url TEXT NOT NULL,
-  status TEXT DEFAULT 'valid' CHECK (status IN ('valid', 'used', 'cancelled')),
+  status TEXT NOT NULL DEFAULT 'valid',
   stripe_session_id TEXT,
-  price_cents INTEGER,
-  scanned_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  price_paid_cents INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  used_at TIMESTAMPTZ,
+  validated_by TEXT
 );
 
--- Create index on ticket_id for fast lookups
-CREATE INDEX IF NOT EXISTS idx_tickets_ticket_id ON public.tickets(ticket_id);
-
--- Create index on email for customer lookups
-CREATE INDEX IF NOT EXISTS idx_tickets_email ON public.tickets(purchaser_email);
-
--- Create index on status for filtering
-CREATE INDEX IF NOT EXISTS idx_tickets_status ON public.tickets(status);
-
--- Enable Row Level Security (RLS)
-ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
-
--- Policy: Allow service role to do everything
-CREATE POLICY "Service role has full access" ON public.tickets
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
-
--- Policy: Users can read their own tickets (for future customer portal)
-CREATE POLICY "Users can view their own tickets" ON public.tickets
-  FOR SELECT
-  TO authenticated
-  USING (purchaser_email = auth.jwt()->>'email');
+-- Create index for faster lookups
+CREATE INDEX idx_tickets_ticket_id ON tickets(ticket_id);
+CREATE INDEX idx_tickets_email ON tickets(purchaser_email);
+CREATE INDEX idx_tickets_status ON tickets(status);
 ```
 
----
+### **B. Create the `qrcodes` storage bucket:**
 
-## 2️⃣ Create Supabase Storage Bucket
+1. Go to **Storage** in Supabase dashboard
+2. Click **New bucket**
+3. Name: `qrcodes`
+4. **✅ Make it PUBLIC** (so QR codes can be displayed in emails)
+5. Click **Create bucket**
 
-### **In Supabase Dashboard:**
-
-1. Go to **Storage** → Click **New bucket**
-2. **Name:** `qrcodes`
-3. **Public bucket:** ✅ **YES** (check this box)
-4. Click **Create bucket**
-
-### **Set Bucket Policies:**
-
-Go to **Storage** → **qrcodes** → **Policies** → Click **New policy**
+### **C. Set bucket policy (make QR codes public):**
 
 ```sql
--- Policy: Allow public read access to QR codes
-CREATE POLICY "Public Access"
+-- Allow public read access to qrcodes bucket
+CREATE POLICY "Public QR codes are viewable by everyone"
 ON storage.objects FOR SELECT
-TO public
-USING ( bucket_id = 'qrcodes' );
+USING (bucket_id = 'qrcodes');
 
--- Policy: Allow service role to upload QR codes
-CREATE POLICY "Service role can upload"
+-- Allow service role to upload
+CREATE POLICY "Service role can upload QR codes"
 ON storage.objects FOR INSERT
-TO service_role
-WITH CHECK ( bucket_id = 'qrcodes' );
+WITH CHECK (bucket_id = 'qrcodes' AND auth.role() = 'service_role');
 ```
 
 ---
 
-## 3️⃣ Get Your API Keys
+## 🌐 Step 2: Set Up Resend for Emails
 
-### **Stripe:**
-1. Go to: https://dashboard.stripe.com/test/apikeys
-2. Copy **Secret key** (starts with `sk_test_`)
-3. We'll get the webhook secret in the next step
+### **A. Sign up for Resend:**
+1. Go to https://resend.com
+2. Sign up (free tier = 100 emails/day, 3,000/month)
+3. Verify your email
 
-### **Supabase:**
-1. Go to: https://supabase.com/dashboard/project/YOUR_PROJECT/settings/api
-2. Copy **Project URL** (e.g., `https://abc123.supabase.co`)
-3. Copy **anon public** key (starts with `eyJ...`)
-4. Copy **service_role** key (starts with `eyJ...`) - ⚠️ **Keep this secret!**
+### **B. Get API Key:**
+1. Go to **API Keys** in dashboard
+2. Click **Create API Key**
+3. Name: "Sports Tickets Webhook"
+4. Copy the key (starts with `re_...`)
+5. Add to `.env`:
+   ```
+   RESEND_API_KEY=re_your_key_here
+   ```
 
-### **Resend:**
-1. Go to: https://resend.com/api-keys
-2. Create new API key
-3. Copy the key (starts with `re_`)
+### **C. (Optional) Add verified domain:**
+For production, verify your domain to send from `tickets@yourdomain.com` instead of `onboarding@resend.dev`.
 
 ---
 
-## 4️⃣ Update Your .env File
+## 🪝 Step 3: Test Webhook Locally with Stripe CLI
 
-Add these to `/Users/garetcrenshaw/Desktop/sports-tickets/.env`:
-
+### **A. Install Stripe CLI:**
 ```bash
-# Stripe Keys
-STRIPE_SECRET_KEY=sk_test_51SNPmWRzFa5vaG1DqEMGZ6XaFvJRGJt6cL1J8GYFiNyHQlvehjAsWtkWXUCjL3s1gTfc01IlmuUyFzPYLF8QlTy500kOSBuhwf
-STRIPE_WEBHOOK_SECRET=whsec_YOUR_WEBHOOK_SECRET_HERE
+# Mac
+brew install stripe/stripe-cli/stripe
 
-# Supabase Keys
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your_anon_public_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
-
-# Resend Key
-RESEND_API_KEY=re_your_resend_key_here
-
-# Other
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key
-GA_PRICE_ID=price_1STzm4RzFa5vaG1DBe0qzBRZ
-VALIDATE_PASSWORD=staff123
-SITE_URL=http://localhost:5173
+# Or download from: https://stripe.com/docs/stripe-cli
 ```
 
----
-
-## 5️⃣ Set Up Stripe Webhook (Local Testing)
-
-### **Option A: Using Stripe CLI (Recommended for Local)**
-
-1. **Install Stripe CLI:**
-   ```bash
-   # macOS
-   brew install stripe/stripe-cli/stripe
-   
-   # Or download from: https://stripe.com/docs/stripe-cli
-   ```
-
-2. **Login to Stripe:**
-   ```bash
-   stripe login
-   ```
-
-3. **Forward webhooks to your local server:**
-   ```bash
-   stripe listen --forward-to http://localhost:3001/.netlify/functions/stripe-webhook
-   ```
-
-4. **Copy the webhook signing secret:**
-   - The CLI will output: `Ready! Your webhook signing secret is whsec_...`
-   - Copy this to your `.env` as `STRIPE_WEBHOOK_SECRET`
-
-5. **Trigger a test event:**
-   ```bash
-   stripe trigger checkout.session.completed
-   ```
-
-### **Option B: Using ngrok (Alternative)**
-
-1. **Install ngrok:**
-   ```bash
-   brew install ngrok
-   ```
-
-2. **Start ngrok:**
-   ```bash
-   ngrok http 3001
-   ```
-
-3. **Copy the https URL** (e.g., `https://abc123.ngrok.io`)
-
-4. **Add webhook in Stripe Dashboard:**
-   - Go to: https://dashboard.stripe.com/test/webhooks
-   - Click **Add endpoint**
-   - **Endpoint URL:** `https://abc123.ngrok.io/.netlify/functions/stripe-webhook`
-   - **Events to send:** Select `checkout.session.completed`
-   - Click **Add endpoint**
-
-5. **Copy the signing secret:**
-   - Click on your webhook
-   - Click **Reveal** under "Signing secret"
-   - Copy to `.env` as `STRIPE_WEBHOOK_SECRET`
-
----
-
-## 6️⃣ Set Up Stripe Webhook (Production)
-
-### **After Deploying to Netlify:**
-
-1. Go to: https://dashboard.stripe.com/test/webhooks
-2. Click **Add endpoint**
-3. **Endpoint URL:** `https://your-site.netlify.app/.netlify/functions/stripe-webhook`
-4. **Events to send:** `checkout.session.completed`
-5. Click **Add endpoint**
-6. **Copy the signing secret** → Add to Netlify Environment Variables
-
-### **Add to Netlify Environment Variables:**
-
-1. Go to your Netlify site → **Site settings** → **Environment variables**
-2. Add:
-   - `STRIPE_WEBHOOK_SECRET` = `whsec_...`
-   - `SUPABASE_URL` = `https://...`
-   - `SUPABASE_SERVICE_ROLE_KEY` = `eyJ...`
-   - `RESEND_API_KEY` = `re_...`
-
----
-
-## 7️⃣ Test the Complete Flow
-
-### **Start Your Servers:**
-
+### **B. Login to Stripe:**
 ```bash
-# Terminal 1: Frontend
-npm run dev
+stripe login
+```
 
-# Terminal 2: Functions
+### **C. Forward webhooks to your local function:**
+```bash
+# Make sure your function server is running first:
 npm run dev:functions
 
-# Terminal 3: Stripe CLI (if using local webhooks)
+# Then in another terminal:
 stripe listen --forward-to http://localhost:3001/.netlify/functions/stripe-webhook
 ```
 
-### **Make a Test Purchase:**
+**You'll see:**
+```
+> Ready! Your webhook signing secret is whsec_abc123def456... (^C to quit)
+```
+
+### **D. Copy the webhook secret:**
+```bash
+# Add to your .env file:
+STRIPE_WEBHOOK_SECRET=whsec_abc123def456...
+```
+
+### **E. Restart your function server:**
+```bash
+# Terminal with npm run dev:functions
+# Press Ctrl+C, then:
+npm run dev:functions
+```
+
+---
+
+## 🧪 Step 4: Test the Complete Flow
+
+### **A. Make a test purchase:**
 
 1. Open: http://localhost:5173
-2. Fill form with your email
-3. Click "Pay $15.00"
-4. Use test card: `4242 4242 4242 4242`
+2. Fill form:
+   - Name: Test User
+   - Email: your-real-email@gmail.com (use real email to receive!)
+   - Quantity: 2
+3. Click "Pay $30.00"
+4. Use test card: 4242 4242 4242 4242
 5. Complete payment
 
-### **Check Results:**
+### **B. Watch the webhook logs:**
 
-1. **Stripe Dashboard:**
-   - Go to: https://dashboard.stripe.com/test/payments
-   - Should see successful payment
+**Terminal with Stripe CLI:**
+```
+<-- [200] POST http://localhost:3001/.netlify/functions/stripe-webhook [evt_abc123]
+```
 
-2. **Webhook Logs:**
-   - Go to: https://dashboard.stripe.com/test/webhooks
-   - Click your webhook
-   - Check **Recent deliveries**
-   - Should show `checkout.session.completed` with 200 response
+**Terminal with function server:**
+```
+=== STRIPE WEBHOOK RECEIVED ===
+✅ Webhook signature verified
+💳 Processing checkout.session.completed
+Creating 2 tickets for Test User (your-email@gmail.com)
+Creating ticket 1/2...
+✅ Ticket 1/2 created: 123e4567-e89b-12d3-a456-426614174000
+Creating ticket 2/2...
+✅ Ticket 2/2 created: 789e4567-e89b-12d3-a456-426614174999
+✅ All 2 tickets created successfully
+📧 Sending email with all QR codes...
+✅ Email sent successfully
+```
 
-3. **Supabase Database:**
-   - Go to: Supabase → **Table Editor** → `tickets`
-   - Should see new rows (one per ticket quantity)
+### **C. Check your email:**
+You should receive an email with:
+- 2 QR codes (one per ticket)
+- Ticket IDs
+- Instructions
 
-4. **Supabase Storage:**
-   - Go to: Supabase → **Storage** → `qrcodes`
-   - Should see PNG files (one per ticket)
+### **D. Verify in Supabase:**
+```sql
+SELECT * FROM tickets ORDER BY created_at DESC LIMIT 10;
+```
 
-5. **Your Email:**
-   - Check inbox for email with QR codes
-   - Should have nice HTML layout with all tickets
-
-6. **Function Server Logs:**
-   ```
-   POST /.netlify/functions/stripe-webhook
-   === STRIPE WEBHOOK RECEIVED ===
-   ✅ Webhook signature verified
-   💳 Checkout session completed: cs_test_...
-   🎫 Creating 1 tickets for Test User (test@example.com)
-   📝 Creating ticket 1/1: abc-123-def-456
-   ✅ QR code uploaded: abc-123-def-456.png
-   ✅ Ticket 1 saved to database
-   ✅ All 1 tickets created successfully
-   📧 Sending email to test@example.com with 1 QR codes
-   ✅ Email sent via Resend
-   ✅ Email sent successfully
-   ```
+You should see 2 rows with unique `ticket_id` and `qr_code_url` values.
 
 ---
 
-## 🧪 Testing Multiple Tickets
+## 🚀 Step 5: Deploy Webhook to Production
 
-### **Test with Quantity:**
+### **A. Add webhook endpoint in Stripe Dashboard:**
 
-1. Change quantity to 3
-2. Purchase
-3. Check Supabase → should see 3 rows
-4. Check Storage → should see 3 PNG files
-5. Check email → should have 3 QR codes in one email
+1. Go to: https://dashboard.stripe.com/test/webhooks
+2. Click **Add endpoint**
+3. **Endpoint URL:** `https://your-netlify-site.netlify.app/.netlify/functions/stripe-webhook`
+4. **Events to send:** Select `checkout.session.completed`
+5. Click **Add endpoint**
 
----
+### **B. Get the signing secret:**
+1. Click on your newly created webhook
+2. Click **Reveal** under "Signing secret"
+3. Copy the secret (starts with `whsec_...`)
 
-## 🚨 Troubleshooting
+### **C. Add to Netlify environment variables:**
+1. Go to Netlify dashboard → Your site → **Site settings** → **Environment variables**
+2. Add `STRIPE_WEBHOOK_SECRET` with the production value
+3. Click **Save**
 
-### **Webhook not receiving events:**
+### **D. Redeploy:**
+```bash
+git push
+```
 
-- ✅ Check webhook URL is correct
-- ✅ Verify function server is running
-- ✅ Check Stripe CLI is forwarding
-- ✅ Look at Stripe Dashboard → Webhooks → Recent deliveries
-
-### **Signature verification fails:**
-
-- ✅ Check `STRIPE_WEBHOOK_SECRET` in `.env`
-- ✅ Restart function server after updating `.env`
-- ✅ Make sure you're using the correct secret (local vs production)
-
-### **Database insert fails:**
-
-- ✅ Check table exists in Supabase
-- ✅ Verify column names match
-- ✅ Check `SUPABASE_SERVICE_ROLE_KEY` is set
-- ✅ Ensure RLS policies allow service role
-
-### **QR upload fails:**
-
-- ✅ Check bucket 'qrcodes' exists
-- ✅ Verify bucket is public
-- ✅ Check storage policies allow upload
-
-### **Email not sent:**
-
-- ✅ Verify `RESEND_API_KEY` is valid
-- ✅ Check Resend dashboard for logs
-- ✅ Look for email in spam folder
+Netlify will auto-deploy with the new webhook secret.
 
 ---
 
-## ✅ Success Checklist
+## 🎯 Verification Checklist
 
-- [ ] Supabase table `tickets` created
-- [ ] Supabase storage bucket `qrcodes` created and public
-- [ ] All environment variables added to `.env`
-- [ ] Stripe webhook endpoint added
-- [ ] Webhook secret copied to `.env`
-- [ ] Function server restarted
-- [ ] Test purchase completed
-- [ ] Tickets appear in Supabase
-- [ ] QR codes uploaded to Storage
-- [ ] Email received with QR codes
+Before going live, verify:
+
+- [ ] Supabase `tickets` table created with correct columns
+- [ ] Supabase `qrcodes` bucket created and PUBLIC
+- [ ] `.env` has all required keys (Stripe, Supabase, Resend)
+- [ ] Local webhook test succeeded (received email with QR codes)
+- [ ] Stripe CLI forwarding worked without errors
+- [ ] Database shows ticket rows after test purchase
+- [ ] QR code images are accessible via public URLs
+- [ ] Email contains all QR codes for multi-ticket purchases
+- [ ] Production webhook added in Stripe dashboard
+- [ ] Production webhook secret added to Netlify env vars
+
+---
+
+## 🔍 Troubleshooting
+
+### **"Webhook signature verification failed"**
+→ Wrong `STRIPE_WEBHOOK_SECRET`. Get the correct one from Stripe CLI or dashboard.
+
+### **"Supabase upload error"**
+→ Check that `qrcodes` bucket exists and is PUBLIC.
+
+### **"Database insert error"**
+→ Check `SUPABASE_SERVICE_ROLE_KEY` (not anon key) and table exists.
+
+### **"Resend email error"**
+→ Check `RESEND_API_KEY` is correct and account has available sends.
+
+### **No email received**
+→ Check spam folder, verify Resend dashboard for delivery status.
+
+### **Tickets created but no email**
+→ Webhook processed successfully but email failed. Check function logs.
+
+---
+
+## 📊 How It Works
+
+```
+1. User completes payment on Stripe Checkout
+   ↓
+2. Stripe sends webhook to your function
+   ↓
+3. Function verifies webhook signature
+   ↓
+4. Extracts metadata (name, email, quantity)
+   ↓
+5. LOOP: For each ticket (1 to quantity):
+   - Generate unique ticket ID (UUID)
+   - Create QR code image
+   - Upload QR to Supabase Storage
+   - Insert ticket row in database
+   ↓
+6. Send ONE email with ALL QR codes
+   ↓
+7. User receives email with unique tickets
+```
 
 ---
 
 ## 🎉 You're Done!
 
-Your ticket system now:
-- ✅ Accepts payments via Stripe
-- ✅ Generates unique QR codes per ticket
-- ✅ Stores everything in Supabase
-- ✅ Sends beautiful emails with all tickets
-- ✅ Is production-ready!
+Once you complete these steps, your ticket system will:
+- ✅ Generate unique QR codes for each ticket
+- ✅ Store tickets in Supabase
+- ✅ Email QR codes to customers
+- ✅ Work identically in test and production
 
-**Next:** Deploy to Netlify and update webhook URL to production!
-
+**Test it now with Stripe CLI!** 🚀

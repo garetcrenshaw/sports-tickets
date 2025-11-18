@@ -113,12 +113,11 @@ exports.handler = async (event) => {
       success_url: 'http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}',
       cancel_url: 'http://localhost:5173',
       metadata: {
-        email,
-        name,
-        quantity: String(quantity),
+        eventId: String(eventId || '1'),
         ticketType: ticketType || 'General Admission',
-        eventName: 'General Admission',
-        eventId: String(eventId || '1')
+        quantity: String(quantity),
+        name: name,
+        email: email
       },
       line_items: [
         {
