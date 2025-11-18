@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "netlify dev",
+    "dev": "vite","dev:functions": "node dev-server.js",
     "build": "vite build",
     "preview": "vite preview",
     "postbuild": "cp _redirects dist/"

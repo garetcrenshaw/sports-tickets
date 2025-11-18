@@ -1,9 +1,14 @@
-const { getStripeClient, requireEnv } = require('../../src/lib/stripe');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    },
     body: JSON.stringify(body),
   };
 }
@@ -13,13 +18,20 @@ exports.handler = async (event) => {
   console.log('METHOD:', event.httpMethod);
   console.log('BODY:', event.body);
   
+  // Handle CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return jsonResponse(200, {});
+  }
+  
   if (event.httpMethod !== 'POST') {
     return jsonResponse(405, { error: 'Method Not Allowed' });
   }
 
   try {
     const payload = JSON.parse(event.body || '{}');
-    const { email, name, quantity = 1 } = payload;
+    const { email, name, quantity = 1, ticketType, eventId } = payload;
+
+    console.log('Parsed payload:', { email, name, quantity, ticketType, eventId });
 
     if (!email || !name) {
       return jsonResponse(400, { error: 'Name and email are required' });
@@ -29,11 +41,27 @@ exports.handler = async (event) => {
       return jsonResponse(400, { error: 'Quantity must be between 1 and 10' });
     }
 
-    const priceId = requireEnv('GA_PRICE_ID');
-    const stripe = getStripeClient();
+    const priceId = process.env.GA_PRICE_ID;
+    
+    if (!priceId) {
+      console.error('❌ GA_PRICE_ID not found in environment');
+      return jsonResponse(500, { error: 'Price ID not configured' });
+    }
+
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('❌ STRIPE_SECRET_KEY not found in environment');
+      return jsonResponse(500, { error: 'Stripe not configured' });
+    }
+
     const siteUrl = process.env.SITE_URL || 'http://localhost:5173';
 
-    console.log('Creating Stripe session with:', { email, name, quantity, priceId });
+    console.log('Creating Stripe session with:', { 
+      email, 
+      name, 
+      quantity, 
+      priceId,
+      siteUrl 
+    });
     
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -45,8 +73,9 @@ exports.handler = async (event) => {
         email,
         name,
         quantity: String(quantity),
+        ticketType: ticketType || 'General Admission',
         eventName: 'General Admission',
-        eventId: '1'
+        eventId: String(eventId || '1')
       },
       line_items: [
         {
