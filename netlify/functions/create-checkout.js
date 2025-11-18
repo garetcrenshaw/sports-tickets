@@ -74,7 +74,7 @@ exports.handler = async (event) => {
     const payload = JSON.parse(event.body || '{}');
     const { email, name, quantity = 1, ticketType, eventId } = payload;
 
-    console.log('Parsed payload:', { email, name, quantity, ticketType, eventId });
+    console.log('🎫 CREATE-CHECKOUT: Parsed payload:', { email, name, quantity, ticketType, eventId });
 
     if (!email || !name) {
       return jsonResponse(400, { error: 'Name and email are required' });
@@ -98,12 +98,21 @@ exports.handler = async (event) => {
 
     const siteUrl = process.env.SITE_URL || 'http://localhost:5173';
 
-    console.log('Creating Stripe session with:', { 
+    const metadata = {
+      eventId: String(eventId || '1'),
+      ticketType: ticketType || 'General Admission',
+      quantity: String(quantity),
+      name: name,
+      email: email
+    };
+    
+    console.log('🎫 CREATE-CHECKOUT: Creating Stripe session with:', { 
       email, 
       name, 
       quantity, 
       priceId,
-      siteUrl 
+      siteUrl,
+      metadata 
     });
     
     const session = await stripe.checkout.sessions.create({
@@ -112,13 +121,7 @@ exports.handler = async (event) => {
       customer_email: email,
       success_url: 'http://localhost:5173/success?session_id={CHECKOUT_SESSION_ID}',
       cancel_url: 'http://localhost:5173',
-      metadata: {
-        eventId: String(eventId || '1'),
-        ticketType: ticketType || 'General Admission',
-        quantity: String(quantity),
-        name: name,
-        email: email
-      },
+      metadata: metadata,
       line_items: [
         {
           price: priceId,
