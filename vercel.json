@@ -1,46 +1,23 @@
 {
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
-    },
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    }
-  ],
   "functions": {
-    "api/*.js": {
+    "api/**/*.js": {
       "maxDuration": 60,
-      "memory": 256
+      "memory": 1024
     }
   },
-  "cleanUrls": true,
-  "regions": ["iad1"],
-  "redirects": [
+  "rewrites": [
     {
-      "source": "/:path*",
-      "destination": "https://gamedaytickets.io/:path*",
-      "permanent": true,
+      "source": "/(.*)",
       "has": [
-        { "type": "host", "value": "gamedaytickets.io" },
-        { "type": "header", "key": "x-forwarded-proto", "value": "http" }
-      ]
-    },
-    {
-      "source": "/:path*",
-      "destination": "https://www.gamedaytickets.io/:path*",
-      "permanent": true,
-      "has": [
-        { "type": "host", "value": "www.gamedaytickets.io" },
-        { "type": "header", "key": "x-forwarded-proto", "value": "http" }
-      ]
+        {
+          "type": "header",
+          "key": "accept",
+          "value": "text/html.*"
+        }
+      ],
+      "destination": "/index.html"
     }
   ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/(.*)", "dest": "/index.html" }
-  ]
+  "cleanUrls": true,
+  "trailingSlash": false
 }
-
