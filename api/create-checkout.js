@@ -34,8 +34,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const SITE_URL = process.env.SITE_URL?.trim()
-      ? process.env.SITE_URL.trim().replace(/\/$/, '')
-      : `http://localhost:${process.env.PORT || 3000}`;
+      || `http://localhost:${process.env.PORT || 3000}`;
     console.log('FINAL SITE_URL LOCKED TO:', SITE_URL);
 
     const payload = await readJson(req);
