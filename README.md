@@ -1,179 +1,147 @@
-# Sports Tickets App
+# Gameday Empire – Sports Ticketing Experience
 
-A full-featured ticket purchasing system built with React, Netlify Functions, Stripe Checkout, and Supabase.
+End-to-end ticketing flow inspired by Ticketmaster, SeatGeek, and every high-performing indie platform in 2025:
 
-## Features
+- Single event page with **one cart** for admission + parking.
+- **Stripe Checkout** for ultra-fast conversion.
+- **Supabase** stores both tickets and parking passes (each with unique QR codes).
+- **Resend** delivers beautiful, adaptive emails (tickets only, parking only, or bundled).
+- **Netlify Functions** handle all backend logic with bulletproof logging and schema fallbacks.
 
-- **Multi-ticket purchase**: Select 1-10 General Admission tickets
-- **Stripe Checkout integration**: Secure payment processing
-- **Email delivery**: Automatic ticket emails with QR codes via Resend
-- **Ticket validation**: Staff-only validation with password protection
-- **Webhook handling**: Automated ticket generation on successful payment
+## ✨ Highlights
 
-## Local Development
+- Fans can mix **up to 10 Gameday Tickets**, **4 Gameday Parking** passes, and stack **Gameday All-Access bundles** (each bundle = 1 ticket + 1 parking).
+- Live totals, bundle badge, and “Most fans add parking” cues lift AOV.
+- Webhook auto-creates the `qrcodes` bucket, writes to both `tickets` and `parking_passes`, and emails a gorgeous bundle confirmation.
+- Schema-cache fallback guarantees rows insert even when Supabase metadata lags.
 
-### Prerequisites
+---
 
-- Node.js 18+
-- Netlify CLI (`npm install -g netlify-cli`)
-- Stripe test account
-- Supabase project
-- Resend API key
+## 🚀 Quick Start
 
-### Setup
+### 1. Install dependencies
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Configure environment variables:**
-   
-   Copy `.env.example` to `.env` and fill in your credentials:
-   ```bash
-   cp .env.example .env
-   ```
-
-   Required variables:
-   - `VITE_STRIPE_PUBLISHABLE_KEY` - Stripe test publishable key (pk_test_...)
-   - `STRIPE_SECRET_KEY` - Stripe test secret key (sk_test_...)
-   - `GA_PRICE_ID` - Stripe Price ID for General Admission (price_...)
-   - `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret (whsec_...)
-   - `SUPABASE_URL` - Your Supabase project URL
-   - `SUPABASE_ANON_KEY` - Supabase anon key
-   - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
-   - `RESEND_API_KEY` - Resend API key (re_...)
-   - `VALIDATE_PASSWORD` - Staff password for ticket validation
-   - `SITE_URL` - Your site URL (http://localhost:8888 for dev)
-
-3. **Start development server:**
-   ```bash
-   npm run dev
-   ```
-
-   This starts Netlify Dev which serves:
-   - Frontend: `http://localhost:8888`
-   - Functions: `http://localhost:8888/.netlify/functions/*`
-
-4. **Test Stripe payments:**
-   
-   Use test card: `4242 4242 4242 4242`
-   - Any future expiry date
-   - Any 3-digit CVC
-   - Any ZIP code
-
-### Database Schema
-
-Required Supabase table:
-
-```sql
-CREATE TABLE tickets (
-  id TEXT PRIMARY KEY,
-  session_id TEXT NOT NULL,
-  ticket_number INTEGER NOT NULL,
-  email TEXT NOT NULL,
-  name TEXT NOT NULL,
-  event_id INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  qr_code_url TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  validated_at TIMESTAMP
-);
-```
-
-### Stripe Webhook Setup
-
-1. In Stripe Dashboard → Developers → Webhooks
-2. Add endpoint: `https://your-site.netlify.app/webhook`
-3. Select event: `checkout.session.completed`
-4. Copy signing secret to `STRIPE_WEBHOOK_SECRET`
-
-For local testing:
 ```bash
-stripe listen --forward-to localhost:8888/webhook
+npm install
 ```
 
-## Project Structure
+### 2. Create `.env`
+
+Supply these variables (test values shown for reference):
 
 ```
-sports-tickets/
-├── netlify/
-│   └── functions/           # Serverless functions
-│       ├── create-checkout.js   # Creates Stripe Checkout session
-│       ├── webhook.js           # Handles Stripe webhooks
-│       ├── send-ticket.js       # Sends ticket emails
-│       ├── validate-ticket.js   # Validates tickets
-│       └── get-events.js        # Returns event data
-├── src/
-│   ├── lib/                # Shared utilities
-│   │   ├── stripe.js           # Stripe client helper
-│   │   ├── db.js               # Supabase helper
-│   │   └── qr.js               # QR code generation
-│   ├── pages/              # React pages
-│   │   ├── Success.jsx         # Payment success page
-│   │   └── Validate.jsx        # Ticket validation page
-│   └── App.jsx             # Main app component
-├── netlify.toml            # Netlify configuration
-├── .env.example            # Environment variable template
-└── package.json
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+STRIPE_SECRET_KEY=sk_test_xxx
+GA_PRICE_ID=price_general_admission
+PARKING_PRICE_ID=price_parking_pass
+ALL_ACCESS_PRICE_ID=price_all_access_bundle
+SITE_URL=http://localhost:3000
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=public-anon-key
+SUPABASE_SERVICE_ROLE_KEY=service-role-key
+RESEND_API_KEY=re_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+VALIDATE_PASSWORD=staff123
 ```
 
-## Deployment
+> ℹ️ Stripe CLI prints a fresh `whsec_...` every time you run `stripe listen`. Paste it into `.env` and restart the function server.
 
-### Netlify Setup
+### 3. Run everything (3 terminals)
 
-1. **Connect repository** to Netlify
-2. **Build settings:**
-   - Build command: `npm run build`
-   - Publish directory: `dist`
-3. **Environment variables:**
-   
-   Add all variables from `.env.example` in Netlify dashboard:
-   - Site settings → Environment variables → Add variables
-   - Use your production Stripe keys (pk_live_..., sk_live_...)
+```
+# Terminal 1 – Vite frontend
+npm run dev
 
-4. **Deploy:**
-   ```bash
-   git push origin main
-   ```
+# Terminal 2 – Netlify-style functions
+npm run dev:functions
 
-### Post-Deployment
+# Terminal 3 – Stripe webhook forwarding
+stripe listen --forward-to http://localhost:3001/.netlify/functions/stripe-webhook
+```
 
-1. Update Stripe webhook endpoint to production URL
-2. Test complete purchase flow with test cards
-3. Switch to live Stripe keys when ready for production
+Visit `http://localhost:3000` → click **Get Tickets + Parking**.
 
-## Troubleshooting
+### 4. Pay with Stripe test card
 
-### 404 on `/api/create-checkout`
+```
+4242 4242 4242 4242
+Any future expiry
+Any 3-digit CVC
+```
 
-- Check `netlify.toml` has correct redirects
-- Verify function exists at `netlify/functions/create-checkout.js`
-- Check Netlify function logs
+Within seconds you’ll see:
 
-### "Purchase failed" error
+- Terminal 3 logging `checkout.session.completed`.
+- Terminal 2 exploding with logs (bucket creation, ticket/parking inserts, email).
+- Inbox receives the adaptive email with QR codes.
 
-- Check browser console for detailed error logs
-- Verify all environment variables are set
-- Check Stripe dashboard for failed payments
-- Review Netlify function logs
+---
 
-### Emails not sending
+## 🗄️ Supabase Schema
 
-- Verify `RESEND_API_KEY` is set correctly
-- Check Resend dashboard for email logs
-- Verify sender email is authorized in Resend
+Run `SUPABASE_SETUP.sql` inside the Supabase SQL editor. It creates:
 
-### Tickets not created
+- `tickets` – general admission records.
+- `parking_passes` – parking QR catalog with identical columns.
+- Storage policies for the `qrcodes` bucket (the webhook also auto-creates this bucket if missing).
 
-- Check webhook signature verification
-- Verify `STRIPE_WEBHOOK_SECRET` matches Stripe dashboard
-- Review webhook function logs in Netlify
+Indexes exist on `ticket_id`, `status`, and `purchaser_email` for fast scans.
 
-## Support
+---
 
-For issues or questions, check:
-- Netlify function logs
-- Browser developer console
-- Stripe dashboard logs
-- Supabase database logs
+## 🧠 Functions Overview
+
+| File | Purpose |
+| --- | --- |
+| `netlify/functions/create-checkout.js` | Builds Stripe Checkout line items dynamically (tickets + parking) and attaches metadata. |
+| `netlify/functions/stripe-webhook.js` | Verifies signatures, auto-creates storage buckets, inserts into `tickets` and `parking_passes` (with schema fallback), uploads QR codes, and sends the adaptive Resend email. |
+| `src/App.jsx` | Landing page + single event experience with live totals, bundle messaging, and checkout button. |
+
+Other helper scripts (`START.md`, `START_ALL_SERVERS.md`, etc.) explain the local workflow, Stripe CLI usage, and troubleshooting.
+
+---
+
+## 🧩 Environment Variables Explained
+
+| Variable | Why it matters |
+| --- | --- |
+| `GA_PRICE_ID` | Stripe Price ID for general admission. |
+| `PARKING_PRICE_ID` | Stripe Price ID for the parking product. |
+| `SITE_URL` | Used for success/cancel URLs (defaults to `http://localhost:3000`). |
+| `STRIPE_WEBHOOK_SECRET` | From `stripe listen ...`. Required for verifying webhook signatures. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Needed so the webhook can write to `tickets` + `parking_passes` and upload to storage. |
+
+Bundle both price IDs into the same checkout to mirror Ticketmaster’s best practice: one payment, highest AOV.
+
+---
+
+## 🧪 Validation & Staff Tools
+
+- `/validate` remains for scanning/validating QR codes (protected by `VALIDATE_PASSWORD`).
+- `/success` now educates fans that parking + tickets arrive in a single email.
+
+---
+
+## 📦 Deploying to Netlify
+
+1. **Build command:** `npm run build`
+2. **Publish directory:** `dist`
+3. **Functions folder:** `netlify/functions`
+4. Replicate all env vars from `.env`.
+5. Update Stripe webhook endpoint to point at `https://your-site.netlify.app/.netlify/functions/stripe-webhook`.
+
+---
+
+## 🛠️ Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| Checkout returns 400 | Ensure at least one ticket or parking pass is selected. |
+| Webhook never fires | Stripe CLI not forwarding (check Terminal 3). |
+| “Bucket not found” | Already solved – webhook auto-creates bucket. |
+| `PGRST204 column not found` | Auto-resolved – webhook retries with fallback payload and logs `Used fallback insert...`. |
+| No email | Verify `RESEND_API_KEY` and check Resend dashboard. |
+
+---
+
+You now have a **$100M-grade ticketing UX**: one page, one cart, max revenue. Fire it up, test with the Stripe CLI, and watch each purchase produce tickets + parking like the pros. 🎟🚗

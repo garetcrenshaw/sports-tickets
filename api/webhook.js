@@ -7,16 +7,8 @@ const { setCors, sendJson, end, readRawBody } = require('./_utils');
 
 const stripe = getStripeClient();
 
-function resolveSiteUrl() {
-  if (process.env.NODE_ENV === 'development') {
-    const port = process.env.PORT || 3000;
-    return `http://localhost:${port}`.replace(/\/$/, '');
-  }
-  const configured = process.env.SITE_URL || 'http://localhost:3000';
-  return configured.replace(/\/$/, '');
-}
-
-const SITE_URL = resolveSiteUrl();
+const SITE_URL = process.env.SITE_URL?.trim()
+  || `http://localhost:${process.env.PORT || 3000}`;
 console.log('WEBHOOK SITE_URL LOCKED TO:', SITE_URL);
 
 async function handleCheckoutSession(session) {

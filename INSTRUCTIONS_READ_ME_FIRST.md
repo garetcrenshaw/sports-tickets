@@ -22,7 +22,7 @@ This means:
 5. Click "**Copy**"
 6. You should have copied something like:
    ```
-   sk_test_51ABC123def456GHI789jkl012MNO345pqr678STU901vwx234YZA567bcd890
+   sk_test_your_full_key_here
    ```
    (Length: ~90-100 characters)
 
@@ -65,7 +65,7 @@ This means:
 
 ## 🧪 Test Again
 
-1. Open: http://localhost:5173
+1. Open: http://localhost:3000
 2. Try purchasing a ticket
 3. Check the function server logs for detailed validation
 

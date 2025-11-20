@@ -108,7 +108,7 @@ module.exports = async function handler(req, res) {
       payment_method_types: ['card'],
       customer_email: email,
       success_url: `${SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: SITE_URL,
+      cancel_url: `${SITE_URL}/`,
       metadata,
       line_items: lineItems,
     });

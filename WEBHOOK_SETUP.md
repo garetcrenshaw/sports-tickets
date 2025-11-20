@@ -12,7 +12,7 @@ Make sure you have these in your `.env` file:
 
 ```bash
 # Stripe
-STRIPE_SECRET_KEY=sk_test_51SNPmW...  ✅ (you already have this)
+STRIPE_SECRET_KEY=sk_test_your_secret_here  ✅ (you already have this)
 STRIPE_WEBHOOK_SECRET=whsec_...       ❌ (get from step 4 below)
 
 # Supabase
@@ -148,7 +148,7 @@ npm run dev:functions
 
 ### **A. Make a test purchase:**
 
-1. Open: http://localhost:5173
+1. Open: http://localhost:3000
 2. Fill form:
    - Name: Test User
    - Email: your-real-email@gmail.com (use real email to receive!)

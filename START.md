@@ -7,16 +7,18 @@
    VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
    STRIPE_SECRET_KEY=sk_test_...
    GA_PRICE_ID=price_1STzm4RzFa5vaG1DBe0qzBRZ
+   PARKING_PRICE_ID=price_parking_test
+   ALL_ACCESS_PRICE_ID=price_all_access_bundle
    SUPABASE_URL=https://...
    SUPABASE_ANON_KEY=...
    SUPABASE_SERVICE_ROLE_KEY=...
    RESEND_API_KEY=...
    STRIPE_WEBHOOK_SECRET=whsec_...
    VALIDATE_PASSWORD=staff123
-   SITE_URL=http://localhost:5173
+   SITE_URL=http://localhost:3000
    ```
 
-## 🎯 Run Locally (2 Terminal Windows)
+## 🎯 Run Locally (3 Terminal Windows)
 
 ### Terminal 1: Start Frontend (Vite)
 ```bash
@@ -26,7 +28,7 @@ npm run dev
 **Expected output:**
 ```
 VITE v5.4.21  ready in 240 ms
-➜  Local:   http://localhost:5173/
+➜  Local:   http://localhost:3000/
 ```
 
 ### Terminal 2: Start Backend Functions
@@ -40,15 +42,27 @@ npm run dev:functions
 📡 Ready to serve functions at /.netlify/functions/*
 ```
 
+### Terminal 3: Forward Stripe Webhooks
+```bash
+stripe listen --forward-to http://localhost:3001/.netlify/functions/stripe-webhook
+```
+**Expected output:**
+```
+Ready! ... Your webhook signing secret is whsec_XXXXXXXX
+```
+> Paste the new `whsec_...` into `.env`, then restart Terminal 2 so the function server picks up the secret.
+
 ## 🧪 Test Your App
 
-1. **Open browser:** http://localhost:5173
-2. **Fill the form:**
-   - Name: Test User
-   - Email: garetcrenshaw@gmail.com
-   - Quantity: 1
-3. **Click "Pay $15.00"**
-4. **Use Stripe test card:**
+1. **Open browser:** http://localhost:3000
+2. Click **Get Tickets + Parking**
+3. **Fill the event form:**
+   - Name / Email
+   - Set Gameday Tickets (0–10)
+   - Set Gameday Parking (0–4)
+   - Set Gameday All-Access bundles (0–4)
+4. **Click "Proceed to Checkout"**
+5. **Use Stripe test card:**
    - Card: 4242 4242 4242 4242
    - Expiry: Any future date
    - CVC: Any 3 digits
@@ -56,22 +70,10 @@ npm run dev:functions
 
 ## ✅ What Should Happen
 
-1. **Console logs:**
-   ```
-   🛒 Calling /api/create-checkout with: {...}
-   📡 Response status: 200
-   ✅ Received session: { sessionId: "cs_test_..." }
-   🔄 Redirecting to Stripe Checkout...
-   ```
-
-2. **Redirect to Stripe:**
-   - You'll see Stripe's checkout page
-   - Complete payment with test card
-   - Redirect to /success page
-
-3. **Email sent:**
-   - QR code email to garetcrenshaw@gmail.com
-   - Contains ticket details
+1. **Terminal 3** logs `checkout.session.completed` plus other Stripe events (charge/payment_intent).
+2. **Terminal 2** explodes with step-by-step logs: bucket check, QR uploads, ticket + parking inserts, email send.
+3. **Browser** redirects to Stripe Checkout → pay → land on `/success`.
+4. **Email sent:** One message containing both the blue ticket section and (if added) orange parking passes.
 
 ## 🔧 Troubleshooting
 
@@ -79,7 +81,7 @@ npm run dev:functions
 
 **Check:**
 1. Both servers are running
-2. Terminal 1 shows Vite on :5173
+2. Terminal 1 shows Vite on :3000
 3. Terminal 2 shows functions on :3001
 4. No errors in either terminal
 
@@ -87,8 +89,9 @@ npm run dev:functions
 
 **Fix:**
 ```bash
-# Make sure .env has:
+# Make sure .env has BOTH price IDs:
 GA_PRICE_ID=price_1STzm4RzFa5vaG1DBe0qzBRZ
+PARKING_PRICE_ID=price_parking_test
 ```
 
 ### ❌ Function server crashes
@@ -115,7 +118,7 @@ npm run dev:functions    # Terminal 2
 ```
 Browser
   ↓
-http://localhost:5173/api/create-checkout (POST)
+http://localhost:3000/api/create-checkout (POST)
   ↓
 Vite Proxy (rewrites /api → /.netlify/functions)
   ↓
