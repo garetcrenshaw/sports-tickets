@@ -1,18 +1,12 @@
-const { getStripeClient, requireEnv } = require('../../src/lib/stripe');
-const { createTickets } = require('../../src/lib/db');
-const { generateTicketQr } = require('../../src/lib/qr');
+// Vercel config: maxDuration 60
+const { getStripeClient, requireEnv } = require('../src/lib/stripe');
+const { createTickets } = require('../src/lib/db');
+const { generateTicketQr } = require('../src/lib/qr');
 const { sendTicketsEmail } = require('./send-ticket');
+const { setCors, sendJson, end, readRawBody } = require('./_utils');
 
 const stripe = getStripeClient();
 const SITE_URL = process.env.SITE_URL || 'http://localhost:5173';
-
-function jsonResponse(statusCode, body) {
-  return {
-    statusCode,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  };
-}
 
 async function handleCheckoutSession(session) {
   const metadata = session.metadata || {};
@@ -60,15 +54,21 @@ async function handleCheckoutSession(session) {
   });
 }
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return jsonResponse(405, { error: 'Method Not Allowed' });
+module.exports = async function handler(req, res) {
+  setCors(res);
+
+  if (req.method === 'OPTIONS') {
+    return end(res, 200);
+  }
+
+  if (req.method !== 'POST') {
+    return sendJson(res, 405, { error: 'Method Not Allowed' });
   }
 
   try {
     const webhookSecret = requireEnv('STRIPE_WEBHOOK_SECRET');
-    const signature = event.headers['stripe-signature'];
-    const rawBody = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body;
+    const rawBody = (await readRawBody(req)).toString('utf8');
+    const signature = req.headers['stripe-signature'];
 
     const stripeEvent = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
 
@@ -76,13 +76,10 @@ exports.handler = async (event) => {
       await handleCheckoutSession(stripeEvent.data.object);
     }
 
-    return jsonResponse(200, { received: true });
+    return sendJson(res, 200, { received: true });
   } catch (error) {
     console.error('WEBHOOK ERROR:', error);
-    return jsonResponse(400, { error: error.message });
+    return sendJson(res, 400, { error: error.message });
   }
 };
 
-exports.config = {
-  bodyParser: false,
-};

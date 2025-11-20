@@ -1,4 +1,0 @@
-/*    /.netlify/functions/:splat  200
-/*    /index.html   200
-http://gamedaytickets.io/*      https://gamedaytickets.io/:splat  301!
-http://www.gamedaytickets.io/*  https://www.gamedaytickets.io/:splat  301!

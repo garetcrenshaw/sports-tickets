@@ -1,5 +1,6 @@
 const { Resend } = require('resend');
-const { requireEnv } = require('../../src/lib/stripe');
+const { requireEnv } = require('../src/lib/stripe');
+const { setCors, sendJson, end, readJson } = require('./_utils');
 
 const resend = new Resend(requireEnv('RESEND_API_KEY'));
 
@@ -22,7 +23,7 @@ async function sendTicketsEmail({ email, name, eventName, totalAmount, tickets }
   }
 
   const subject = tickets.length === 1
-    ? `Your General Admission Ticket`
+    ? 'Your General Admission Ticket'
     : `Your ${tickets.length} General Admission Tickets`;
 
   const ticketsHtml = buildTicketsHtml(tickets);
@@ -36,7 +37,7 @@ async function sendTicketsEmail({ email, name, eventName, totalAmount, tickets }
         <h2>Hi ${name || 'Guest'}!</h2>
         <p>You purchased <strong>${tickets.length} General Admission ticket${tickets.length > 1 ? 's' : ''}</strong></p>
         <p><strong>Total: $${Number(totalAmount || 0).toFixed(2)}</strong></p>
-        <p><strong>Event:</strong> ${eventName}</p>
+        <p><strong>Event:</strong> ${eventName || 'General Admission'}</p>
         ${ticketsHtml}
         <hr />
         <p>Doors open at 6:00 PM. See you there!</p>
@@ -45,31 +46,26 @@ async function sendTicketsEmail({ email, name, eventName, totalAmount, tickets }
   });
 }
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Method Not Allowed' }),
-    };
+module.exports = async function handler(req, res) {
+  setCors(res);
+
+  if (req.method === 'OPTIONS') {
+    return end(res, 200);
+  }
+
+  if (req.method !== 'POST') {
+    return sendJson(res, 405, { error: 'Method Not Allowed' });
   }
 
   try {
-    const payload = JSON.parse(event.body || '{}');
-    await sendTicketsEmail(payload);
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true }),
-    };
+    const payload = await readJson(req);
+    await sendTicketsEmail(payload || {});
+    return sendJson(res, 200, { success: true });
   } catch (error) {
     console.error('EMAIL ERROR:', error);
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: error.message }),
-    };
+    return sendJson(res, 500, { error: error.message });
   }
 };
 
-exports.sendTicketsEmail = sendTicketsEmail;
+module.exports.sendTicketsEmail = sendTicketsEmail;
+

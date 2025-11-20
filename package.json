@@ -7,7 +7,7 @@
     "dev:functions": "node dev-server.js",
     "build": "vite build",
     "preview": "vite preview",
-    "postbuild": "cp _redirects dist/"
+    "vercel-build": "vite build"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^2.4.0",
