@@ -16,15 +16,6 @@ if (!stripeKey) {
   }
 }
 
-function resolveSiteUrl() {
-  if (process.env.NODE_ENV === 'development') {
-    const port = process.env.PORT || 3000;
-    return `http://localhost:${port}`.replace(/\/$/, '');
-  }
-  const configured = process.env.SITE_URL || 'http://localhost:3000';
-  return configured.replace(/\/$/, '');
-}
-
 module.exports = async function handler(req, res) {
   setCors(res);
 
@@ -42,7 +33,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const SITE_URL = resolveSiteUrl();
+    // FORCED CORRECT URL — vercel dev proxies everything to PORT, never trust Vite's internal port
+    const SITE_URL = (process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '');
     console.log('FINAL SITE_URL LOCKED TO:', SITE_URL);
 
     const payload = await readJson(req);
