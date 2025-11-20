@@ -6,7 +6,18 @@ const { sendTicketsEmail } = require('./send-ticket');
 const { setCors, sendJson, end, readRawBody } = require('./_utils');
 
 const stripe = getStripeClient();
-const SITE_URL = process.env.SITE_URL || 'http://localhost:5173';
+
+function resolveSiteUrl() {
+  if (process.env.NODE_ENV === 'development') {
+    const port = process.env.PORT || 3000;
+    return `http://localhost:${port}`.replace(/\/$/, '');
+  }
+  const configured = process.env.SITE_URL || 'http://localhost:3000';
+  return configured.replace(/\/$/, '');
+}
+
+const SITE_URL = resolveSiteUrl();
+console.log('WEBHOOK SITE_URL LOCKED TO:', SITE_URL);
 
 async function handleCheckoutSession(session) {
   const metadata = session.metadata || {};

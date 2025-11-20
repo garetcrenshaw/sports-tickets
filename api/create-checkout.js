@@ -16,6 +16,15 @@ if (!stripeKey) {
   }
 }
 
+function resolveSiteUrl() {
+  if (process.env.NODE_ENV === 'development') {
+    const port = process.env.PORT || 3000;
+    return `http://localhost:${port}`.replace(/\/$/, '');
+  }
+  const configured = process.env.SITE_URL || 'http://localhost:3000';
+  return configured.replace(/\/$/, '');
+}
+
 module.exports = async function handler(req, res) {
   setCors(res);
 
@@ -33,7 +42,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const SITE_URL = (process.env.SITE_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const SITE_URL = resolveSiteUrl();
     console.log('FINAL SITE_URL LOCKED TO:', SITE_URL);
 
     const payload = await readJson(req);
