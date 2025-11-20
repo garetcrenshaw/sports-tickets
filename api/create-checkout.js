@@ -34,7 +34,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const SITE_URL = process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`;
-    console.log('FORCED SITE_URL FOR STRIPE REDIRECT →', SITE_URL);
+    console.log('FINAL FINAL SITE_URL — 5173 IS DEAD →', SITE_URL);
 
     const payload = await readJson(req);
     const {
