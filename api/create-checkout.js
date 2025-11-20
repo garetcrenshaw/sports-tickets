@@ -33,9 +33,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const SITE_URL = process.env.SITE_URL?.trim()
-      || `http://localhost:${process.env.PORT || 3000}`;
-    console.log('FINAL SITE_URL LOCKED TO:', SITE_URL);
+    const SITE_URL = process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`;
+    console.log('FORCED SITE_URL FOR STRIPE REDIRECT →', SITE_URL);
 
     const payload = await readJson(req);
     const {
