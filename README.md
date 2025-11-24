@@ -17,6 +17,31 @@ End-to-end ticketing flow inspired by Ticketmaster, SeatGeek, and every high-per
 
 ---
 
+## 🏃 How to run locally (3 steps)
+
+### 1. Install dependencies
+```bash
+npm install
+```
+
+### 2. Set up environment variables
+```bash
+cp env-local-template.txt .env.local
+# Then open .env.local and fill in your real API keys
+```
+
+### 3. Start everything
+```bash
+npm run dev
+```
+
+This will automatically start:
+- Vercel dev server (port 3000)
+- Function server (port 3001)
+- Stripe webhook listener
+
+---
+
 ## 🚀 Quick Start
 
 ### 1. Install dependencies
