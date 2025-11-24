@@ -2,10 +2,8 @@
 const { getStripeClient, requireEnv } = require('../src/lib/stripe');
 const { createTickets, createParkingPasses } = require('../src/lib/db');
 const { generateTicketQr } = require('../src/lib/qr');
-const { Resend } = require('resend');
+const { sendTicketsEmail } = require('./send-ticket');
 const { setCors, sendJson, end, readRawBody } = require('./_utils');
-
-const resend = new Resend(requireEnv('RESEND_API_KEY'));
 
 const stripe = getStripeClient();
 
@@ -25,12 +23,12 @@ async function buildTicketRows({ sessionId, count, eventId, name, email }) {
     const qrCodeUrl = await generateTicketQr(validateUrl);
     rows.push({
       ticket_id: ticketId,
-      event_id: parseInt(eventId, 10),
+      event_id: String(eventId),
+      ticket_type: 'Gameday Admission',
       purchaser_name: name,
       purchaser_email: email,
-      type: 'admission',
-      status: 'valid',
-      qr_code: qrCodeUrl,
+      qr_code_url: qrCodeUrl,
+      status: 'purchased',
     });
   }
   return rows;
@@ -44,12 +42,12 @@ async function buildParkingRows({ sessionId, count, eventId, name, email }) {
     const qrCodeUrl = await generateTicketQr(validateUrl);
     rows.push({
       ticket_id: ticketId,
-      event_id: parseInt(eventId, 10),
+      event_id: String(eventId),
+      ticket_type: 'Gameday Parking',
       purchaser_name: name,
       purchaser_email: email,
-      type: 'parking',
-      status: 'valid',
-      qr_code: qrCodeUrl,
+      qr_code_url: qrCodeUrl,
+      status: 'purchased',
     });
   }
   return rows;
@@ -120,14 +118,16 @@ async function handleCheckoutSession(session) {
 
   const ticketsForEmail = createdTickets.map((ticket, index) => ({
     ticketId: ticket.ticket_id,
-    qrCodeUrl: ticket.qr_code,
-    label: `Admission Ticket ${index + 1}`,
+    qrCodeUrl: ticket.qr_code_url,
+    label: `Ticket ${index + 1}`,
+    ticketType: ticket.ticket_type || 'Gameday Tickets',
   }));
 
   const parkingForEmail = createdParking.map((pass, index) => ({
     ticketId: pass.ticket_id,
-    qrCodeUrl: pass.qr_code,
+    qrCodeUrl: pass.qr_code_url,
     label: `Parking Pass ${index + 1}`,
+    ticketType: pass.ticket_type || 'Gameday Parking',
   }));
 
   if (!ticketsForEmail.length && !parkingForEmail.length) {
@@ -136,79 +136,14 @@ async function handleCheckoutSession(session) {
   }
 
   console.log(`📧 Sending email to ${email}...`);
-
-  // Build HTML sections for tickets and parking
-  const admissionSection = ticketsForEmail.length > 0 ? `
-    <div style="margin: 20px 0; padding: 20px; background: #f0f9ff; border-radius: 8px; border: 1px solid #0ea5e9;">
-      <h3 style="margin: 0 0 15px 0; color: #0ea5e9;">🎫 Admission Tickets</h3>
-      ${ticketsForEmail.map(ticket => `
-        <div style="margin: 15px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #e0e7ff;">
-          <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af;">${ticket.label}</p>
-          <div style="text-align: center;">
-            <img src="${ticket.qrCodeUrl}" alt="QR Code for ${ticket.label}" style="max-width: 200px; height: auto;" />
-          </div>
-          <p style="margin: 10px 0 0 0; font-size: 12px; color: #64748b; text-align: center;">Scan at entrance</p>
-        </div>
-      `).join('')}
-    </div>
-  ` : '';
-
-  const parkingSection = parkingForEmail.length > 0 ? `
-    <div style="margin: 20px 0; padding: 20px; background: #fef3c7; border-radius: 8px; border: 1px solid #f59e0b;">
-      <h3 style="margin: 0 0 15px 0; color: #f59e0b;">🅿️ Parking Passes</h3>
-      ${parkingForEmail.map(pass => `
-        <div style="margin: 15px 0; padding: 15px; background: white; border-radius: 6px; border: 1px solid #fde68a;">
-          <p style="margin: 0 0 10px 0; font-weight: bold; color: #92400e;">${pass.label}</p>
-          <div style="text-align: center;">
-            <img src="${pass.qrCodeUrl}" alt="QR Code for ${pass.label}" style="max-width: 200px; height: auto;" />
-          </div>
-          <p style="margin: 10px 0 0 0; font-size: 12px; color: #64748b; text-align: center;">Scan at parking gate</p>
-        </div>
-      `).join('')}
-    </div>
-  ` : '';
-
-  const totalAmount = (session.amount_total || 0) / 100;
-
   try {
-    await resend.emails.send({
-      from: 'GameDay Tickets <tickets@gamedaytickets.io>',
-      to: email,
-      subject: 'Your Gameday Tickets & Parking',
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; background: #0f172a; color: white; padding: 20px;">
-          <div style="background: #1e293b; padding: 30px; border-radius: 12px;">
-            <h1 style="margin: 0 0 20px 0; color: #60a5fa; text-align: center;">🎉 Your Tickets Are Ready!</h1>
-
-            <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6;">
-              Hi ${name || 'Guest'}! Your Gameday tickets and parking passes are ready to use.
-            </p>
-
-            <div style="background: #334155; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 0; font-size: 18px; font-weight: bold; color: #60a5fa;">
-                Total Paid: $${totalAmount.toFixed(2)}
-              </p>
-            </div>
-
-            ${admissionSection}
-            ${parkingSection}
-
-            <div style="margin: 30px 0; padding: 20px; background: #dc2626; border-radius: 8px;">
-              <h4 style="margin: 0 0 10px 0; color: white;">📋 Important Instructions:</h4>
-              <ul style="margin: 0; padding-left: 20px; color: #fca5a5;">
-                <li>Show your QR codes at the entrance/parking gate</li>
-                <li>Each QR code can only be scanned once</li>
-                <li>Doors open at 6:00 PM</li>
-                <li>Have your ID ready for verification</li>
-              </ul>
-            </div>
-
-            <p style="margin: 20px 0 0 0; font-size: 14px; color: #94a3b8; text-align: center;">
-              Questions? Contact us at support@gamedaytickets.io
-            </p>
-          </div>
-        </div>
-      `,
+    await sendTicketsEmail({
+      email,
+      name,
+      eventName,
+      totalAmount: (session.amount_total || 0) / 100,
+      tickets: ticketsForEmail,
+      parkingPasses: parkingForEmail,
     });
     console.log('✅ Email sent successfully!');
   } catch (emailError) {

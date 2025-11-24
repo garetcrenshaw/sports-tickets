@@ -86,9 +86,47 @@ async function markTicketValidated(ticketId) {
   return data;
 }
 
+async function getParkingPassById(ticketId) {
+  const client = getSupabase();
+  const { data, error } = await client
+    .from('parking_passes')
+    .select('*')
+    .eq('ticket_id', ticketId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('getParkingPassById error:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+async function markParkingPassValidated(ticketId) {
+  const client = getSupabase();
+  const { data, error } = await client
+    .from('parking_passes')
+    .update({
+      status: 'validated',
+      validated_at: new Date().toISOString(),
+    })
+    .eq('ticket_id', ticketId)
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error('markParkingPassValidated error:', error);
+    throw error;
+  }
+
+  return data;
+}
+
 module.exports = {
   createTickets,
   createParkingPasses,
   getTicketById,
   markTicketValidated,
+  getParkingPassById,
+  markParkingPassValidated,
 };

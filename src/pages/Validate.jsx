@@ -91,23 +91,27 @@ export default function Validate() {
       {status === 'checking' && <p>Checking ticket...</p>}
       {status === 'valid' && (
         <div style={{ color: 'green', marginTop: '1.5rem' }}>
-          <h2>VALID</h2>
+          <h2>✅ VALID</h2>
           <p>{message}</p>
           {ticketInfo && (
-            <p>
-              {ticketInfo.email} - Ticket #{ticketInfo.ticket_number}
-            </p>
+            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px' }}>
+              <p style={{ margin: 0, fontWeight: 'bold' }}>{ticketInfo.ticket_type || 'Item'}</p>
+              <p style={{ margin: '0.5rem 0', color: '#666' }}>{ticketInfo.purchaser_email}</p>
+              <p style={{ margin: 0, fontSize: '14px', color: '#666' }}>ID: {ticketInfo.ticket_id}</p>
+            </div>
           )}
         </div>
       )}
       {status === 'used' && (
         <div style={{ color: '#c0392b', marginTop: '1.5rem' }}>
-          <h2>ALREADY USED</h2>
+          <h2>❌ ALREADY USED</h2>
           <p>{message}</p>
           {ticketInfo && (
-            <p>
-              {ticketInfo.email} - Ticket #{ticketInfo.ticket_number}
-            </p>
+            <div style={{ marginTop: '1rem', padding: '1rem', background: '#fef2f2', borderRadius: '8px' }}>
+              <p style={{ margin: 0, fontWeight: 'bold' }}>{ticketInfo.ticket_type || 'Item'}</p>
+              <p style={{ margin: '0.5rem 0', color: '#666' }}>{ticketInfo.purchaser_email}</p>
+              <p style={{ margin: 0, fontSize: '14px', color: '#666' }}>ID: {ticketInfo.ticket_id}</p>
+            </div>
           )}
         </div>
       )}
