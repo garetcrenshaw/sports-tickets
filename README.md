@@ -25,26 +25,34 @@ End-to-end ticketing flow inspired by Ticketmaster, SeatGeek, and every high-per
 npm install
 ```
 
-### 2. Create `.env`
+### 2. Environment Variables Setup
 
-Supply these variables (test values shown for reference):
+⚠️ **SECURITY IMPORTANT:** Never commit secrets to git. Use `.env.local` for local development.
 
+#### Local Development
+1. Copy the template: `cp env-local-template.txt .env.local`
+2. Fill in your actual API keys in `.env.local` (this file is gitignored)
+
+#### Required Variables
 ```
+# Public (can be in .env or .env.local)
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
-STRIPE_SECRET_KEY=sk_test_xxx
-GA_PRICE_ID=price_general_admission
-PARKING_PRICE_ID=price_parking_pass
-ALL_ACCESS_PRICE_ID=price_all_access_bundle
 SITE_URL=http://localhost:3000
+
+# Secret (MUST be in .env.local only)
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=public-anon-key
 SUPABASE_SERVICE_ROLE_KEY=service-role-key
 RESEND_API_KEY=re_test_xxx
-STRIPE_WEBHOOK_SECRET=whsec_xxx
 VALIDATE_PASSWORD=staff123
 ```
 
-> ℹ️ Stripe CLI prints a fresh `whsec_...` every time you run `stripe listen`. Paste it into `.env` and restart the function server.
+#### Production (Vercel)
+Set these environment variables in your Vercel dashboard (no .env files needed):
+- All variables except `VITE_STRIPE_PUBLISHABLE_KEY` (use `STRIPE_PUBLISHABLE_KEY` in Vercel)
+
+> ℹ️ Stripe CLI prints a fresh `whsec_...` every time you run `stripe listen`. Paste it into `.env.local` and restart the function server.
 
 ### 3. Run everything (3 terminals)
 
@@ -93,8 +101,8 @@ Indexes exist on `ticket_id`, `status`, and `purchaser_email` for fast scans.
 
 | File | Purpose |
 | --- | --- |
-| `netlify/functions/create-checkout.js` | Builds Stripe Checkout line items dynamically (tickets + parking) and attaches metadata. |
-| `netlify/functions/stripe-webhook.js` | Verifies signatures, auto-creates storage buckets, inserts into `tickets` and `parking_passes` (with schema fallback), uploads QR codes, and sends the adaptive Resend email. |
+| `api/create-checkout.js` | Builds Stripe Checkout line items dynamically (tickets + parking) and attaches metadata. |
+| `api/webhook.js` | Verifies signatures, auto-creates storage buckets, inserts into `tickets` and `parking_passes` (with schema fallback), uploads QR codes, and sends the adaptive Resend email. |
 | `src/App.jsx` | Landing page + single event experience with live totals, bundle messaging, and checkout button. |
 
 Other helper scripts (`START.md`, `START_ALL_SERVERS.md`, etc.) explain the local workflow, Stripe CLI usage, and troubleshooting.
@@ -126,9 +134,9 @@ Bundle both price IDs into the same checkout to mirror Ticketmaster’s best pra
 
 1. **Build command:** `npm run build`
 2. **Publish directory:** `dist`
-3. **Functions folder:** `netlify/functions`
+3. **Functions folder:** `api/`
 4. Replicate all env vars from `.env`.
-5. Update Stripe webhook endpoint to point at `https://your-site.netlify.app/.netlify/functions/stripe-webhook`.
+5. Update Stripe webhook endpoint to point at `https://your-site.vercel.app/api/stripe-webhook`.
 
 ---
 

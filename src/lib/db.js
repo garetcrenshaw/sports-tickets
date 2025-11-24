@@ -55,7 +55,7 @@ async function getTicketById(ticketId) {
   const { data, error } = await client
     .from('tickets')
     .select('*')
-    .eq('id', ticketId)
+    .eq('ticket_id', ticketId)
     .maybeSingle();
 
   if (error) {
@@ -74,7 +74,7 @@ async function markTicketValidated(ticketId) {
       status: 'validated',
       validated_at: new Date().toISOString(),
     })
-    .eq('id', ticketId)
+    .eq('ticket_id', ticketId)
     .select()
     .maybeSingle();
 

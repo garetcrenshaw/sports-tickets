@@ -13,6 +13,7 @@
     "@stripe/react-stripe-js": "^2.4.0",
     "@stripe/stripe-js": "^4.9.0",
     "@supabase/supabase-js": "^2.81.1",
+    "http-proxy": "^1.18.1",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",

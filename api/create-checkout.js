@@ -1,20 +1,7 @@
-const stripeKey = process.env.STRIPE_SECRET_KEY;
-const stripe = stripeKey ? require('stripe')(stripeKey.trim()) : null;
+const Stripe = require('stripe');
 const { setCors, sendJson, end, readJson } = require('./_utils');
 
-if (!stripeKey) {
-  console.error('❌ STRIPE_SECRET_KEY is missing entirely');
-} else {
-  console.log('✅ Stripe key loaded');
-  console.log('   Starts with:', stripeKey.substring(0, 10) + '...');
-  console.log('   Length:', stripeKey.length, '(expected: ~90-100 chars)');
-  if (stripeKey.length < 80) {
-    console.error('⚠️ WARNING: Key is too short! Expected ~90-100 chars, got', stripeKey.length);
-  }
-  if (!stripeKey.startsWith('sk_test_') && !stripeKey.startsWith('sk_live_')) {
-    console.error('❌ STRIPE_SECRET_KEY does not start with sk_test_ or sk_live_');
-  }
-}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 module.exports = async function handler(req, res) {
   setCors(res);
@@ -27,93 +14,54 @@ module.exports = async function handler(req, res) {
     return sendJson(res, 405, { error: 'Method Not Allowed' });
   }
 
-  if (!stripe) {
-    console.error('❌ Stripe client not initialized - check STRIPE_SECRET_KEY');
-    return sendJson(res, 500, { error: 'Stripe not configured' });
-  }
-
   try {
-    const SITE_URL = process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`;
-    console.log(`FINAL FINAL SITE_URL — ${process.env.PORT || 3000} IS DEAD →`, SITE_URL);
-
     const payload = await readJson(req);
-    const {
-      email,
-      name,
-      eventId = 1,
-      admissionQuantity = 0,
-      parkingQuantity = 0,
-    } = payload || {};
-
-    console.log('🎫 CREATE-CHECKOUT: Parsed payload:', { email, name, eventId, admissionQuantity, parkingQuantity });
+    const { email, name, eventId = 1, admissionQuantity = 1, parkingQuantity = 0 } = payload || {};
 
     if (!email || !name) {
       return sendJson(res, 400, { error: 'Name and email are required' });
     }
 
-    const admissionQty = Number(admissionQuantity) || 0;
-    const parkingQty = Number(parkingQuantity) || 0;
+    // Line items for admission and parking
+    const lineItems = [
+      admissionQuantity > 0 ? {
+        price_data: {
+          currency: 'usd',
+          product_data: { name: 'Gameday Admission Ticket' },
+          unit_amount: 1500, // $15.00
+        },
+        quantity: admissionQuantity,
+      } : null,
+      parkingQuantity > 0 ? {
+        price_data: {
+          currency: 'usd',
+          product_data: { name: 'Gameday Parking Pass' },
+          unit_amount: 1500, // $15.00
+        },
+        quantity: parkingQuantity,
+      } : null
+    ].filter(Boolean);
 
-    if (admissionQty < 0 || parkingQty < 0) {
-      return sendJson(res, 400, { error: 'Quantities cannot be negative' });
-    }
-    if (admissionQty > 10) {
-      return sendJson(res, 400, { error: 'You can buy up to 10 game tickets per order' });
-    }
-    if (parkingQty > 4) {
-      return sendJson(res, 400, { error: 'You can add up to 4 parking passes per order' });
-    }
-    if (admissionQty === 0 && parkingQty === 0) {
-      return sendJson(res, 400, { error: 'Select at least one ticket or parking pass' });
-    }
-
-    const gaPriceId = process.env.GA_PRICE_ID || 'price_1STzm4RzFa5vaG1DBe0qzBRZ';
-    const parkingPriceId = process.env.PARKING_PRICE_ID || 'price_1SUjeVRzFa5vaG1DyZKlZF08';
-
-    const lineItems = [];
-
-    if (admissionQty > 0) {
-      if (!gaPriceId) {
-        return sendJson(res, 500, { error: 'Ticket price not configured' });
-      }
-      lineItems.push({ price: gaPriceId, quantity: admissionQty });
-    }
-
-    if (parkingQty > 0) {
-      if (!parkingPriceId) {
-        return sendJson(res, 500, { error: 'Parking price not configured' });
-      }
-      lineItems.push({ price: parkingPriceId, quantity: parkingQty });
-    }
-
-    const metadata = {
-      eventId: String(eventId),
-      admissionQuantity: String(admissionQty),
-      parkingQuantity: String(parkingQty),
-      buyerName: name,
-      buyerEmail: email,
-    };
-
-    console.log('🎫 CREATE-CHECKOUT: Creating Stripe session with:', {
-      email,
-      name,
-      eventId,
-      metadata,
-      lineItemsCount: lineItems.length,
-    });
+    console.log('🎫 CREATE-CHECKOUT: Parsed payload:', { email, name, eventId, admissionQuantity, parkingQuantity });
+    console.log('🎫 CREATE-CHECKOUT: Creating Stripe session with line items:', lineItems.length);
 
     const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
       payment_method_types: ['card'],
       customer_email: email,
-      success_url: `${SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${SITE_URL}/`,
-      metadata,
       line_items: lineItems,
+      mode: 'payment',
+      success_url: `${process.env.SITE_URL || 'http://localhost:3000'}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.SITE_URL || 'http://localhost:3000'}/cancel`,
+      metadata: {
+        eventId: eventId.toString(),
+        admissionQuantity: admissionQuantity.toString(),
+        parkingQuantity: parkingQuantity.toString(),
+        buyerName: name,
+        buyerEmail: email,
+      },
     });
 
     console.log('✅ Stripe session created:', session.id);
-    console.log('SESSION CREATED WITH METADATA:', session.metadata);
     console.log('✅ Checkout URL:', session.url);
 
     return sendJson(res, 200, {

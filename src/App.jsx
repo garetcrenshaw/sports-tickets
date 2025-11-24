@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import Validate from './pages/Validate'
 import Success from './pages/Success'
+import Cancel from './pages/Cancel'
 import './App.css'
 
 const EVENT = {
@@ -216,7 +217,7 @@ function EventPage() {
             </p>
           </div>
 
-          <div className="simple-summary">
+          <div className="simple-summary-block">
             <div>
               <p style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 2, fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>
                 Order summary
@@ -270,6 +271,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/tickets" element={<EventPage />} />
         <Route path="/success" element={<Success />} />
+        <Route path="/cancel" element={<Cancel />} />
         <Route path="/validate" element={<Validate />} />
       </Routes>
     </BrowserRouter>

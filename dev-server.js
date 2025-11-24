@@ -2,24 +2,47 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { Readable } = require('stream');
+const httpProxy = require('http-proxy');
 
 const PORT = 3001;
+const FRONTEND_TARGET = 'http://localhost:3000';
+const proxy = httpProxy.createProxyServer({});
+
+proxy.on('error', (error, req, res) => {
+  console.error('Proxy error:', error);
+  if (!res.headersSent) {
+    res.writeHead(502, { 'Content-Type': 'application/json' });
+  }
+  if (!res.writableEnded) {
+    res.end(JSON.stringify({ error: 'Proxy error' }));
+  }
+});
+
 const FUNCTION_ROOTS = [
   path.join(__dirname, 'api'),
-  path.join(__dirname, 'netlify', 'functions'),
 ];
 
 function loadEnv() {
-  const envPath = path.join(__dirname, '.env');
-  if (fs.existsSync(envPath)) {
-    const envContent = fs.readFileSync(envPath, 'utf8');
-    envContent.split('\n').forEach(line => {
-      const [key, ...valueParts] = line.split('=');
-      if (key && valueParts.length > 0) {
-        process.env[key.trim()] = valueParts.join('=').trim();
-      }
-    });
-  }
+  const envFiles = ['.env', '.env.local'];
+  
+  envFiles.forEach((fileName, index) => {
+    const envPath = path.join(__dirname, fileName);
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      envContent.split('\n').forEach(line => {
+        const [key, ...valueParts] = line.split('=');
+        if (key && valueParts.length > 0) {
+          const trimmedKey = key.trim();
+          const trimmedValue = valueParts.join('=').trim();
+          // .env.local (index 1) should override .env (index 0)
+          if (trimmedKey && (index === 1 || !process.env[trimmedKey])) {
+            process.env[trimmedKey] = trimmedValue;
+          }
+        }
+      });
+      console.log(`✅ Loaded environment from ${fileName}`);
+    }
+  });
 }
 
 loadEnv();
@@ -85,14 +108,11 @@ function createFunctionHandler(functionName) {
 
       delete require.cache[require.resolve(functionPath)];
       const requiredModule = require(functionPath);
-      const netlifyStyleHandler = requiredModule && typeof requiredModule.handler === 'function'
-        ? requiredModule.handler
-        : null;
-      const nodeStyleHandler = typeof requiredModule === 'function' ? requiredModule : null;
+      const handler = typeof requiredModule === 'function' ? requiredModule : null;
 
-      if (!netlifyStyleHandler && !nodeStyleHandler) {
+      if (!handler) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid function export. Expected function or { handler }.' }));
+        res.end(JSON.stringify({ error: 'Invalid function export. Expected default export function.' }));
         return;
       }
 
@@ -121,25 +141,11 @@ function createFunctionHandler(functionName) {
         };
 
         try {
-          if (nodeStyleHandler) {
-            const clonedReq = createBufferedRequest(req, bodyBuffer);
-            await nodeStyleHandler(clonedReq, res);
-            if (!res.writableEnded) {
-              res.end();
-            }
-            return;
+          const clonedReq = createBufferedRequest(req, bodyBuffer);
+          await handler(clonedReq, res);
+          if (!res.writableEnded) {
+            res.end();
           }
-
-          const result = await netlifyStyleHandler(event);
-
-          res.writeHead(result.statusCode, {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type'
-          });
-
-          res.end(result.body);
         } catch (error) {
           console.error('Function error:', error);
           if (!res.headersSent) {
@@ -159,20 +165,34 @@ function createFunctionHandler(functionName) {
 }
 
 const server = http.createServer((req, res) => {
+  if (
+    req.url.startsWith('/success') ||
+    req.url.startsWith('/cancel') ||
+    req.url.includes('session_id=')
+  ) {
+    proxy.web(req, res, { target: FRONTEND_TARGET });
+    return;
+  }
+
   console.log(`${req.method} ${req.url}`);
-  
-  if (req.url.startsWith('/.netlify/functions/')) {
-    const functionName = req.url.split('/.netlify/functions/')[1].split('/')[0];
+
+  let functionName = null;
+
+  if (req.url.startsWith('/api/')) {
+    functionName = req.url.split('/api/')[1].split('/')[0];
+  }
+
+  if (functionName) {
     return createFunctionHandler(functionName)(req, res);
   }
-  
+
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not found' }));
 });
 
 server.listen(PORT, () => {
   console.log(`🚀 Function server running on http://localhost:${PORT}`);
-  console.log(`📡 Ready to serve functions at /.netlify/functions/*`);
+  console.log(`📡 Ready to serve functions at /api/*`);
 });
 
 process.on('SIGINT', () => {

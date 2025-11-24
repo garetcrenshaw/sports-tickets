@@ -28,7 +28,7 @@ export default function Validate() {
     setMessage('')
 
     try {
-      const response = await fetch('/.netlify/functions/validate-ticket', {
+      const response = await fetch('/api/validate-ticket', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticketId, password })
