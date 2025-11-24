@@ -36,9 +36,11 @@ npm run dev
 ```
 
 This will automatically start:
-- Vercel dev server (port 3000)
+- Vite dev server (port 3000)
 - Function server (port 3001)
 - Stripe webhook listener
+
+**Note:** If you need Vercel's full proxy environment, use `npm run dev:full` instead, but `npm run dev` is recommended for most development work.
 
 ---
 
