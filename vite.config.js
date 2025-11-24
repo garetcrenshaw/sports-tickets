@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 const devPort = Number(process.env.PORT) || 3000
+const functionsPort = Number(process.env.FUNCTIONS_PORT) || 3001
 
 export default defineConfig({
   plugins: [react()],
@@ -10,9 +11,10 @@ export default defineConfig({
     port: devPort,
     proxy: {
       '/api': {
-        target: `http://localhost:${devPort}`,
+        target: `http://localhost:${functionsPort}`,
         changeOrigin: true,
-        secure: false
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, '/.netlify/functions')
       }
     }
   }

@@ -8,32 +8,40 @@ CREATE TABLE IF NOT EXISTS tickets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ticket_id TEXT UNIQUE NOT NULL,
   event_id TEXT NOT NULL,
-  ticket_type TEXT NOT NULL,
-  purchaser_name TEXT NOT NULL,
-  purchaser_email TEXT NOT NULL,
+  ticket_type TEXT NOT NULL DEFAULT 'General Admission',
+  purchaser_name TEXT,
+  purchaser_email TEXT,
   qr_code_url TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'valid',
-  stripe_session_id TEXT,
-  price_paid_cents INTEGER,
+  status TEXT NOT NULL DEFAULT 'purchased',
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  used_at TIMESTAMPTZ,
-  validated_by TEXT
+  used_at TIMESTAMPTZ
 );
 
--- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_tickets_ticket_id ON tickets(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_email ON tickets(purchaser_email);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
-CREATE INDEX IF NOT EXISTS idx_tickets_created ON tickets(created_at DESC);
 
--- Add comments
-COMMENT ON TABLE tickets IS 'Stores individual ticket records with unique QR codes';
-COMMENT ON COLUMN tickets.ticket_id IS 'Unique identifier for QR code validation';
-COMMENT ON COLUMN tickets.status IS 'valid, used, or cancelled';
+-- Create parking_passes table mirroring tickets
+CREATE TABLE IF NOT EXISTS parking_passes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id TEXT UNIQUE NOT NULL,
+  event_id TEXT NOT NULL,
+  ticket_type TEXT NOT NULL DEFAULT 'parking',
+  purchaser_name TEXT,
+  purchaser_email TEXT,
+  qr_code_url TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'purchased',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  used_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_parking_ticket_id ON parking_passes(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_parking_status ON parking_passes(status);
 
 -- ================================================================
 -- STORAGE BUCKET POLICIES
--- Create bucket "qrcodes" in Storage UI first, then run this:
+-- The webhook auto-creates the "qrcodes" bucket if it does not exist,
+-- but these policies ensure public read + service-role write access.
 -- ================================================================
 
 -- Allow public read access to qrcodes bucket
@@ -79,21 +87,38 @@ INSERT INTO tickets (
   purchaser_name,
   purchaser_email,
   qr_code_url,
-  status,
-  price_paid_cents
+  status
 ) VALUES (
   'test-ticket-001',
   '1',
-  'General Admission',
-  'Test User',
+  'Gameday Tickets',
+  'Test Fan',
   'test@example.com',
   'https://example.com/qr/test.png',
-  'valid',
-  1500
+  'purchased'
+) RETURNING *;
+
+INSERT INTO parking_passes (
+  ticket_id,
+  event_id,
+  ticket_type,
+  purchaser_name,
+  purchaser_email,
+  qr_code_url,
+  status
+) VALUES (
+  'test-parking-001',
+  '1',
+  'Gameday Parking',
+  'Test Driver',
+  'driver@example.com',
+  'https://example.com/qr/parking.png',
+  'purchased'
 ) RETURNING *;
 
 -- Clean up test data
 DELETE FROM tickets WHERE ticket_id = 'test-ticket-001';
+DELETE FROM parking_passes WHERE ticket_id = 'test-parking-001';
 
 -- ================================================================
 -- DONE! ✅

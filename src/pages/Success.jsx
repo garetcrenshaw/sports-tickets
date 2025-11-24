@@ -40,15 +40,19 @@ export default function Success() {
         Payment Successful!
       </h1>
 
-      <p style={{ 
+      <div style={{ 
         fontSize: '18px', 
         marginBottom: '32px',
-        color: '#666',
+        color: '#475569',
         lineHeight: '1.6'
       }}>
-        🎉 Your ticket purchase is complete!<br />
-        <strong>Your tickets are being processed and will be emailed to you in a few seconds.</strong>
-      </p>
+        <p style={{ margin: 0 }}>
+          🎉 Payment successful! <strong>Your tickets + parking QR codes are in your email.</strong>
+        </p>
+        <p style={{ marginTop: '12px' }}>
+          Not there in 30 sec? Check spam.
+        </p>
+      </div>
 
       <div style={{
         background: '#f0f9ff',
@@ -59,7 +63,7 @@ export default function Success() {
         fontSize: '14px',
         color: '#1e40af'
       }}>
-        ⏱️ <strong>Processing:</strong> You'll receive an email with your QR code ticket{sessionId ? 's' : ''} shortly. Check your inbox (and spam folder just in case)!
+        ⏱️ <strong>Processing:</strong> Watch for the subject line “Your Gameday Tickets + Parking are Ready!” — that's where your QR codes live. Peek at spam just in case.
       </div>
 
       {/* Session Info */}
@@ -104,10 +108,11 @@ export default function Success() {
           lineHeight: '1.8',
           color: '#1e40af'
         }}>
-          <li>You'll receive an email with your QR code tickets</li>
-          <li>Show the QR code at the entrance</li>
-          <li>Each ticket is unique and can only be scanned once</li>
-          <li>Doors open at 6:00 PM</li>
+          <li>One email contains both Gameday Tickets (green) and Gameday Parking (orange) if you added both</li>
+          <li>Show the green Gameday Tickets QR at the arena entrance</li>
+          <li>Show the orange “Gameday Parking – Valid All Day” QR when you roll into the lot</li>
+          <li>Each QR code is unique and can only be scanned once</li>
+          <li>Doors open at 6:00 PM — arrive early, skip the rush</li>
         </ul>
       </div>
 

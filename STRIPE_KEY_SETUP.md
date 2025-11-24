@@ -52,7 +52,7 @@ Open `/Users/garetcrenshaw/Desktop/sports-tickets/.env`
 
 Add this line (replace with your actual key):
 ```
-STRIPE_SECRET_KEY=sk_test_51ABC123def456GHI789jkl012MNO345pqr678STU901vwx234YZA567bcd890EFG123hij456KLM789nop012QRS345tuv678WXY901
+STRIPE_SECRET_KEY=sk_test_replace_this_with_your_full_key
 ```
 
 **IMPORTANT:**
@@ -85,7 +85,7 @@ echo -n "sk_test_YOUR_KEY_HERE" | wc -c
 
 ```bash
 # Correct format:
-STRIPE_SECRET_KEY=sk_test_51H7VqRLqZr6zTQ3i5xMf0A8yCkEpW9Xo2Nn1Bd7Gh4Fj6Lk5Mq8Rp3St0Uv2Yw1Az9Cx7Ev6Gw4Hy3Jz1Kx0Lw9My7Nz5
+STRIPE_SECRET_KEY=sk_test_replace_this_with_your_full_key
 
 # ❌ WRONG - Has quotes:
 STRIPE_SECRET_KEY="sk_test_51..."

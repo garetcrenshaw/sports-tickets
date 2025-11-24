@@ -1,27 +1,93 @@
-import { useState } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { loadStripe } from '@stripe/stripe-js'
+import { useMemo, useState } from 'react'
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import Validate from './pages/Validate'
 import Success from './pages/Success'
+import './App.css'
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
+const EVENT = {
+  id: 1,
+  name: 'Gameday Empire Showcase',
+  date: 'Saturday, December 28 • Tipoff 7:30 PM',
+  venue: 'Downtown Arena',
+  city: 'Los Angeles, CA',
+  heroTagline: '$15 admission · $15 parking'
+}
 
-const tickets = [
-  { type: 'ga', label: 'General Admission', price: 15 }
-]
+const GA_PRICE = 15
+const PARKING_PRICE = 15
 
-function Home() {
-  const [email, setEmail] = useState('')
+function LandingPage() {
+  return (
+    <div className="landing">
+      <div className="landing__grid">
+        <div className="landing__card">
+          <div className="landing__badge">
+            <span>🏟</span>
+            GAMEDAY TICKETS
+          </div>
+          <h1 className="landing__title">
+            Gameday Tickets + Parking
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '1.1rem', lineHeight: 1.6 }}>
+            $15 admission · $15 parking
+          </p>
+          <div className="landing__cta">
+            <Link to="/tickets" className="primary-btn">
+              Buy Tickets Here →
+            </Link>
+            <Link to="/validate" className="ghost-btn">
+              Staff Access
+            </Link>
+          </div>
+          <div className="landing__cta-note">
+            ⭐ Most fans choose Gameday All-Access to skip traffic + parking headaches.
+          </div>
+        </div>
+        <div className="landing__card" style={{ padding: 0, overflow: 'hidden' }}>
+          <img
+            src="https://images.unsplash.com/photo-1518604666860-9ed391f76460?auto=format&fit=crop&w=1200&q=80"
+            alt="Fans celebrating a win"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EventPage() {
   const [name, setName] = useState('')
-  const [quantities, setQuantities] = useState(() => tickets.reduce((acc, ticket) => ({ ...acc, [ticket.type]: 1 }), {}))
+  const [email, setEmail] = useState('')
+  const [admissionQuantity, setAdmissionQuantity] = useState(1)
+  const [parkingQuantity, setParkingQuantity] = useState(1)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handlePurchase = async (ticket) => {
-    const quantity = quantities[ticket.type] || 1
+  const admissionSubtotal = admissionQuantity * GA_PRICE
+  const parkingSubtotal = parkingQuantity * PARKING_PRICE
+  const orderTotal = admissionSubtotal + parkingSubtotal
+  const canCheckout = orderTotal > 0
 
-    if (!email || !name) {
-      setMessage('Please enter your name and email before purchasing.')
+  const admissionOptions = useMemo(() => Array.from({ length: 11 }, (_, i) => i), [])
+  const parkingOptions = useMemo(() => Array.from({ length: 5 }, (_, i) => i), [])
+
+  const handleCheckout = async () => {
+    if (!name || !email) {
+      setMessage('Add your name and email so we know where to send your passes.')
+      return
+    }
+
+    if (admissionQuantity === 0 && parkingQuantity === 0) {
+      setMessage('Select at least one ticket or parking pass.')
+      return
+    }
+
+    if (admissionQuantity > 10) {
+      setMessage('You can buy up to 10 General Admission tickets per order.')
+      return
+    }
+
+    if (parkingQuantity > 4) {
+      setMessage('You can add up to 4 parking passes per order.')
       return
     }
 
@@ -29,132 +95,89 @@ function Home() {
     setMessage('')
 
     try {
-      console.log('🛒 Calling /api/create-checkout with:', { email, name, quantity });
-      
       const response = await fetch('/api/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ticketType: ticket.type,
-          email,
           name,
-          eventId: 1,
-          quantity
+          email,
+          eventId: EVENT.id,
+          admissionQuantity,
+          parkingQuantity,
         })
       })
 
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', response.headers.get('content-type'));
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ Error response:', errorText);
-        throw new Error(errorText || 'Purchase failed. Please try again.')
+        throw new Error(errorText || 'Checkout failed. Please try again.')
       }
 
       const data = await response.json()
-      console.log('✅ Received session:', data);
-      
-      // Use direct URL redirect (simpler, recommended method)
       if (data.url) {
-        console.log('🔄 Redirecting to Stripe Checkout URL...');
-        window.location.href = data.url;
-        return;
+        window.location.href = data.url
+        return
       }
-      
-      // Fallback: use old redirectToCheckout method
+
       if (data.sessionId) {
-        console.log('🔄 Using fallback redirectToCheckout method...');
-        const stripe = await stripePromise;
-        const { error } = await stripe.redirectToCheckout({ sessionId: data.sessionId });
-        if (error) {
-          console.error('❌ Stripe redirect error:', error);
-          throw error;
-        }
-        return;
+        window.location.href = `https://checkout.stripe.com/pay/${data.sessionId}`
+        return
       }
-      
-      throw new Error('No redirect URL or session ID received from server');
+
+      throw new Error('No redirect URL returned from server.')
     } catch (error) {
-      console.error('❌ Checkout error:', error)
-      setMessage(error.message || 'Purchase failed. Please try again.')
+      console.error('Checkout error:', error)
+      setMessage(error.message || 'Checkout failed. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleQuantityChange = (type, value) => {
-    setQuantities((prev) => ({
-      ...prev,
-      [type]: Number(value)
-    }))
-  }
-
   return (
-    <div style={{ padding: '2rem', fontFamily: 'Arial', maxWidth: '600px', margin: '0 auto' }}>
-      <h1>General Admission Tickets</h1>
-      
-      {/* Test Mode Notice */}
-      <div style={{
-        background: '#fef3c7',
-        border: '2px solid #f59e0b',
-        borderRadius: '8px',
-        padding: '12px 16px',
-        marginBottom: '24px',
-        fontSize: '14px',
-        color: '#92400e',
-        textAlign: 'center'
-      }}>
-        🧪 <strong>TEST MODE:</strong> Use card <code style={{ background: '#fde68a', padding: '2px 6px', borderRadius: '4px' }}>4242 4242 4242 4242</code> • Exp: any future date • CVC: any 3 digits
-      </div>
+    <div className="event-page app-shell">
+      <section className="event-hero">
+        <div className="event-hero__badge">
+          <span>🔥</span> Gameday All-Access
+        </div>
+        <h1 className="event-hero__title">{EVENT.name}</h1>
+        <p style={{ fontSize: '1.2rem', margin: '0 auto', maxWidth: 600 }}>{EVENT.heroTagline}</p>
+        <div className="event-hero__meta">
+          <span>📅 {EVENT.date}</span>
+          <span>📍 {EVENT.venue}, {EVENT.city}</span>
+        </div>
+      </section>
 
-      <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
-        <input
-          type="text"
-          placeholder="Your name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
-        />
-        <input
-          type="email"
-          placeholder="Your email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
-        />
-      </div>
+      <div className="event-shell">
+      <div className="simple-shell">
+        <div className="simple-card">
+          <div className="simple-section">
+            <div className="input-stack" style={{ marginBottom: '20px' }}>
+              <input
+                type="text"
+                placeholder="Full name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+              <input
+                type="email"
+                placeholder="Email for tickets + parking"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </div>
 
-      {tickets.map((ticket) => {
-        const quantity = quantities[ticket.type] || 1
-        const total = ticket.price * quantity
-
-        return (
-          <div
-            key={ticket.type}
-            style={{
-              border: '1px solid #ddd',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              marginBottom: '1.5rem',
-              background: '#fff',
-              boxShadow: '0 4px 10px rgba(0,0,0,0.05)'
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div className="simple-option">
               <div>
-                <h2 style={{ margin: 0 }}>{ticket.label}</h2>
-                <p style={{ margin: 0, color: '#555' }}>${ticket.price.toFixed(2)} each</p>
+                <h3 style={{ margin: '0 0 4px 0' }}>General Admission – $15 each</h3>
+                <p style={{ margin: 0, color: '#475569' }}>Lower bowl seats. Everyone needs a ticket.</p>
               </div>
-              <div>
-                <label style={{ fontSize: '0.85rem', color: '#555', marginRight: '0.5rem' }}>Quantity</label>
+              <div className="quantity-control" style={{ marginTop: '12px' }}>
+                <label>Tickets</label>
                 <select
-                  value={quantity}
-                  onChange={(event) => handleQuantityChange(ticket.type, event.target.value)}
-                  style={{ padding: '0.4rem 0.7rem', borderRadius: '6px', border: '1px solid #ccc' }}
+                  value={admissionQuantity}
+                  onChange={(event) => setAdmissionQuantity(Number(event.target.value))}
                 >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
-                    <option key={value} value={value}>
+                  {admissionOptions.map((value) => (
+                    <option key={`ga-${value}`} value={value}>
                       {value}
                     </option>
                   ))}
@@ -162,38 +185,80 @@ function Home() {
               </div>
             </div>
 
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontSize: '1.1rem' }}>
-                <strong>Total: ${total.toFixed(2)}</strong>
-              </span>
-              <button
-                onClick={() => handlePurchase(ticket)}
-                disabled={loading}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  background: '#0561FF',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
-                {loading ? 'Processing…' : `Pay $${total.toFixed(2)}`}
-              </button>
+            <div className="simple-option">
+              <div>
+                <h3 style={{ margin: '0 0 4px 0' }}>Parking Pass – $15 each</h3>
+                <p style={{ margin: 0, color: '#475569' }}>One pass covers one car in Lot VIP.</p>
+              </div>
+              <div className="quantity-control" style={{ marginTop: '12px' }}>
+                <label>Parking</label>
+                <select
+                  value={parkingQuantity}
+                  onChange={(event) => setParkingQuantity(Number(event.target.value))}
+                >
+                  {parkingOptions.map((value) => (
+                    <option key={`parking-${value}`} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {message && (
+              <div className="error-banner">
+                {message}
+              </div>
+            )}
+
+            <p style={{ fontSize: '0.9rem', color: '#64748b', marginTop: '16px' }}>
+              Each person needs a ticket. One parking pass = one car.
+            </p>
+          </div>
+
+          <div className="simple-summary">
+            <div>
+              <p style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 2, fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>
+                Order summary
+              </p>
+              <h3 style={{ marginTop: 8, marginBottom: 0 }}>
+                Updated instantly
+              </h3>
+            </div>
+
+            <div className="summary-row">
+              <span>General Admission × {admissionQuantity}</span>
+              <span>${admissionSubtotal.toFixed(2)}</span>
+            </div>
+            <div className="summary-row">
+              <span>Parking Pass × {parkingQuantity}</span>
+              <span>${parkingSubtotal.toFixed(2)}</span>
+            </div>
+
+            <div>
+              <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)' }}>Total due now</p>
+              <div className="summary-total">
+                ${orderTotal.toFixed(2)}
+              </div>
+            </div>
+
+            <button
+              className="primary-btn"
+              onClick={handleCheckout}
+              disabled={!canCheckout || loading}
+              style={{ width: '100%' }}
+            >
+              {loading ? 'Routing to Stripe…' : 'Complete Purchase →'}
+            </button>
+
+            <div className="test-banner" style={{ background: 'rgba(255,255,255,0.1)' }}>
+              <span>🧪</span>
+              Use test card 4242 4242 4242 4242 · any future expiry · any CVC
             </div>
           </div>
-        )
-      })}
-
-      {message && (
-        <div style={{ marginTop: '1rem', color: '#c0392b' }}>
-          {message}
         </div>
-      )}
+      </div>
+      </div>
     </div>
   )
 }
@@ -202,7 +267,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/tickets" element={<EventPage />} />
         <Route path="/success" element={<Success />} />
         <Route path="/validate" element={<Validate />} />
       </Routes>
