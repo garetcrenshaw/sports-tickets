@@ -13,6 +13,10 @@ function getSupabase() {
 }
 
 async function createTickets(ticketRows) {
+  if (!Array.isArray(ticketRows) || ticketRows.length === 0) {
+    return [];
+  }
+
   const client = getSupabase();
   const { data, error } = await client
     .from('tickets')
@@ -21,6 +25,25 @@ async function createTickets(ticketRows) {
 
   if (error) {
     console.error('createTickets error:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+async function createParkingPasses(passRows) {
+  if (!Array.isArray(passRows) || passRows.length === 0) {
+    return [];
+  }
+
+  const client = getSupabase();
+  const { data, error } = await client
+    .from('parking_passes')
+    .insert(passRows)
+    .select();
+
+  if (error) {
+    console.error('createParkingPasses error:', error);
     throw error;
   }
 
@@ -65,6 +88,7 @@ async function markTicketValidated(ticketId) {
 
 module.exports = {
   createTickets,
+  createParkingPasses,
   getTicketById,
   markTicketValidated,
 };

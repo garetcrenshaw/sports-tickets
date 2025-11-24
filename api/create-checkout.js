@@ -87,9 +87,9 @@ module.exports = async function handler(req, res) {
     }
 
     const metadata = {
-      eventId: '1',
-      admissionQuantity: admissionQuantity.toString(),
-      parkingQuantity: parkingQuantity.toString(),
+      eventId: String(eventId),
+      admissionQuantity: String(admissionQty),
+      parkingQuantity: String(parkingQty),
       buyerName: name,
       buyerEmail: email,
     };

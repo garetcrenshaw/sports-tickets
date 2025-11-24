@@ -1,6 +1,6 @@
 // Vercel config: maxDuration 60
 const { getStripeClient, requireEnv } = require('../src/lib/stripe');
-const { createTickets } = require('../src/lib/db');
+const { createTickets, createParkingPasses } = require('../src/lib/db');
 const { generateTicketQr } = require('../src/lib/qr');
 const { sendTicketsEmail } = require('./send-ticket');
 const { setCors, sendJson, end, readRawBody } = require('./_utils');
@@ -10,56 +10,115 @@ const stripe = getStripeClient();
 const SITE_URL = process.env.SITE_URL || `http://localhost:${process.env.PORT || 3000}`;
 console.log(`FINAL FINAL SITE_URL — ${process.env.PORT || 3000} IS DEAD →`, SITE_URL);
 
-function parsePositiveInt(value) {
+function parseNonNegativeInt(value) {
   const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+async function buildTicketRows({ sessionId, count, eventId, name, email }) {
+  const rows = [];
+  for (let i = 0; i < count; i += 1) {
+    const ticketId = `ticket-${sessionId}-${i + 1}`;
+    const validateUrl = `${SITE_URL}/validate?ticket=${ticketId}`;
+    const qrCodeUrl = await generateTicketQr(validateUrl);
+    rows.push({
+      ticket_id: ticketId,
+      event_id: String(eventId),
+      ticket_type: 'Gameday Tickets',
+      purchaser_name: name,
+      purchaser_email: email,
+      qr_code_url: qrCodeUrl,
+      status: 'purchased',
+    });
+  }
+  return rows;
+}
+
+async function buildParkingRows({ sessionId, count, eventId, name, email }) {
+  const rows = [];
+  for (let i = 0; i < count; i += 1) {
+    const ticketId = `parking-${sessionId}-${i + 1}`;
+    const validateUrl = `${SITE_URL}/validate?parking=${ticketId}`;
+    const qrCodeUrl = await generateTicketQr(validateUrl);
+    rows.push({
+      ticket_id: ticketId,
+      event_id: String(eventId),
+      ticket_type: 'Gameday Parking',
+      purchaser_name: name,
+      purchaser_email: email,
+      qr_code_url: qrCodeUrl,
+      status: 'purchased',
+    });
+  }
+  return rows;
 }
 
 async function handleCheckoutSession(session) {
   const metadata = session.metadata || {};
-  const admissionQty = parsePositiveInt(metadata.admissionQuantity);
-  const fallbackQuantity = parsePositiveInt(metadata.quantity);
-  const quantity = Math.max(1, admissionQty ?? fallbackQuantity ?? 1);
+  const admissionQtyFromMetadata = parseNonNegativeInt(metadata.admissionQuantity);
+  const fallbackQuantity = parseNonNegativeInt(metadata.quantity);
+  let admissionQty = admissionQtyFromMetadata ?? fallbackQuantity ?? 0;
+  const parkingQty = parseNonNegativeInt(metadata.parkingQuantity) ?? 0;
   const email = session.customer_details?.email || metadata.buyerEmail || metadata.email;
   const name = metadata.buyerName || metadata.name || session.customer_details?.name || 'Guest';
   const eventName = metadata.eventName || metadata.eventTitle || 'General Admission';
-  const eventId = metadata.eventId || 1;
+  const eventId = metadata.eventId || '1';
+
+  if (admissionQty === 0 && parkingQty === 0) {
+    admissionQty = 1;
+  }
 
   if (!email) {
     throw new Error('Missing customer email on checkout session');
   }
 
-  const ticketsPayload = [];
+  const ticketRows = await buildTicketRows({
+    sessionId: session.id,
+    count: admissionQty,
+    eventId,
+    name,
+    email,
+  });
 
-  for (let i = 0; i < quantity; i += 1) {
-    const ticketId = `${session.id}-${i + 1}`;
-    const validateUrl = `${SITE_URL}/validate?ticket=${ticketId}`;
-    const qrCodeUrl = await generateTicketQr(validateUrl);
+  const parkingRows = await buildParkingRows({
+    sessionId: session.id,
+    count: parkingQty,
+    eventId,
+    name,
+    email,
+  });
 
-    ticketsPayload.push({
-      id: ticketId,
-      session_id: session.id,
-      ticket_number: i + 1,
-      email,
-      name,
-      event_id: Number(eventId),
-      status: 'pending',
-      qr_code_url: qrCodeUrl,
-    });
+  const [createdTickets, createdParking] = await Promise.all([
+    ticketRows.length ? createTickets(ticketRows) : Promise.resolve([]),
+    parkingRows.length ? createParkingPasses(parkingRows) : Promise.resolve([]),
+  ]);
+
+  const ticketsForEmail = createdTickets.map((ticket, index) => ({
+    ticketId: ticket.ticket_id,
+    qrCodeUrl: ticket.qr_code_url,
+    label: `Ticket ${index + 1}`,
+    ticketType: ticket.ticket_type || 'Gameday Tickets',
+  }));
+
+  const parkingForEmail = createdParking.map((pass, index) => ({
+    ticketId: pass.ticket_id,
+    qrCodeUrl: pass.qr_code_url,
+    label: `Parking Pass ${index + 1}`,
+    ticketType: pass.ticket_type || 'Gameday Parking',
+  }));
+
+  if (!ticketsForEmail.length && !parkingForEmail.length) {
+    console.warn('Checkout session completed with no items to fulfill', session.id);
+    return;
   }
-
-  const createdTickets = await createTickets(ticketsPayload);
 
   await sendTicketsEmail({
     email,
     name,
     eventName,
     totalAmount: (session.amount_total || 0) / 100,
-    tickets: createdTickets.map((ticket) => ({
-      ticketId: ticket.id,
-      ticketNumber: ticket.ticket_number,
-      qrCodeUrl: ticket.qr_code_url,
-    })),
+    tickets: ticketsForEmail,
+    parkingPasses: parkingForEmail,
   });
 }
 
