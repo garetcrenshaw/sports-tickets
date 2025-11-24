@@ -165,29 +165,19 @@ function createFunctionHandler(functionName) {
 }
 
 const server = http.createServer((req, res) => {
-  if (
-    req.url.startsWith('/success') ||
-    req.url.startsWith('/cancel') ||
-    req.url.includes('session_id=')
-  ) {
-    proxy.web(req, res, { target: FRONTEND_TARGET });
-    return;
-  }
+  console.log(`🌐 ${req.method} ${req.url}`);
 
-  console.log(`${req.method} ${req.url}`);
-
-  let functionName = null;
-
+  // Handle API routes first
   if (req.url.startsWith('/api/')) {
-    functionName = req.url.split('/api/')[1].split('/')[0];
-  }
-
-  if (functionName) {
+    const pathAfterApi = req.url.split('/api/')[1];
+    const functionName = pathAfterApi.split(/[/?]/)[0]; // Stop at / or ?
+    console.log(`🎯 API call detected, function: ${functionName}`);
     return createFunctionHandler(functionName)(req, res);
   }
 
-  res.writeHead(404, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ error: 'Not found' }));
+  // For everything else, proxy to frontend (including success/cancel pages with or without query params)
+  console.log('🔄 Proxying to frontend');
+  proxy.web(req, res, { target: FRONTEND_TARGET });
 });
 
 server.listen(PORT, () => {

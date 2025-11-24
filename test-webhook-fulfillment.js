@@ -15,34 +15,35 @@ console.log('=====================================');
 console.log(`Session ID: ${sessionId}`);
 console.log('');
 
-// Load environment - REPLACE WITH YOUR REAL KEYS
-const envContent = `STRIPE_SECRET_KEY=YOUR_STRIPE_SECRET_KEY_HERE
-SUPABASE_URL=YOUR_SUPABASE_URL_HERE
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY_HERE
-RESEND_API_KEY=YOUR_RESEND_API_KEY_HERE
-SITE_URL=http://localhost:3000`;
-
-envContent.split('\n').forEach(line => {
+// Load environment variables
+require('fs').readFileSync('.env', 'utf8').split('\n').forEach(line => {
   const [key, ...value] = line.split('=');
-  if (key && value.length) {
-    process.env[key.trim()] = value.join('=').trim();
-  }
+  if (key && value.length) process.env[key.trim()] = value.join('=').trim();
 });
+
+try {
+  require('fs').readFileSync('.env.local', 'utf8').split('\n').forEach(line => {
+    const [key, ...value] = line.split('=');
+    if (key && value.length) process.env[key.trim()] = value.join('=').trim();
+  });
+} catch (e) {
+  console.log('⚠️  .env.local not found - make sure to copy env-local-template.txt to .env.local and fill in your keys');
+}
 
 // Mock session data
 const mockSession = {
   id: sessionId,
   amount_total: 3000, // $30.00
   customer_details: {
-    email: 'test@example.com',
-    name: 'Test User'
+    email: 'garetcrenshaw@gmail.com',
+    name: 'Garet Crenshaw'
   },
   metadata: {
     eventId: '1',
     admissionQuantity: '2',
     parkingQuantity: '1',
-    buyerName: 'Test User',
-    buyerEmail: 'test@example.com'
+    buyerName: 'Garet Crenshaw',
+    buyerEmail: 'garetcrenshaw@gmail.com'
   }
 };
 
@@ -60,10 +61,10 @@ async function testFulfillment() {
     console.log('✅ WEBHOOK PROCESSING COMPLETE');
     console.log('');
     console.log('Expected results:');
-    console.log('- 2 admission tickets in database (type: admission, status: valid)');
-    console.log('- 1 parking pass in database (type: parking, status: valid)');
+    console.log('- 2 admission tickets in database (status: purchased)');
+    console.log('- 1 parking pass in database (status: purchased)');
     console.log('- Each with QR codes containing validation URLs');
-    console.log('- Email sent to test@example.com with QR code images');
+    console.log('- Email sent to garetcrenshaw@gmail.com with QR code images');
     console.log('');
     console.log('Check your database and email to verify!');
 

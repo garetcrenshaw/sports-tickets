@@ -4,13 +4,17 @@ const { setCors, sendJson, end, readJson } = require('./_utils');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 module.exports = async function handler(req, res) {
+  console.log('🎯 get-session API called:', req.method, req.url);
+
   setCors(res);
 
   if (req.method === 'OPTIONS') {
+    console.log('✅ OPTIONS request handled');
     return end(res, 200);
   }
 
   if (req.method !== 'GET') {
+    console.log('❌ Method not allowed:', req.method);
     return sendJson(res, 405, { error: 'Method Not Allowed' });
   }
 
@@ -18,10 +22,12 @@ module.exports = async function handler(req, res) {
     const sessionId = req.url.split('?session_id=')[1];
 
     if (!sessionId) {
+      console.log('❌ No session ID in URL');
       return sendJson(res, 400, { error: 'Session ID required' });
     }
 
     console.log('🔍 Fetching session:', sessionId);
+    console.log('🔑 STRIPE_SECRET_KEY loaded:', process.env.STRIPE_SECRET_KEY ? 'YES (' + process.env.STRIPE_SECRET_KEY.substring(0, 10) + '...)' : 'NO');
 
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ['payment_intent', 'line_items']
