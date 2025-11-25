@@ -131,16 +131,16 @@ async function handleCheckoutSession(session) {
     throw new Error(`Database insert failed: ${dbError.message}`);
   }
 
-  // Generate QR codes using auto-generated IDs
+  // Generate QR codes using ticket_id (application identifier, not UUID)
   console.log('🎨 Generating QR codes...');
   for (const ticket of createdTickets) {
-    const validateUrl = `${SITE_URL}/validate/${ticket.id}`;
+    const validateUrl = `${SITE_URL}/validate/${ticket.ticket_id}`;
     const qrCodeUrl = await generateTicketQr(validateUrl);
     ticket.qr_code_url = qrCodeUrl;
   }
 
   for (const pass of createdParking) {
-    const validateUrl = `${SITE_URL}/validate/${pass.id}`;
+    const validateUrl = `${SITE_URL}/validate/${pass.ticket_id}`;
     const qrCodeUrl = await generateTicketQr(validateUrl);
     pass.qr_code_url = qrCodeUrl;
   }
