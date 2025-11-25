@@ -1,5 +1,5 @@
-const Stripe = require('stripe');
-const { setCors, sendJson, end, readJson } = require('./_utils');
+import Stripe from 'stripe';
+import { setCors, sendJson, end, readJson } from './_utils.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 

@@ -6,6 +6,11 @@ const functionsPort = 3001
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      input: 'index.html'
+    }
+  },
   server: {
     port: devPort,
     host: '0.0.0.0',

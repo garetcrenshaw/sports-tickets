@@ -52,7 +52,7 @@ async function readRawBody(req) {
   });
 }
 
-module.exports = {
+export {
   setCors,
   sendJson,
   end,

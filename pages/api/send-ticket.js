@@ -1,6 +1,6 @@
-const { Resend } = require('resend');
-const { requireEnv } = require('../src/lib/stripe');
-const { setCors, sendJson, end, readJson } = require('./_utils');
+import { Resend } from 'resend';
+import { requireEnv } from '../../src/lib/stripe.js';
+import { setCors, sendJson, end, readJson } from './_utils.js';
 
 const resend = new Resend(requireEnv('RESEND_API_KEY'));
 
@@ -87,7 +87,7 @@ async function sendTicketsEmail({
   });
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   setCors(res);
 
   if (req.method === 'OPTIONS') {
@@ -108,5 +108,5 @@ module.exports = async function handler(req, res) {
   }
 };
 
-module.exports.sendTicketsEmail = sendTicketsEmail;
+export { sendTicketsEmail };
 

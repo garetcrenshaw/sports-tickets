@@ -1,9 +1,9 @@
 // Vercel config: maxDuration 60
-const { getStripeClient, requireEnv } = require('../src/lib/stripe');
-const { createTickets, createParkingPasses } = require('../src/lib/db');
-const { generateTicketQr } = require('../src/lib/qr');
-const { sendTicketsEmail } = require('./send-ticket');
-const { setCors, sendJson, end, readRawBody } = require('./_utils');
+import { getStripeClient, requireEnv } from '../../src/lib/stripe.js';
+import { createTickets, createParkingPasses } from '../../src/lib/db.js';
+import { generateTicketQr } from '../../src/lib/qr.js';
+import { sendTicketsEmail } from './send-ticket.js';
+import { setCors, sendJson, end, readRawBody } from './_utils.js';
 
 const stripe = getStripeClient();
 
@@ -246,12 +246,6 @@ export default async function handler(req, res) {
   }
 };
 
-module.exports.config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
 // Export for testing
-module.exports.handleCheckoutSession = handleCheckoutSession;
+export { handleCheckoutSession };
 
