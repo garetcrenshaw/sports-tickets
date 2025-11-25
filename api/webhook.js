@@ -56,20 +56,35 @@ async function buildParkingRows({ sessionId, count, eventId, name, email }) {
 async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession START');
 
-  const metadata = session.metadata || {};
-  console.log('WEBHOOK FULL METADATA:', metadata);
+  // If metadata is empty (real purchases), fetch full session from Stripe
+  let fullSession = session;
+  let metadata = session.metadata || {};
+
+  if (Object.keys(metadata).length === 0) {
+    console.log('📋 METADATA IS EMPTY - FETCHING FULL SESSION FROM STRIPE...');
+    try {
+      fullSession = await stripe.checkout.sessions.retrieve(session.id, { expand: ['line_items'] });
+      metadata = fullSession.metadata || {};
+      console.log('📋 FETCHED METADATA:', JSON.stringify(metadata));
+    } catch (error) {
+      console.error('❌ FAILED TO FETCH FULL SESSION:', error.message);
+    }
+  }
+
+  console.log('WEBHOOK FULL METADATA:', JSON.stringify(metadata));
+  console.log('FULL EVENT DATA:', JSON.stringify(fullSession));
 
   const admissionQty = parseInt(metadata.admissionQuantity, 10) || 0;
   const parkingQty = parseInt(metadata.parkingQuantity, 10) || 0;
-  const buyerEmail = metadata.buyerEmail || session.customer_details?.email || 'test@example.com';
-  const buyerName = metadata.buyerName || session.customer_details?.name || 'Customer';
+  const buyerEmail = metadata.buyerEmail || fullSession.customer_details?.email || session.customer_details?.email || 'test@example.com';
+  const buyerName = metadata.buyerName || fullSession.customer_details?.name || session.customer_details?.name || 'Customer';
   const eventName = metadata.eventName || metadata.eventTitle || 'General Admission';
   const eventId = parseInt(metadata.eventId, 10) || 1;
 
   console.log('PARSED:', { admissionQty, parkingQty, buyerEmail, buyerName, eventId });
 
   if (admissionQty + parkingQty === 0) {
-    console.log('ZERO QUANTITIES — NO FULFILLMENT');
+    console.log('ZERO QUANTITIES — SKIPPING FULFILLMENT');
     return;
   }
 

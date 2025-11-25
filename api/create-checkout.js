@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
 
     console.log('🎫 CREATE-CHECKOUT: Parsed payload:', { email, name, eventId, admissionQuantity, parkingQuantity });
     console.log('🎫 CREATE-CHECKOUT: Creating Stripe session with line items:', lineItems.length);
-    console.log('🎫 CREATE METADATA:', metadata);
+    console.log('🎫 CREATED METADATA:', JSON.stringify(metadata));
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
