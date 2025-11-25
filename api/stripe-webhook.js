@@ -1,9 +1,9 @@
 // Vercel config: maxDuration 60
-import { getStripeClient, requireEnv } from '../src/lib/stripe.js';
-import { createTickets, createParkingPasses } from '../src/lib/db.js';
-import { generateTicketQr } from '../src/lib/qr.js';
-import { sendTicketsEmail } from './send-ticket.js';
-import { setCors, sendJson, end, readRawBody } from './_utils.js';
+const { getStripeClient, requireEnv } = require('../src/lib/stripe.js');
+const { createTickets, createParkingPasses } = require('../src/lib/db.js');
+const { generateTicketQr } = require('../src/lib/qr.js');
+const { sendTicketsEmail } = require('./send-ticket.js');
+const { setCors, sendJson, end, readRawBody } = require('./_utils.js');
 
 const stripe = getStripeClient();
 
@@ -168,9 +168,9 @@ async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession COMPLETE');
 }
 
-export const config = { api: { bodyParser: false } };
+const config = { api: { bodyParser: false } };
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   console.log('🔥 WEBHOOK HIT IN PRODUCTION - API CALL RECEIVED ===================================');
   console.log('WEBHOOK RECEIVED ===================================');
   console.log('Method:', req.method);
@@ -226,6 +226,6 @@ export default async function handler(req, res) {
   }
 };
 
-// Export for testing
-export { handleCheckoutSession };
+module.exports = handler;
+module.exports.handleCheckoutSession = handleCheckoutSession;
 
