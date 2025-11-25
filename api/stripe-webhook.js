@@ -2,226 +2,205 @@
 const { getStripeClient, requireEnv } = require('../src/lib/stripe.js');
 const { createTickets, createParkingPasses } = require('../src/lib/db.js');
 const { generateTicketQr } = require('../src/lib/qr.js');
-const { sendTicketsEmail } = require('./send-ticket.js');
+const { sendTicketsEmail } = require('./lib/email.js');
 const { setCors, sendJson, end, readRawBody } = require('./_utils.js');
 
 const stripe = getStripeClient();
-
 const SITE_URL = process.env.SITE_URL || 'http://localhost:3000';
-console.log('WEBHOOK SITE_URL →', SITE_URL);
-
-function parseNonNegativeInt(value) {
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-}
-
-async function buildTicketRows({ count, eventId, name, email, sessionId }) {
-  const rows = [];
-  for (let i = 0; i < count; i += 1) {
-    rows.push({
-      event_id: String(eventId),
-      ticket_type: 'Gameday Admission',
-      purchaser_name: name,
-      purchaser_email: email,
-      status: 'purchased',
-    });
-  }
-  return rows;
-}
-
-async function buildParkingRows({ count, eventId, name, email, sessionId }) {
-  const rows = [];
-  for (let i = 0; i < count; i += 1) {
-    rows.push({
-      event_id: String(eventId),
-      ticket_type: 'Gameday Parking',
-      purchaser_name: name,
-      purchaser_email: email,
-      status: 'purchased',
-    });
-  }
-  return rows;
-}
 
 async function handleCheckoutSession(session) {
-  console.log('📦 handleCheckoutSession START');
+  console.log('🎫 WEBHOOK: Processing checkout.session.completed');
+  console.log('🎫 WEBHOOK: Session ID:', session.id);
 
+  // Retrieve full session with metadata and line_items
+  console.log('🔍 WEBHOOK: Retrieving full session...');
   const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
-    expand: ['line_items']
+    expand: ['line_items', 'customer_details']
   });
+  console.log('✅ WEBHOOK: Full session retrieved');
 
+  // Parse metadata
   const metadata = fullSession.metadata || {};
-  console.log('WEBHOOK METADATA:', metadata);
+  console.log('📋 WEBHOOK METADATA:', JSON.stringify(metadata, null, 2));
 
-  const admissionQty = parseInt(metadata.admissionQuantity || '0', 10);
-  const parkingQty = parseInt(metadata.parkingQuantity || '0', 10);
+  const admissionQuantity = parseInt(metadata.admissionQuantity || '0', 10);
+  const parkingQuantity = parseInt(metadata.parkingQuantity || '0', 10);
+  const buyerEmail = metadata.buyerEmail || fullSession.customer_details?.email;
+  const buyerName = metadata.buyerName || fullSession.customer_details?.name || 'Customer';
+  const eventId = parseInt(metadata.eventId || '1', 10);
 
-  const buyerEmail = metadata.buyerEmail || session.customer_details?.email || 'no-email@example.com';
-  const buyerName = metadata.buyerName || session.customer_details?.name || 'Customer';
-  const eventId = parseInt(metadata.eventId, 10) || 1;
+  console.log('🔢 WEBHOOK: Parsed quantities - Admission:', admissionQuantity, 'Parking:', parkingQuantity);
+  console.log('👤 WEBHOOK: Buyer - Name:', buyerName, 'Email:', buyerEmail);
 
-  console.log('PARSED QUANTITIES:', admissionQty, parkingQty);
-  console.log('EMAIL TO:', buyerEmail);
-
-  if (admissionQty + parkingQty === 0) {
-    console.log('ZERO QUANTITIES — SKIPPING FULFILLMENT');
+  if (admissionQuantity <= 0 && parkingQuantity <= 0) {
+    console.log('⚠️ WEBHOOK: No items to fulfill, skipping');
     return;
   }
 
   if (!buyerEmail) {
-    throw new Error('Missing customer email on checkout session');
+    throw new Error('Missing buyer email in session');
   }
 
-  console.log(`🎫 Building ${admissionQty} ticket rows...`);
-  const ticketRows = await buildTicketRows({
-    count: admissionQty,
-    eventId,
-    name: buyerName,
-    email: buyerEmail,
-    sessionId: fullSession.id,
-  });
-  console.log(`✅ Built ${ticketRows.length} ticket rows`);
+  // Build ticket data for Supabase
+  console.log('🏗️ WEBHOOK: Building ticket data...');
+  const ticketRows = [];
+  for (let i = 0; i < admissionQuantity; i++) {
+    ticketRows.push({
+      event_id: String(eventId),
+      ticket_type: 'Gameday Admission',
+      purchaser_name: buyerName,
+      purchaser_email: buyerEmail,
+      status: 'purchased',
+    });
+  }
 
-  console.log(`🅿️  Building ${parkingQty} parking rows...`);
-  const parkingRows = await buildParkingRows({
-    count: parkingQty,
-    eventId,
-    name: buyerName,
-    email: buyerEmail,
-    sessionId: fullSession.id,
-  });
-  console.log(`✅ Built ${parkingRows.length} parking rows`);
+  const parkingRows = [];
+  for (let i = 0; i < parkingQuantity; i++) {
+    parkingRows.push({
+      event_id: String(eventId),
+      ticket_type: 'Gameday Parking',
+      purchaser_name: buyerName,
+      purchaser_email: buyerEmail,
+      status: 'purchased',
+    });
+  }
 
-  console.log('💾 Inserting into Supabase...');
+  console.log(`📝 WEBHOOK: Created ${ticketRows.length} ticket rows and ${parkingRows.length} parking rows`);
+
+  // Insert into Supabase
+  console.log('💾 WEBHOOK: Inserting into Supabase...');
   let createdTickets = [];
   let createdParking = [];
 
   try {
-    [createdTickets, createdParking] = await Promise.all([
-      ticketRows.length ? createTickets(ticketRows) : Promise.resolve([]),
-      parkingRows.length ? createParkingPasses(parkingRows) : Promise.resolve([]),
-    ]);
-    console.log('SUPABASE INSERT RESULT:', createdTickets);
-    console.log('SUPABASE INSERT RESULT:', createdParking);
-    console.log(`✅ Created ${createdTickets.length} tickets in Supabase`);
-    console.log(`✅ Created ${createdParking.length} parking passes in Supabase`);
+    const insertPromises = [];
+    if (ticketRows.length > 0) {
+      insertPromises.push(createTickets(ticketRows));
+    } else {
+      insertPromises.push(Promise.resolve([]));
+    }
+
+    if (parkingRows.length > 0) {
+      insertPromises.push(createParkingPasses(parkingRows));
+    } else {
+      insertPromises.push(Promise.resolve([]));
+    }
+
+    [createdTickets, createdParking] = await Promise.all(insertPromises);
+
+    console.log('✅ WEBHOOK: Supabase insert successful');
+    console.log('🎫 WEBHOOK: Created tickets:', createdTickets.length);
+    console.log('🅿️ WEBHOOK: Created parking passes:', createdParking.length);
+    console.log('📊 WEBHOOK: Ticket data:', JSON.stringify(createdTickets, null, 2));
+    console.log('📊 WEBHOOK: Parking data:', JSON.stringify(createdParking, null, 2));
   } catch (dbError) {
-    console.error('❌ Supabase insert failed:', dbError.message);
-    console.error('❌ Supabase error details:', JSON.stringify(dbError, null, 2));
-    throw new Error(`Database insert failed: ${dbError.message}`);
+    console.error('❌ WEBHOOK: Supabase insert failed:', dbError.message);
+    throw new Error(`Database error: ${dbError.message}`);
   }
 
-  // Generate QR codes using auto-generated id (UUID)
-  console.log('🎨 Generating QR codes...');
-  for (const ticket of createdTickets) {
-    const validateUrl = `${SITE_URL}/validate/${ticket.id}`;
-    const qrCodeUrl = await generateTicketQr(validateUrl);
-    ticket.qr_code_url = qrCodeUrl;
+  // Generate QR codes for all tickets and passes
+  console.log('🎨 WEBHOOK: Generating QR codes...');
+  const allItems = [...createdTickets, ...createdParking];
+
+  for (const item of allItems) {
+    try {
+      const validateUrl = `${SITE_URL}/validate/${item.id}`;
+      console.log(`🎯 WEBHOOK: Generating QR for ${item.id} -> ${validateUrl}`);
+      const qrCodeDataUrl = await generateTicketQr(validateUrl);
+      item.qrCodeUrl = qrCodeDataUrl;
+      console.log(`✅ WEBHOOK: QR generated for ${item.id}`);
+    } catch (qrError) {
+      console.error(`❌ WEBHOOK: QR generation failed for ${item.id}:`, qrError.message);
+      item.qrCodeUrl = 'https://via.placeholder.com/256x256?text=QR+Error';
+    }
   }
 
-  for (const pass of createdParking) {
-    const validateUrl = `${SITE_URL}/validate/${pass.id}`;
-    const qrCodeUrl = await generateTicketQr(validateUrl);
-    pass.qr_code_url = qrCodeUrl;
-  }
-  console.log('✅ QR codes generated');
+  console.log('✅ WEBHOOK: All QR codes generated');
 
+  // Prepare email data
   const ticketsForEmail = createdTickets.map((ticket, index) => ({
     ticketId: ticket.id,
-    qrCodeUrl: ticket.qr_code_url,
-    label: `Ticket ${index + 1}`,
-    ticketType: ticket.ticket_type || 'Gameday Tickets',
+    qrCodeUrl: ticket.qrCodeUrl,
+    label: `Admission Ticket ${index + 1}`,
+    ticketType: 'Gameday Admission',
   }));
 
   const parkingForEmail = createdParking.map((pass, index) => ({
     ticketId: pass.id,
-    qrCodeUrl: pass.qr_code_url,
+    qrCodeUrl: pass.qrCodeUrl,
     label: `Parking Pass ${index + 1}`,
-    ticketType: pass.ticket_type || 'Gameday Parking',
+    ticketType: 'Gameday Parking',
   }));
 
-  if (!ticketsForEmail.length && !parkingForEmail.length) {
-    console.warn('⚠️  Checkout session completed with no items to fulfill', session.id);
-    return;
-  }
-
-  console.log(`📧 Sending email to ${buyerEmail}...`);
+  // Send email with all QR codes
+  console.log('📧 WEBHOOK: Sending email...');
   try {
     await sendTicketsEmail({
       email: buyerEmail,
       name: buyerName,
-      eventName,
-      totalAmount: (session.amount_total || 0) / 100,
+      eventName: 'Gameday Event',
+      totalAmount: (fullSession.amount_total || 0) / 100,
       tickets: ticketsForEmail,
       parkingPasses: parkingForEmail,
     });
-    console.log('EMAIL SENT TO:', buyerEmail);
-    console.log('✅ Email sent successfully!');
+
+    console.log('✅ WEBHOOK: Email sent successfully to', buyerEmail);
+    console.log('📧 WEBHOOK: Email contained', ticketsForEmail.length, 'tickets and', parkingForEmail.length, 'parking passes');
   } catch (emailError) {
-    console.error('RESEND ERROR:', emailError.message);
-    console.error('❌ Email send failed:', emailError.message);
-    console.error('❌ Email error details:', JSON.stringify(emailError, null, 2));
-    // Email failed, but data is already in database - don't throw error
-    console.log('⚠️  Data saved to Supabase but email failed - check Resend configuration');
+    console.error('❌ WEBHOOK: Email send failed:', emailError.message);
+    console.error('📧 WEBHOOK: Email error details:', JSON.stringify(emailError, null, 2));
+    // Continue - data is saved, just email failed
   }
 
-  console.log('📦 handleCheckoutSession COMPLETE');
+  console.log('🎉 WEBHOOK: Fulfillment complete for session', session.id);
 }
 
 const config = { api: { bodyParser: false } };
 
 async function handler(req, res) {
-  console.log('🔥 WEBHOOK HIT IN PRODUCTION - API CALL RECEIVED ===================================');
-  console.log('WEBHOOK RECEIVED ===================================');
-  console.log('Method:', req.method);
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  
+  console.log('🔥 WEBHOOK: Received request');
+  console.log('🔥 WEBHOOK: Method:', req.method);
+
   setCors(res);
 
   if (req.method === 'OPTIONS') {
-    console.log('OPTIONS request - responding 200');
+    console.log('🔥 WEBHOOK: OPTIONS request - allowing');
     return end(res, 200);
   }
 
   if (req.method !== 'POST') {
-    console.log('❌ Non-POST method:', req.method);
+    console.log('❌ WEBHOOK: Invalid method:', req.method);
     return sendJson(res, 405, { error: 'Method Not Allowed' });
   }
 
   try {
     const webhookSecret = requireEnv('STRIPE_WEBHOOK_SECRET');
-    console.log('✅ Webhook secret loaded:', webhookSecret.substring(0, 15) + '...');
-    
+    console.log('🔐 WEBHOOK: Loading webhook secret...');
+
     const rawBody = await readRawBody(req);
-    console.log('✅ Raw body received, length:', rawBody.length);
-    
+    console.log('📦 WEBHOOK: Received body, length:', rawBody.length);
+
     const signature = req.headers['stripe-signature'];
-    console.log('✅ Stripe signature:', signature ? signature.substring(0, 30) + '...' : 'MISSING!');
+    if (!signature) {
+      throw new Error('Missing Stripe signature');
+    }
+    console.log('✍️ WEBHOOK: Verifying signature...');
 
     const stripeEvent = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-    console.log('✅ Webhook verified! Event type:', stripeEvent.type);
-    console.log('Event ID:', stripeEvent.id);
-    console.log('FULL EVENT DATA:', JSON.stringify(stripeEvent.data.object));
+    console.log('✅ WEBHOOK: Event verified, type:', stripeEvent.type);
 
     if (stripeEvent.type === 'checkout.session.completed') {
-      console.log('🎫 Processing checkout.session.completed...');
       const session = stripeEvent.data.object;
-      console.log('Session ID:', session.id);
-      console.log('Customer email:', session.customer_details?.email);
-      console.log('Metadata:', JSON.stringify(session.metadata, null, 2));
-      
       await handleCheckoutSession(session);
-      console.log('✅ ✅ ✅ WEBHOOK PROCESSING COMPLETE! ✅ ✅ ✅');
     } else {
-      console.log(`ℹ️  Ignoring event type: ${stripeEvent.type}`);
+      console.log('ℹ️ WEBHOOK: Ignoring event type:', stripeEvent.type);
     }
 
+    console.log('✅ WEBHOOK: Processing complete');
     return sendJson(res, 200, { received: true });
   } catch (error) {
-    console.error('❌ ❌ ❌ WEBHOOK ERROR ❌ ❌ ❌');
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Stack:', error.stack);
+    console.error('❌ WEBHOOK: Error processing webhook:', error.message);
+    console.error('❌ WEBHOOK: Error stack:', error.stack);
     return sendJson(res, 400, { error: error.message });
   }
 };
