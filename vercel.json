@@ -1,6 +1,16 @@
 {
+  "headers": [
+    {
+      "source": "/assets/(.*\\.js)",
+      "headers": [{ "key": "Content-Type", "value": "application/javascript" }]
+    },
+    {
+      "source": "/assets/(.*\\.css)",
+      "headers": [{ "key": "Content-Type", "value": "text/css" }]
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
