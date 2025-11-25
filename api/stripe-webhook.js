@@ -57,6 +57,11 @@ async function handleCheckoutSession(session) {
   const metadata = fullSession.metadata || {};
   console.log('WEBHOOK METADATA:', JSON.stringify(metadata));
 
+  // Debug: Check if metadata is missing critical fields
+  if (!metadata.admissionQuantity) {
+    console.error('NO METADATA — FULL SESSION:', JSON.stringify(fullSession, null, 2));
+  }
+
   // Parse quantities from metadata or count line items
   let admissionQty = parseInt(metadata.admissionQuantity, 10) || 0;
   let parkingQty = parseInt(metadata.parkingQuantity, 10) || 0;
