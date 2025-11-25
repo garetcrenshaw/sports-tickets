@@ -15,38 +15,28 @@ function parseNonNegativeInt(value) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-async function buildTicketRows({ sessionId, count, eventId, name, email }) {
+async function buildTicketRows({ count, eventId, name, email }) {
   const rows = [];
   for (let i = 0; i < count; i += 1) {
-    const ticketId = `ticket-${sessionId}-${i + 1}`;
-    const validateUrl = `${SITE_URL}/validate/${ticketId}`;
-    const qrCodeUrl = await generateTicketQr(validateUrl);
     rows.push({
-      ticket_id: ticketId,
       event_id: String(eventId),
       ticket_type: 'Gameday Admission',
       purchaser_name: name,
       purchaser_email: email,
-      qr_code_url: qrCodeUrl,
       status: 'purchased',
     });
   }
   return rows;
 }
 
-async function buildParkingRows({ sessionId, count, eventId, name, email }) {
+async function buildParkingRows({ count, eventId, name, email }) {
   const rows = [];
   for (let i = 0; i < count; i += 1) {
-    const ticketId = `parking-${sessionId}-${i + 1}`;
-    const validateUrl = `${SITE_URL}/validate/${ticketId}`;
-    const qrCodeUrl = await generateTicketQr(validateUrl);
     rows.push({
-      ticket_id: ticketId,
       event_id: String(eventId),
       ticket_type: 'Gameday Parking',
       purchaser_name: name,
       purchaser_email: email,
-      qr_code_url: qrCodeUrl,
       status: 'purchased',
     });
   }
@@ -94,7 +84,6 @@ async function handleCheckoutSession(session) {
 
   console.log(`🎫 Building ${admissionQty} ticket rows...`);
   const ticketRows = await buildTicketRows({
-    sessionId: session.id,
     count: admissionQty,
     eventId,
     name: buyerName,
@@ -104,7 +93,6 @@ async function handleCheckoutSession(session) {
 
   console.log(`🅿️  Building ${parkingQty} parking rows...`);
   const parkingRows = await buildParkingRows({
-    sessionId: session.id,
     count: parkingQty,
     eventId,
     name: buyerName,
@@ -121,23 +109,40 @@ async function handleCheckoutSession(session) {
       ticketRows.length ? createTickets(ticketRows) : Promise.resolve([]),
       parkingRows.length ? createParkingPasses(parkingRows) : Promise.resolve([]),
     ]);
-    console.log(`✅ Created ${createdTickets.length} tickets in Supabase:`, createdTickets.map(t => t.ticket_id));
-    console.log(`✅ Created ${createdParking.length} parking passes in Supabase:`, createdParking.map(p => p.ticket_id));
+    console.log(`✅ Created ${createdTickets.length} tickets in Supabase`);
+    console.log('SUPABASE INSERT DATA - TICKETS:', createdTickets);
+    console.log(`✅ Created ${createdParking.length} parking passes in Supabase`);
+    console.log('SUPABASE INSERT DATA - PARKING:', createdParking);
   } catch (dbError) {
     console.error('❌ Supabase insert failed:', dbError.message);
     console.error('❌ Supabase error details:', JSON.stringify(dbError, null, 2));
     throw new Error(`Database insert failed: ${dbError.message}`);
   }
 
+  // Generate QR codes using auto-generated IDs
+  console.log('🎨 Generating QR codes...');
+  for (const ticket of createdTickets) {
+    const validateUrl = `${SITE_URL}/validate/${ticket.id}`;
+    const qrCodeUrl = await generateTicketQr(validateUrl);
+    ticket.qr_code_url = qrCodeUrl;
+  }
+
+  for (const pass of createdParking) {
+    const validateUrl = `${SITE_URL}/validate/${pass.id}`;
+    const qrCodeUrl = await generateTicketQr(validateUrl);
+    pass.qr_code_url = qrCodeUrl;
+  }
+  console.log('✅ QR codes generated');
+
   const ticketsForEmail = createdTickets.map((ticket, index) => ({
-    ticketId: ticket.ticket_id,
+    ticketId: ticket.id,
     qrCodeUrl: ticket.qr_code_url,
     label: `Ticket ${index + 1}`,
     ticketType: ticket.ticket_type || 'Gameday Tickets',
   }));
 
   const parkingForEmail = createdParking.map((pass, index) => ({
-    ticketId: pass.ticket_id,
+    ticketId: pass.id,
     qrCodeUrl: pass.qr_code_url,
     label: `Parking Pass ${index + 1}`,
     ticketType: pass.ticket_type || 'Gameday Parking',
@@ -158,8 +163,10 @@ async function handleCheckoutSession(session) {
       tickets: ticketsForEmail,
       parkingPasses: parkingForEmail,
     });
+    console.log('EMAIL SENT TO:', buyerEmail);
     console.log('✅ Email sent successfully!');
   } catch (emailError) {
+    console.error('RESEND ERROR:', emailError.message);
     console.error('❌ Email send failed:', emailError.message);
     console.error('❌ Email error details:', JSON.stringify(emailError, null, 2));
     // Email failed, but data is already in database - don't throw error
@@ -199,6 +206,7 @@ module.exports = async function handler(req, res) {
     const stripeEvent = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
     console.log('✅ Webhook verified! Event type:', stripeEvent.type);
     console.log('Event ID:', stripeEvent.id);
+    console.log('FULL EVENT DATA:', JSON.stringify(stripeEvent.data.object));
 
     if (stripeEvent.type === 'checkout.session.completed') {
       console.log('🎫 Processing checkout.session.completed...');

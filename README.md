@@ -62,6 +62,13 @@ Copy the ngrok HTTPS URL (e.g., `https://abc123.ngrok.io`), then:
 4. Make real purchase at localhost:3000
 5. Webhook fires automatically with real metadata
 6. Check email/QR/Supabase for fulfillment
+
+### Debug: No Email Issues
+- Check Resend dashboard for delivery status
+- Check webhook server logs for "EMAIL SENT TO:" messages
+- Check spam/junk folders in email
+- Verify buyerEmail is parsed correctly from metadata
+- Check Supabase for qr_code_url fields on records
 ```
 
 ### 3. Start everything
