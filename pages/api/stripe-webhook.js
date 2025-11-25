@@ -188,8 +188,11 @@ async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession COMPLETE');
 }
 
-module.exports = async function handler(req, res) {
-  console.log('🔥 WEBHOOK RECEIVED ===================================');
+export const config = { api: { bodyParser: false } };
+
+export default async function handler(req, res) {
+  console.log('🔥 WEBHOOK HIT IN PRODUCTION ===================================');
+  console.log('WEBHOOK RECEIVED ===================================');
   console.log('Method:', req.method);
   console.log('Headers:', JSON.stringify(req.headers, null, 2));
   

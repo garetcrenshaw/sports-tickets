@@ -3,7 +3,8 @@ const { setCors, sendJson, end, readJson } = require('./_utils');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
+  console.log('CREATE-CHECKOUT HIT');
   setCors(res);
 
   if (req.method === 'OPTIONS') {

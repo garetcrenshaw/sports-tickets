@@ -1,23 +1,7 @@
 {
   "functions": {
-    "api/**/*.js": {
-      "maxDuration": 60,
-      "memory": 1024
+    "pages/api/**/*.js": {
+      "maxDuration": 10
     }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "has": [
-        {
-          "type": "header",
-          "key": "accept",
-          "value": "text/html.*"
-        }
-      ],
-      "destination": "/index.html"
-    }
-  ],
-  "cleanUrls": true,
-  "trailingSlash": false
+  }
 }
