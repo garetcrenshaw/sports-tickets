@@ -59,12 +59,10 @@ async function handleCheckoutSession(session) {
   const metadata = session.metadata || {};
   console.log('Raw metadata:', metadata);
   
-  const admissionQtyFromMetadata = parseNonNegativeInt(metadata.admissionQuantity);
-  const fallbackQuantity = parseNonNegativeInt(metadata.quantity);
-  let admissionQty = admissionQtyFromMetadata ?? fallbackQuantity ?? 0;
-  const parkingQty = parseNonNegativeInt(metadata.parkingQuantity) ?? 0;
-  const email = session.customer_details?.email || metadata.buyerEmail || metadata.email;
-  const name = metadata.buyerName || metadata.name || session.customer_details?.name || 'Guest';
+  const admissionQty = parseNonNegativeInt(metadata.admissionQuantity) || 0;
+  const parkingQty = parseNonNegativeInt(metadata.parkingQuantity) || 0;
+  const email = metadata.buyerEmail || session.customer_details?.email || 'stripe@example.com';
+  const name = metadata.buyerName || session.customer_details?.name || 'Guest';
   const eventName = metadata.eventName || metadata.eventTitle || 'General Admission';
   const eventId = metadata.eventId || '1';
 
@@ -72,8 +70,8 @@ async function handleCheckoutSession(session) {
   console.log('Customer info:', { email, name, eventName, eventId });
 
   if (admissionQty === 0 && parkingQty === 0) {
-    admissionQty = 1;
-    console.log('⚠️  No quantities specified, defaulting to 1 admission ticket');
+    console.log('❌ ERROR: No quantities specified in metadata - cannot fulfill order');
+    throw new Error('No admission or parking quantities specified in checkout metadata');
   }
 
   if (!email) {
@@ -109,10 +107,11 @@ async function handleCheckoutSession(session) {
       ticketRows.length ? createTickets(ticketRows) : Promise.resolve([]),
       parkingRows.length ? createParkingPasses(parkingRows) : Promise.resolve([]),
     ]);
-    console.log(`✅ Created ${createdTickets.length} tickets in Supabase`);
-    console.log(`✅ Created ${createdParking.length} parking passes in Supabase`);
+    console.log(`✅ Created ${createdTickets.length} tickets in Supabase:`, createdTickets.map(t => t.ticket_id));
+    console.log(`✅ Created ${createdParking.length} parking passes in Supabase:`, createdParking.map(p => p.ticket_id));
   } catch (dbError) {
     console.error('❌ DATABASE ERROR - Not sending email:', dbError.message);
+    console.error('❌ Database error details:', dbError);
     throw new Error(`Database insert failed: ${dbError.message}`);
   }
 

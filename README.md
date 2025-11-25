@@ -30,6 +30,20 @@ cp env-local-template.txt .env.local
 # Then open .env.local and fill in your real API keys
 ```
 
+### 3. Test Real Purchase
+```bash
+npm run dev
+```
+
+Then:
+1. Open http://localhost:3000
+2. Fill form (name, email, admission/parking quantities > 0)
+3. Complete Stripe checkout (use 4242 card)
+4. Check Tab 2 logs for webhook processing
+5. Check email for QR codes
+6. Check Supabase for database records
+```
+
 ### 3. Start everything
 ```bash
 npm run dev
