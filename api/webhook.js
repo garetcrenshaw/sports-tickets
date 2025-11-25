@@ -46,28 +46,41 @@ async function buildParkingRows({ count, eventId, name, email }) {
 async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession START');
 
-  // If metadata is empty (real purchases), fetch full session from Stripe
-  let fullSession = session;
-  let metadata = session.metadata || {};
-
-  if (Object.keys(metadata).length === 0) {
-    console.log('📋 METADATA IS EMPTY - FETCHING FULL SESSION FROM STRIPE...');
-    try {
-      fullSession = await stripe.checkout.sessions.retrieve(session.id, { expand: ['line_items'] });
-      metadata = fullSession.metadata || {};
-      console.log('📋 FETCHED METADATA:', JSON.stringify(metadata));
-    } catch (error) {
-      console.error('❌ FAILED TO FETCH FULL SESSION:', error.message);
-    }
+  // Always fetch full session with line items and customer details
+  console.log('📋 FETCHING FULL SESSION FROM STRIPE...');
+  let fullSession;
+  try {
+    fullSession = await stripe.checkout.sessions.retrieve(session.id, { expand: ['line_items', 'customer_details'] });
+    console.log('📋 FULL SESSION FETCHED');
+  } catch (error) {
+    console.error('❌ FAILED TO FETCH FULL SESSION:', error.message);
+    throw error;
   }
 
-  console.log('WEBHOOK FULL METADATA:', JSON.stringify(metadata));
-  console.log('FULL EVENT DATA:', JSON.stringify(fullSession));
+  const metadata = fullSession.metadata || {};
+  console.log('WEBHOOK METADATA:', JSON.stringify(metadata));
 
-  const admissionQty = parseInt(metadata.admissionQuantity, 10) || 0;
-  const parkingQty = parseInt(metadata.parkingQuantity, 10) || 0;
-  const buyerEmail = metadata.buyerEmail || fullSession.customer_details?.email || session.customer_details?.email || 'test@example.com';
-  const buyerName = metadata.buyerName || fullSession.customer_details?.name || session.customer_details?.name || 'Customer';
+  // Parse quantities from metadata or count line items
+  let admissionQty = parseInt(metadata.admissionQuantity, 10) || 0;
+  let parkingQty = parseInt(metadata.parkingQuantity, 10) || 0;
+
+  // If metadata doesn't have quantities, parse from line_items
+  if (admissionQty === 0 && parkingQty === 0 && fullSession.line_items?.data) {
+    console.log('📋 PARSING QUANTITIES FROM LINE ITEMS...');
+    for (const item of fullSession.line_items.data) {
+      const priceId = item.price?.id;
+      const quantity = item.quantity || 1;
+      if (priceId === 'price_admission') { // You'll need to set these IDs in your create-checkout
+        admissionQty += quantity;
+      } else if (priceId === 'price_parking') {
+        parkingQty += quantity;
+      }
+    }
+    console.log('📋 PARSED FROM LINE ITEMS:', { admissionQty, parkingQty });
+  }
+
+  const buyerEmail = metadata.buyerEmail || fullSession.customer_details?.email;
+  const buyerName = metadata.buyerName || fullSession.customer_details?.name || 'Customer';
   const eventName = metadata.eventName || metadata.eventTitle || 'General Admission';
   const eventId = parseInt(metadata.eventId, 10) || 1;
 
@@ -110,9 +123,9 @@ async function handleCheckoutSession(session) {
       parkingRows.length ? createParkingPasses(parkingRows) : Promise.resolve([]),
     ]);
     console.log(`✅ Created ${createdTickets.length} tickets in Supabase`);
-    console.log('SUPABASE INSERT DATA - TICKETS:', createdTickets);
+    console.log('SUPABASE DATA - TICKETS:', JSON.stringify(createdTickets, null, 2));
     console.log(`✅ Created ${createdParking.length} parking passes in Supabase`);
-    console.log('SUPABASE INSERT DATA - PARKING:', createdParking);
+    console.log('SUPABASE DATA - PARKING:', JSON.stringify(createdParking, null, 2));
   } catch (dbError) {
     console.error('❌ Supabase insert failed:', dbError.message);
     console.error('❌ Supabase error details:', JSON.stringify(dbError, null, 2));

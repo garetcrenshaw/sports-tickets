@@ -72,6 +72,7 @@ module.exports = async function handler(req, res) {
 
     console.log('✅ Stripe session created:', session.id);
     console.log('✅ Checkout URL:', session.url);
+    console.log('FULL SESSION AFTER CREATE:', JSON.stringify(session, null, 2));
 
     return sendJson(res, 200, {
       url: session.url,

@@ -11,13 +11,15 @@
     "preview": "vite preview",
     "vercel-build": "vite build",
     "test:fulfillment": "stripe trigger checkout.session.completed",
-    "test:real": "stripe trigger checkout.session.completed --add checkout_session:metadata.admissionQuantity=2 --add checkout_session:metadata.parkingQuantity=1 --add checkout_session:metadata.buyerEmail=garetcrenshaw@gmail.com"
+    "test:real": "stripe trigger checkout.session.completed --add checkout_session:metadata.admissionQuantity=2 --add checkout_session:metadata.parkingQuantity=1 --add checkout_session:metadata.buyerEmail=garetcrenshaw@gmail.com",
+    "test:webhook": "node test-webhook.js"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^2.4.0",
     "@stripe/stripe-js": "^4.9.0",
     "@supabase/supabase-js": "^2.81.1",
     "concurrently": "^8.2.2",
+    "dotenv": "^17.2.3",
     "http-proxy": "^1.18.1",
     "ngrok": "^5.0.0-beta.2",
     "qrcode": "^1.5.4",
