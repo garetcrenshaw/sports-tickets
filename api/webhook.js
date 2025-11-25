@@ -57,7 +57,7 @@ async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession START');
 
   const metadata = session.metadata || {};
-  console.log('WEBHOOK FULL METADATA:', JSON.stringify(metadata, null, 2));
+  console.log('WEBHOOK FULL METADATA:', metadata);
 
   const admissionQty = parseInt(metadata.admissionQuantity, 10) || 0;
   const parkingQty = parseInt(metadata.parkingQuantity, 10) || 0;
