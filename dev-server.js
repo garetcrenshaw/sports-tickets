@@ -175,6 +175,13 @@ const server = http.createServer((req, res) => {
     return createFunctionHandler(functionName)(req, res);
   }
 
+  // Guard against serving success/cancel pages from API server
+  if (req.url.startsWith('/success') || req.url.startsWith('/cancel')) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not an API route - use frontend server');
+    return;
+  }
+
   // For everything else, proxy to frontend (including success/cancel pages with or without query params)
   console.log('🔄 Proxying to frontend');
   proxy.web(req, res, { target: FRONTEND_TARGET });

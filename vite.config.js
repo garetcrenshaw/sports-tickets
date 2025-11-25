@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const devPort = Number(process.env.PORT) || 3000
+const devPort = 3000
 const functionsPort = 3001
 
 export default defineConfig({
