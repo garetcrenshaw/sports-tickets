@@ -17,6 +17,22 @@ End-to-end ticketing flow inspired by Ticketmaster, SeatGeek, and every high-per
 
 ---
 
+## 🔧 Troubleshooting
+
+### ngrok Setup for Real Webhook Testing
+```bash
+# Install ngrok globally
+npm install ngrok --global
+
+# Get your authtoken from https://dashboard.ngrok.com/get-started/your-authtoken
+ngrok authtoken YOUR_TOKEN_HERE
+
+# Start tunnel to test real webhooks
+npm run dev:ngrok
+```
+
+---
+
 ## 🏃 How to run locally (3 steps)
 
 ### 1. Install dependencies

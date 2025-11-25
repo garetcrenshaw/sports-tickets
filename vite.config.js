@@ -4,14 +4,10 @@ import react from '@vitejs/plugin-react'
 const devPort = 3000
 const functionsPort = 3001
 
-import { resolve } from 'path';
-
 export default defineConfig({
   plugins: [react()],
-  root: resolve(process.cwd()),
   build: {
-    outDir: 'dist',
-    emptyOutDir: true
+    outDir: 'dist'
   },
   server: {
     port: devPort,
