@@ -1,21 +1,12 @@
 {
-  "headers": [
-    {
-      "source": "/assets/(.*\\.js)",
-      "headers": [
-        { "key": "Content-Type", "value": "application/javascript" }
-      ]
-    },
-    {
-      "source": "/assets/(.*\\.css)",
-      "headers": [
-        { "key": "Content-Type", "value": "text/css" }
-      ]
-    }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "headers": [
+    { "source": "/assets/(.*\\.js)", "headers": [{ "key": "Content-Type", "value": "application/javascript" }] },
+    { "source": "/assets/(.*\\.css)", "headers": [{ "key": "Content-Type", "value": "text/css" }] }
   ],
   "functions": {
     "api/**/*.js": {
