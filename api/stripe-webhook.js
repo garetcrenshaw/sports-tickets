@@ -1,7 +1,7 @@
 // Vercel config: maxDuration 60
-import { getStripeClient, requireEnv } from '../../src/lib/stripe.js';
-import { createTickets, createParkingPasses } from '../../src/lib/db.js';
-import { generateTicketQr } from '../../src/lib/qr.js';
+import { getStripeClient, requireEnv } from '../src/lib/stripe.js';
+import { createTickets, createParkingPasses } from '../src/lib/db.js';
+import { generateTicketQr } from '../src/lib/qr.js';
 import { sendTicketsEmail } from './send-ticket.js';
 import { setCors, sendJson, end, readRawBody } from './_utils.js';
 
@@ -191,7 +191,7 @@ async function handleCheckoutSession(session) {
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
-  console.log('🔥 WEBHOOK HIT IN PRODUCTION ===================================');
+  console.log('🔥 WEBHOOK HIT IN PRODUCTION - API CALL RECEIVED ===================================');
   console.log('WEBHOOK RECEIVED ===================================');
   console.log('Method:', req.method);
   console.log('Headers:', JSON.stringify(req.headers, null, 2));

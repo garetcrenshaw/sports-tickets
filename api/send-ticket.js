@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { requireEnv } from '../../src/lib/stripe.js';
+import { requireEnv } from '../src/lib/stripe.js';
 import { setCors, sendJson, end, readJson } from './_utils.js';
 
 const resend = new Resend(requireEnv('RESEND_API_KEY'));

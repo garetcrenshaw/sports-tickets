@@ -4,7 +4,7 @@ import { setCors, sendJson, end, readJson } from './_utils.js';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
-  console.log('CREATE-CHECKOUT HIT');
+  console.log('CREATE-CHECKOUT HIT - PRODUCTION API CALL');
   setCors(res);
 
   if (req.method === 'OPTIONS') {
