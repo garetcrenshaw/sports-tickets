@@ -55,29 +55,29 @@ async function buildParkingRows({ sessionId, count, eventId, name, email }) {
 
 async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession START');
-  
-  const metadata = session.metadata || {};
-  console.log('Raw metadata:', metadata);
-  
-  console.log('Full session metadata:', JSON.stringify(metadata, null, 2));
-  console.log('Session customer details:', JSON.stringify(session.customer_details, null, 2));
 
-  const admissionQty = parseNonNegativeInt(metadata.admissionQuantity) || 0;
-  const parkingQty = parseNonNegativeInt(metadata.parkingQuantity) || 0;
-  const email = metadata.buyerEmail || session.customer_details?.email || 'stripe@example.com';
-  const name = metadata.buyerName || session.customer_details?.name || 'Guest';
+  console.log('🔍 SESSION OBJECT:', JSON.stringify(session, null, 2));
+
+  const metadata = session.metadata || {};
+  console.log('📋 METADATA OBJECT:', JSON.stringify(metadata, null, 2));
+
+  const admissionQty = parseInt(metadata.admissionQuantity) || 0;
+  const parkingQty = parseInt(metadata.parkingQuantity) || 0;
+  const buyerEmail = metadata.buyerEmail || session.customer_details?.email || 'unknown@example.com';
+  const buyerName = metadata.buyerName || session.customer_details?.name || 'Customer';
   const eventName = metadata.eventName || metadata.eventTitle || 'General Admission';
   const eventId = metadata.eventId || '1';
 
-  console.log('Parsed quantities:', { admissionQty, parkingQty });
-  console.log('Customer info:', { email, name, eventName, eventId });
+  console.log('🎫 REAL PURCHASE METADATA:', JSON.stringify(metadata, null, 2));
+  console.log('📧 USING EMAIL:', buyerEmail);
+  console.log('🎫 TICKETS:', admissionQty, 'PARKING:', parkingQty);
 
   if (admissionQty === 0 && parkingQty === 0) {
-    console.log('❌ No quantities in metadata - skipping fulfillment (this is normal for some events)');
-    return; // Don't throw error, just skip
+    console.log('❌ No quantities in metadata - skipping fulfillment');
+    return;
   }
 
-  if (!email) {
+  if (!buyerEmail) {
     throw new Error('Missing customer email on checkout session');
   }
 
@@ -86,8 +86,8 @@ async function handleCheckoutSession(session) {
     sessionId: session.id,
     count: admissionQty,
     eventId,
-    name,
-    email,
+    name: buyerName,
+    email: buyerEmail,
   });
   console.log(`✅ Built ${ticketRows.length} ticket rows`);
 
@@ -96,8 +96,8 @@ async function handleCheckoutSession(session) {
     sessionId: session.id,
     count: parkingQty,
     eventId,
-    name,
-    email,
+    name: buyerName,
+    email: buyerEmail,
   });
   console.log(`✅ Built ${parkingRows.length} parking rows`);
 
@@ -137,11 +137,11 @@ async function handleCheckoutSession(session) {
     return;
   }
 
-  console.log(`📧 Sending email to ${email}...`);
+  console.log(`📧 Sending email to ${buyerEmail}...`);
   try {
     await sendTicketsEmail({
-      email,
-      name,
+      email: buyerEmail,
+      name: buyerName,
       eventName,
       totalAmount: (session.amount_total || 0) / 100,
       tickets: ticketsForEmail,
