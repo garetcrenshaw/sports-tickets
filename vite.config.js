@@ -6,6 +6,7 @@ const functionsPort = 3001
 
 export default defineConfig({
   plugins: [react()],
+  base: '/',
   build: {
     outDir: 'dist'
   },
