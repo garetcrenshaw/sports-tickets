@@ -7,7 +7,7 @@
     "dev:functions": "node dev-server.js",
     "dev:full": "vercel dev",
     "dev:ngrok": "ngrok http 3000",
-    "build": "vite build --root .",
+    "build": "vite build",
     "preview": "vite preview",
     "vercel-build": "vite build",
     "test:fulfillment": "stripe trigger checkout.session.completed",

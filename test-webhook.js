@@ -124,7 +124,7 @@ const mockSession = {
 console.log('Mock session object:', JSON.stringify(mockSession, null, 2));
 
 // Import and test the handleCheckoutSession function
-const { handleCheckoutSession } = require('./pages/api/stripe-webhook');
+const { handleCheckoutSession } = require('./api/stripe-webhook');
 
 console.log('\n🚀 Calling handleCheckoutSession...\n');
 
