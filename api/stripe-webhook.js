@@ -46,45 +46,22 @@ async function buildParkingRows({ count, eventId, name, email, sessionId }) {
 async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession START');
 
-  // Fetch full session with expanded metadata and line_items
   const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
-    expand: ['line_items', 'customer_details']
+    expand: ['line_items']
   });
-  console.log('📋 FETCHED FULL SESSION WITH EXPANSION');
 
   const metadata = fullSession.metadata || {};
-  console.log('WEBHOOK METADATA:', JSON.stringify(metadata));
+  console.log('WEBHOOK METADATA:', metadata);
 
-  // Debug: Check if metadata is missing critical fields
-  if (!metadata.admissionQuantity) {
-    console.error('NO METADATA — FULL SESSION:', JSON.stringify(fullSession, null, 2));
-  }
+  const admissionQty = parseInt(metadata.admissionQuantity || '0', 10);
+  const parkingQty = parseInt(metadata.parkingQuantity || '0', 10);
 
-  // Parse quantities from metadata or count line items
-  let admissionQty = parseInt(metadata.admissionQuantity, 10) || 0;
-  let parkingQty = parseInt(metadata.parkingQuantity, 10) || 0;
-
-  // If metadata doesn't have quantities, parse from line_items
-  if (admissionQty === 0 && parkingQty === 0 && fullSession.line_items?.data) {
-    console.log('📋 PARSING QUANTITIES FROM LINE ITEMS...');
-    for (const item of fullSession.line_items.data) {
-      const priceId = item.price?.id;
-      const quantity = item.quantity || 1;
-      if (priceId === 'price_admission') { // You'll need to set these IDs in your create-checkout
-        admissionQty += quantity;
-      } else if (priceId === 'price_parking') {
-        parkingQty += quantity;
-      }
-    }
-    console.log('📋 PARSED FROM LINE ITEMS:', { admissionQty, parkingQty });
-  }
-
-  const buyerEmail = metadata.buyerEmail || fullSession.customer_details?.email;
-  const buyerName = metadata.buyerName || fullSession.customer_details?.name || 'Customer';
-  const eventName = metadata.eventName || metadata.eventTitle || 'General Admission';
+  const buyerEmail = metadata.buyerEmail || session.customer_details?.email || 'no-email@example.com';
+  const buyerName = metadata.buyerName || session.customer_details?.name || 'Customer';
   const eventId = parseInt(metadata.eventId, 10) || 1;
 
-  console.log('PARSED:', { admissionQty, parkingQty, buyerEmail, buyerName, eventId });
+  console.log('PARSED QUANTITIES:', admissionQty, parkingQty);
+  console.log('EMAIL TO:', buyerEmail);
 
   if (admissionQty + parkingQty === 0) {
     console.log('ZERO QUANTITIES — SKIPPING FULFILLMENT');
@@ -124,8 +101,8 @@ async function handleCheckoutSession(session) {
       ticketRows.length ? createTickets(ticketRows) : Promise.resolve([]),
       parkingRows.length ? createParkingPasses(parkingRows) : Promise.resolve([]),
     ]);
-    console.log('INSERT SUCCESS - TICKETS:', JSON.stringify(createdTickets));
-    console.log('INSERT SUCCESS - PARKING:', JSON.stringify(createdParking));
+    console.log('SUPABASE INSERT RESULT:', createdTickets);
+    console.log('SUPABASE INSERT RESULT:', createdParking);
     console.log(`✅ Created ${createdTickets.length} tickets in Supabase`);
     console.log(`✅ Created ${createdParking.length} parking passes in Supabase`);
   } catch (dbError) {
