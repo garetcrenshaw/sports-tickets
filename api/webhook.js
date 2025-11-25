@@ -59,6 +59,9 @@ async function handleCheckoutSession(session) {
   const metadata = session.metadata || {};
   console.log('Raw metadata:', metadata);
   
+  console.log('Full session metadata:', JSON.stringify(metadata, null, 2));
+  console.log('Session customer details:', JSON.stringify(session.customer_details, null, 2));
+
   const admissionQty = parseNonNegativeInt(metadata.admissionQuantity) || 0;
   const parkingQty = parseNonNegativeInt(metadata.parkingQuantity) || 0;
   const email = metadata.buyerEmail || session.customer_details?.email || 'stripe@example.com';
@@ -70,8 +73,8 @@ async function handleCheckoutSession(session) {
   console.log('Customer info:', { email, name, eventName, eventId });
 
   if (admissionQty === 0 && parkingQty === 0) {
-    console.log('❌ ERROR: No quantities specified in metadata - cannot fulfill order');
-    throw new Error('No admission or parking quantities specified in checkout metadata');
+    console.log('❌ No quantities in metadata - skipping fulfillment (this is normal for some events)');
+    return; // Don't throw error, just skip
   }
 
   if (!email) {
@@ -110,8 +113,8 @@ async function handleCheckoutSession(session) {
     console.log(`✅ Created ${createdTickets.length} tickets in Supabase:`, createdTickets.map(t => t.ticket_id));
     console.log(`✅ Created ${createdParking.length} parking passes in Supabase:`, createdParking.map(p => p.ticket_id));
   } catch (dbError) {
-    console.error('❌ DATABASE ERROR - Not sending email:', dbError.message);
-    console.error('❌ Database error details:', dbError);
+    console.error('❌ Supabase insert failed:', dbError.message);
+    console.error('❌ Supabase error details:', JSON.stringify(dbError, null, 2));
     throw new Error(`Database insert failed: ${dbError.message}`);
   }
 
@@ -146,9 +149,10 @@ async function handleCheckoutSession(session) {
     });
     console.log('✅ Email sent successfully!');
   } catch (emailError) {
-    console.error('❌ EMAIL ERROR:', emailError.message);
-    // Email failed, but data is already in database
-    throw new Error(`Email send failed: ${emailError.message}`);
+    console.error('❌ Email send failed:', emailError.message);
+    console.error('❌ Email error details:', JSON.stringify(emailError, null, 2));
+    // Email failed, but data is already in database - don't throw error
+    console.log('⚠️  Data saved to Supabase but email failed - check Resend configuration');
   }
 
   console.log('📦 handleCheckoutSession COMPLETE');

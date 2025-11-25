@@ -42,6 +42,22 @@ Then:
 4. Check Tab 2 logs for webhook processing
 5. Check email for QR codes
 6. Check Supabase for database records
+
+### 4. Test Real Webhooks (ngrok)
+For webhook events from real Stripe checkout:
+```bash
+npm install ngrok
+npm run dev:ngrok
+```
+
+Copy the ngrok HTTPS URL (e.g., `https://abc123.ngrok.io`), then:
+
+1. Go to Stripe Dashboard → Webhooks
+2. Add endpoint: `https://abc123.ngrok.io/api/stripe-webhook`
+3. Select event: `checkout.session.completed`
+4. Make real purchase at localhost:3000
+5. Webhook fires automatically with real metadata
+6. Check email/QR/Supabase for fulfillment
 ```
 
 ### 3. Start everything

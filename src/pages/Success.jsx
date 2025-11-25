@@ -121,6 +121,11 @@ export default function Success() {
         <p style={{ margin: 0 }}>
           🎉 Payment successful! <strong>Your tickets + parking QR codes are in your email.</strong>
         </p>
+        {sessionData?.customer_email && (
+          <p style={{ marginTop: '12px', color: '#059669', fontWeight: 'bold' }}>
+            📧 Tickets sent to: {sessionData.customer_email}
+          </p>
+        )}
         <p style={{ marginTop: '12px' }}>
           Not there in 30 sec? Check spam.
         </p>

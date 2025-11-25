@@ -6,6 +6,7 @@
     "dev": "concurrently \"vite --port 3000\" \"node dev-server.js\" \"stripe listen --forward-to localhost:3000/api/stripe-webhook\"",
     "dev:functions": "node dev-server.js",
     "dev:full": "vercel dev",
+    "dev:ngrok": "ngrok http 3000",
     "build": "vite build",
     "preview": "vite preview",
     "vercel-build": "vite build",
@@ -24,7 +25,8 @@
     "react-router-dom": "^6.26.2",
     "resend": "^4.8.0",
     "stripe": "^19.2.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "ngrok": "^5.0.0-beta.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
