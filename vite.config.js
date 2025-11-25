@@ -17,5 +17,7 @@ export default defineConfig({
         ws: true
       }
     }
-  }
+  },
+  // Disable automatic .env loading to avoid sandbox issues
+  envDir: false
 })

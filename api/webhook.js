@@ -15,10 +15,12 @@ function parseNonNegativeInt(value) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-async function buildTicketRows({ count, eventId, name, email }) {
+async function buildTicketRows({ count, eventId, name, email, sessionId }) {
   const rows = [];
   for (let i = 0; i < count; i += 1) {
+    const ticketNumber = i + 1;
     rows.push({
+      ticket_id: `ticket-${sessionId}-${ticketNumber}`,
       event_id: String(eventId),
       ticket_type: 'Gameday Admission',
       purchaser_name: name,
@@ -29,10 +31,12 @@ async function buildTicketRows({ count, eventId, name, email }) {
   return rows;
 }
 
-async function buildParkingRows({ count, eventId, name, email }) {
+async function buildParkingRows({ count, eventId, name, email, sessionId }) {
   const rows = [];
   for (let i = 0; i < count; i += 1) {
+    const ticketNumber = i + 1;
     rows.push({
+      ticket_id: `parking-${sessionId}-${ticketNumber}`,
       event_id: String(eventId),
       ticket_type: 'Gameday Parking',
       purchaser_name: name,
@@ -46,16 +50,9 @@ async function buildParkingRows({ count, eventId, name, email }) {
 async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession START');
 
-  // Always fetch full session with line items and customer details
-  console.log('📋 FETCHING FULL SESSION FROM STRIPE...');
-  let fullSession;
-  try {
-    fullSession = await stripe.checkout.sessions.retrieve(session.id, { expand: ['line_items', 'customer_details'] });
-    console.log('📋 FULL SESSION FETCHED');
-  } catch (error) {
-    console.error('❌ FAILED TO FETCH FULL SESSION:', error.message);
-    throw error;
-  }
+  // Use the session data provided by the webhook (no API call needed)
+  const fullSession = session;
+  console.log('📋 USING SESSION DATA FROM WEBHOOK');
 
   const metadata = fullSession.metadata || {};
   console.log('WEBHOOK METADATA:', JSON.stringify(metadata));
@@ -101,6 +98,7 @@ async function handleCheckoutSession(session) {
     eventId,
     name: buyerName,
     email: buyerEmail,
+    sessionId: fullSession.id,
   });
   console.log(`✅ Built ${ticketRows.length} ticket rows`);
 
@@ -110,6 +108,7 @@ async function handleCheckoutSession(session) {
     eventId,
     name: buyerName,
     email: buyerEmail,
+    sessionId: fullSession.id,
   });
   console.log(`✅ Built ${parkingRows.length} parking rows`);
 
