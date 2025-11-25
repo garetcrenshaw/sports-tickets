@@ -18,9 +18,7 @@ function parseNonNegativeInt(value) {
 async function buildTicketRows({ count, eventId, name, email, sessionId }) {
   const rows = [];
   for (let i = 0; i < count; i += 1) {
-    const ticketNumber = i + 1;
     rows.push({
-      ticket_id: `ticket-${sessionId}-${ticketNumber}`,
       event_id: String(eventId),
       ticket_type: 'Gameday Admission',
       purchaser_name: name,
@@ -34,9 +32,7 @@ async function buildTicketRows({ count, eventId, name, email, sessionId }) {
 async function buildParkingRows({ count, eventId, name, email, sessionId }) {
   const rows = [];
   for (let i = 0; i < count; i += 1) {
-    const ticketNumber = i + 1;
     rows.push({
-      ticket_id: `parking-${sessionId}-${ticketNumber}`,
       event_id: String(eventId),
       ticket_type: 'Gameday Parking',
       purchaser_name: name,
@@ -50,9 +46,11 @@ async function buildParkingRows({ count, eventId, name, email, sessionId }) {
 async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession START');
 
-  // Use the session data provided by the webhook (no API call needed)
-  const fullSession = session;
-  console.log('📋 USING SESSION DATA FROM WEBHOOK');
+  // Fetch full session with expanded metadata and line_items
+  const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
+    expand: ['line_items', 'customer_details']
+  });
+  console.log('📋 FETCHED FULL SESSION WITH EXPANSION');
 
   const metadata = fullSession.metadata || {};
   console.log('WEBHOOK METADATA:', JSON.stringify(metadata));
@@ -126,26 +124,26 @@ async function handleCheckoutSession(session) {
       ticketRows.length ? createTickets(ticketRows) : Promise.resolve([]),
       parkingRows.length ? createParkingPasses(parkingRows) : Promise.resolve([]),
     ]);
+    console.log('INSERT SUCCESS - TICKETS:', JSON.stringify(createdTickets));
+    console.log('INSERT SUCCESS - PARKING:', JSON.stringify(createdParking));
     console.log(`✅ Created ${createdTickets.length} tickets in Supabase`);
-    console.log('SUPABASE DATA - TICKETS:', JSON.stringify(createdTickets, null, 2));
     console.log(`✅ Created ${createdParking.length} parking passes in Supabase`);
-    console.log('SUPABASE DATA - PARKING:', JSON.stringify(createdParking, null, 2));
   } catch (dbError) {
     console.error('❌ Supabase insert failed:', dbError.message);
     console.error('❌ Supabase error details:', JSON.stringify(dbError, null, 2));
     throw new Error(`Database insert failed: ${dbError.message}`);
   }
 
-  // Generate QR codes using ticket_id (application identifier, not UUID)
+  // Generate QR codes using auto-generated id (UUID)
   console.log('🎨 Generating QR codes...');
   for (const ticket of createdTickets) {
-    const validateUrl = `${SITE_URL}/validate/${ticket.ticket_id}`;
+    const validateUrl = `${SITE_URL}/validate/${ticket.id}`;
     const qrCodeUrl = await generateTicketQr(validateUrl);
     ticket.qr_code_url = qrCodeUrl;
   }
 
   for (const pass of createdParking) {
-    const validateUrl = `${SITE_URL}/validate/${pass.ticket_id}`;
+    const validateUrl = `${SITE_URL}/validate/${pass.id}`;
     const qrCodeUrl = await generateTicketQr(validateUrl);
     pass.qr_code_url = qrCodeUrl;
   }
