@@ -56,24 +56,20 @@ async function buildParkingRows({ sessionId, count, eventId, name, email }) {
 async function handleCheckoutSession(session) {
   console.log('📦 handleCheckoutSession START');
 
-  console.log('🔍 SESSION OBJECT:', JSON.stringify(session, null, 2));
-
   const metadata = session.metadata || {};
-  console.log('📋 METADATA OBJECT:', JSON.stringify(metadata, null, 2));
+  console.log('WEBHOOK FULL METADATA:', JSON.stringify(metadata, null, 2));
 
-  const admissionQty = parseInt(metadata.admissionQuantity) || 0;
-  const parkingQty = parseInt(metadata.parkingQuantity) || 0;
-  const buyerEmail = metadata.buyerEmail || session.customer_details?.email || 'unknown@example.com';
+  const admissionQty = parseInt(metadata.admissionQuantity, 10) || 0;
+  const parkingQty = parseInt(metadata.parkingQuantity, 10) || 0;
+  const buyerEmail = metadata.buyerEmail || session.customer_details?.email || 'test@example.com';
   const buyerName = metadata.buyerName || session.customer_details?.name || 'Customer';
   const eventName = metadata.eventName || metadata.eventTitle || 'General Admission';
-  const eventId = metadata.eventId || '1';
+  const eventId = parseInt(metadata.eventId, 10) || 1;
 
-  console.log('🎫 REAL PURCHASE METADATA:', JSON.stringify(metadata, null, 2));
-  console.log('📧 USING EMAIL:', buyerEmail);
-  console.log('🎫 TICKETS:', admissionQty, 'PARKING:', parkingQty);
+  console.log('PARSED:', { admissionQty, parkingQty, buyerEmail, buyerName, eventId });
 
-  if (admissionQty === 0 && parkingQty === 0) {
-    console.log('❌ No quantities in metadata - skipping fulfillment');
+  if (admissionQty + parkingQty === 0) {
+    console.log('ZERO QUANTITIES — NO FULFILLMENT');
     return;
   }
 

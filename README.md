@@ -43,10 +43,14 @@ Then:
 5. Check email for QR codes
 6. Check Supabase for database records
 
-### 4. Test Real Webhooks (ngrok)
+### 4. Test Real Webhooks with ngrok
 For webhook events from real Stripe checkout:
+
+**Setup ngrok:**
 ```bash
-npm install ngrok
+npm install ngrok --global
+# Sign up at ngrok.com and get your authtoken
+ngrok authtoken YOUR_TOKEN
 npm run dev:ngrok
 ```
 
