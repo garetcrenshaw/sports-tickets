@@ -12,119 +12,107 @@ import { createClient } from '@supabase/supabase-js';
 
 
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-
-
 export const config = { api: { bodyParser: false } };
 
 
 
 export default async function handler(req, res) {
 
-  if (req.method !== 'POST') return res.status(405).end();
+  if (req.method !== 'POST') {
 
+    console.log('Non-POST method — skipping');
 
-
-  console.log('Webhook hit — env check:', {
-
-    hasSecret: !!webhookSecret,
-
-    hasResend: !!process.env.RESEND_API_KEY,
-
-    hasSupabase: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-
-  });
-
-
-
-  const buf = await buffer(req);
-
-  const sig = req.headers['stripe-signature'];
-
-
-
-  let event;
-
-  try {
-
-    event = stripe.webhooks.constructEvent(buf.toString(), sig, webhookSecret);
-
-    console.log('Webhook verified:', event.id, event.type);
-
-  } catch (err) {
-
-    console.error('Webhook signature failed:', err.message);
-
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    return res.status(405).end();
 
   }
 
 
 
-  if (event.type === 'checkout.session.completed') {
+  try {
 
-    const session = event.data.object;
+    console.log('Webhook hit — env check:', {
 
-    const metadata = session.metadata || {};
+      stripeKey: !!process.env.STRIPE_SECRET_KEY,
 
+      webhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
 
+      resendKey: !!process.env.RESEND_API_KEY,
 
-    const admissionQty = parseInt(metadata.admissionQuantity || '0', 10);
+      supabaseUrl: !!process.env.SUPABASE_URL,
 
-    const parkingQty = parseInt(metadata.parkingQuantity || '0', 10);
+      supabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
 
-    const buyerEmail = metadata.buyerEmail || session.customer_details?.email;
+      siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000',
 
-    const buyerName = metadata.buyerName || session.customer_details?.name || 'Customer';
-
-    const eventId = metadata.eventId;
-
-
-
-    console.log('FULFILLMENT START', { admissionQty, parkingQty, buyerEmail, eventId });
+    });
 
 
 
-    if (!buyerEmail || (!admissionQty && !parkingQty)) {
+    const buf = await buffer(req);
 
-      console.log('Nothing to fulfill');
-
-      return res.status(200).end();
-
-    }
+    const sig = req.headers['stripe-signature'];
 
 
 
-    const qrCodes = [];
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+    let event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET);
+
+    console.log('Webhook verified:', event.type, event.id);
 
 
 
-    try {
+    if (event.type === 'checkout.session.completed') {
+
+      const session = event.data.object;
+
+      const metadata = session.metadata || {};
+
+
+
+      const admissionQty = parseInt(metadata.admissionQuantity || '0', 10);
+
+      const parkingQty = parseInt(metadata.parkingQuantity || '0', 10);
+
+      const buyerEmail = metadata.buyerEmail || session.customer_details?.email;
+
+      const buyerName = metadata.buyerName || session.customer_details?.name || 'Customer';
+
+      const eventId = metadata.eventId;
+
+
+
+      console.log('Fulfillment start:', { admissionQty, parkingQty, buyerEmail, eventId });
+
+
+
+      if (!buyerEmail || (admissionQty + parkingQty === 0)) {
+
+        console.log('Nothing to fulfill — skipping');
+
+        return res.status(200).end();
+
+      }
+
+
+
+      const qrCodes = [];
+
+      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+
 
       for (let i = 0; i < admissionQty; i++) {
 
-        const { data, error } = await supabase
+        const { data, error } = await supabase.from('tickets').insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName }).select().single();
 
-          .from('tickets')
+        if (error) throw new Error(`Ticket insert error: ${error.message}`);
 
-          .insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName })
+        const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate/${data.id}`);
 
-          .select()
+        qrCodes.push({ type: 'Admission', qr });
 
-          .single();
-
-        if (error) throw error;
-
-        const qr = await QRCode.toDataURL(`${process.env.NEXT_PUBLIC_SITE_URL}/validate/${data.id}`);
-
-        qrCodes.push({ type: 'Admission Ticket', qr });
+        console.log('Ticket created:', data.id);
 
       }
 
@@ -132,25 +120,21 @@ export default async function handler(req, res) {
 
       for (let i = 0; i < parkingQty; i++) {
 
-        const { data, error } = await supabase
+        const { data, error } = await supabase.from('parking_passes').insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName }).select().single();
 
-          .from('parking_passes')
+        if (error) throw new Error(`Parking insert error: ${error.message}`);
 
-          .insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName })
+        const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate-parking/${data.id}`);
 
-          .select()
+        qrCodes.push({ type: 'Parking', qr });
 
-          .single();
-
-        if (error) throw error;
-
-        const qr = await QRCode.toDataURL(`${process.env.NEXT_PUBLIC_SITE_URL}/validate-parking/${data.id}`);
-
-        qrCodes.push({ type: 'Parking Pass', qr });
+        console.log('Parking created:', data.id);
 
       }
 
 
+
+      const resend = new Resend(process.env.RESEND_API_KEY);
 
       await resend.emails.send({
 
@@ -158,33 +142,26 @@ export default async function handler(req, res) {
 
         to: buyerEmail,
 
-        subject: 'Your Tickets Are Here!',
+        subject: 'Your Tickets!',
 
-        html: `<h1>Hey ${buyerName}!</h1><p>Thanks for your purchase. Here are your tickets:</p> ${qrCodes.map(
-
-          q => `<div style="margin:40px 0;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`
-
-        ).join('')}<p>See you at the game!</p>`,
+        html: `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px 0;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`).join('')}<p>See you there!</p>`,
 
       });
 
-
-
-      console.log(`SUCCESS — ${qrCodes.length} QR codes emailed to ${buyerEmail}`);
-
-    } catch (err) {
-
-      console.error('FULFILLMENT FAILED:', err);
-
-      return res.status(500).end();
+      console.log('Email sent to:', buyerEmail);
 
     }
 
+
+
+    res.status(200).end();
+
+  } catch (err) {
+
+    console.error('WEBHOOK ERROR:', err.message, err.stack);
+
+    res.status(400).send(`Webhook Error: ${err.message}`);
+
   }
 
-
-
-  res.status(200).end();
-
 }
-
