@@ -156,7 +156,37 @@ function createFunctionHandler(functionName) {
 
         try {
           const clonedReq = createBufferedRequest(req, bodyBuffer);
-          await handler(clonedReq, res);
+
+          // Create Express-like response wrapper
+          const expressRes = {
+            status: (code) => {
+              expressRes.statusCode = code;
+              return expressRes;
+            },
+            send: (data) => {
+              if (!res.headersSent) {
+                res.writeHead(expressRes.statusCode || 200, {
+                  'Content-Type': 'application/json',
+                  'Content-Length': Buffer.byteLength(typeof data === 'string' ? data : JSON.stringify(data))
+                });
+              }
+              res.end(typeof data === 'string' ? data : JSON.stringify(data));
+            },
+            end: (data) => {
+              if (data) res.end(data);
+              else res.end();
+            },
+            json: (data) => {
+              if (!res.headersSent) {
+                res.writeHead(expressRes.statusCode || 200, {
+                  'Content-Type': 'application/json'
+                });
+              }
+              res.end(JSON.stringify(data));
+            }
+          };
+
+          await handler(clonedReq, expressRes);
           if (!res.writableEnded) {
             res.end();
           }
