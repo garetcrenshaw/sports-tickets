@@ -107,7 +107,8 @@ export default async function handler(req, res) {
 
         console.log('TICKET INSERTED, ID:', data.id);
 
-        const ticketUrl = `https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate/${data.id}`;
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000';
+        const ticketUrl = `${baseUrl.startsWith('http') ? '' : 'https://'}${baseUrl}/validate/${data.id}`;
         console.log('GENERATING QR FOR TICKET URL:', ticketUrl);
         const qrDataUrl = await QRCode.toDataURL(ticketUrl);
         console.log('QR CODE GENERATED, LENGTH:', qrDataUrl.length);
@@ -151,7 +152,8 @@ export default async function handler(req, res) {
 
         console.log('PARKING INSERTED, ID:', data.id);
 
-        const parkingUrl = `https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate-parking/${data.id}`;
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000';
+        const parkingUrl = `${baseUrl.startsWith('http') ? '' : 'https://'}${baseUrl}/validate-parking/${data.id}`;
         console.log('GENERATING QR FOR PARKING URL:', parkingUrl);
         const qrDataUrl = await QRCode.toDataURL(parkingUrl);
         console.log('PARKING QR GENERATED, LENGTH:', qrDataUrl.length);
@@ -193,7 +195,26 @@ export default async function handler(req, res) {
         console.log(`QR ${i+1}: ${q.type} - Validation URL: ${q.url} - Hosted Image: ${q.imageUrl}`);
       });
 
-      const emailHtml = `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.imageUrl}" width="300" alt="${q.type}" style="border: 2px solid #000; border-radius: 10px;"/><br><small>Scan QR code or click: <a href="${q.url}">${q.url}</a></small></div>`).join('')}<p>See you at the game!</p>`;
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #333; text-align: center;">Your Game Tickets Are Ready!</h1>
+          <p style="font-size: 16px; line-height: 1.6;">Hi ${buyerName},</p>
+          <p style="font-size: 16px; line-height: 1.6;">Thank you for your purchase! Here are your digital tickets and parking passes. Simply show the QR codes at the gate or parking entrance.</p>
+
+          ${qrCodes.map(q => `<div style="margin: 40px 0; text-align: center; padding: 20px; border: 1px solid #ddd; border-radius: 10px; background-color: #f9f9f9;">
+            <h3 style="margin: 0 0 15px 0; color: #333;">${q.type}</h3>
+            <img src="${q.imageUrl}" width="250" height="250" alt="${q.type} QR Code" style="border: 2px solid #000; border-radius: 10px; display: block; margin: 0 auto;"/>
+            <p style="margin: 15px 0 0 0; font-size: 14px; color: #666;">
+              <a href="${q.url}" style="color: #007bff; text-decoration: none;">Click here if you can't scan the QR code</a>
+            </p>
+          </div>`).join('')}
+
+          <p style="font-size: 14px; color: #666; text-align: center; margin-top: 30px;">
+            If you have any questions, please contact our support team.<br>
+            See you at the game!
+          </p>
+        </div>
+      `;
 
       console.log('EMAIL HTML LENGTH:', emailHtml.length);
       console.log('EMAIL HTML PREVIEW:', emailHtml.substring(0, 200) + '...');
@@ -201,9 +222,9 @@ export default async function handler(req, res) {
       try {
         console.log('SENDING EMAIL VIA RESEND...');
         const emailResult = await resend.emails.send({
-          from: 'onboarding@resend.dev', // Use Resend's default verified domain for testing
+          from: 'Gameday Tickets <noreply@sports-tickets.app>', // Use noreply domain for better deliverability
           to: buyerEmail,
-          subject: 'Your Tickets Are Here!',
+          subject: 'Your Game Tickets Are Ready!',
           html: emailHtml
         });
 
