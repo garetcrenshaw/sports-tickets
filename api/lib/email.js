@@ -1,5 +1,5 @@
-const { Resend } = require('resend');
-const { requireEnv } = require('../../src/lib/stripe.js');
+import { Resend } from 'resend';
+import { requireEnv } from '../../src/lib/stripe.js';
 
 const resend = new Resend(requireEnv('RESEND_API_KEY'));
 
@@ -114,6 +114,6 @@ async function sendTicketsEmail({
   return data;
 }
 
-module.exports = {
+export {
   sendTicketsEmail,
 };

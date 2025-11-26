@@ -1,9 +1,9 @@
-const Stripe = require('stripe');
-const { setCors, sendJson, end, readJson } = require('./_utils.js');
+import Stripe from 'stripe';
+import { setCors, sendJson, end, readJson } from './_utils.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-async function handler(req, res) {
+export default async function handler(req, res) {
   console.log('GET-SESSION HIT - PRODUCTION API CALL');
   console.log('🎯 get-session API called:', req.method, req.url);
 
@@ -58,5 +58,3 @@ async function handler(req, res) {
     return sendJson(res, 500, { error: error.message });
   }
 };
-
-module.exports = handler;

@@ -1,5 +1,5 @@
-const { createClient } = require('@supabase/supabase-js');
-const { requireEnv } = require('./stripe');
+import { createClient } from '@supabase/supabase-js';
+import { requireEnv } from './stripe.js';
 
 let supabase;
 
@@ -122,7 +122,7 @@ async function markParkingPassValidated(ticketId) {
   return data;
 }
 
-module.exports = {
+export {
   createTickets,
   createParkingPasses,
   getTicketById,

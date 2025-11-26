@@ -2,8 +2,9 @@
   "name": "sports-tickets",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite --port 3000\" \"node dev-server.js\" \"stripe listen --forward-to localhost:3000/api/stripe-webhook\"",
+    "dev": "concurrently \"vite --port 3000\" \"node dev-server.cjs\" \"stripe listen --forward-to localhost:3000/api/stripe-webhook\"",
     "dev:functions": "node dev-server.js",
     "dev:full": "vercel dev",
     "dev:ngrok": "ngrok http 3000",
@@ -22,6 +23,7 @@
     "concurrently": "^8.2.2",
     "dotenv": "^17.2.3",
     "http-proxy": "^1.18.1",
+    "micro": "^10.0.1",
     "ngrok": "^5.0.0-beta.2",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
