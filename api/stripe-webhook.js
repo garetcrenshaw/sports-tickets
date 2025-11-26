@@ -8,6 +8,15 @@ const { setCors, sendJson, end, readRawBody } = require('./_utils.js');
 const stripe = getStripeClient();
 const SITE_URL = process.env.SITE_URL || 'http://localhost:3000';
 
+function buffer(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 async function handleCheckoutSession(session) {
   console.log('🎫 WEBHOOK: Processing checkout.session.completed');
   console.log('🎫 WEBHOOK: Session ID:', session.id);
@@ -197,12 +206,7 @@ async function handler(req, res) {
     const webhookSecret = requireEnv('STRIPE_WEBHOOK_SECRET');
     console.log('🔐 WEBHOOK: Loading webhook secret...');
 
-    const buf = await new Promise((resolve, reject) => {
-      const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
-      req.on('end', () => resolve(Buffer.concat(chunks)));
-      req.on('error', reject);
-    });
+    const buf = await buffer(req);
     console.log('RAW BODY LENGTH:', buf.length);
 
     const signature = req.headers['stripe-signature'];
