@@ -142,7 +142,7 @@ export default async function handler(req, res) {
       try {
         console.log('SENDING EMAIL VIA RESEND...');
         const emailResult = await resend.emails.send({
-          from: 'Gameday Tickets <tickets@yourdomain.com>',
+          from: 'onboarding@resend.dev', // Use Resend's default verified domain for testing
           to: buyerEmail,
           subject: 'Your Tickets Are Here!',
           html: `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`).join('')}<p>See you at the game!</p>`
