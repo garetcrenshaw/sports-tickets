@@ -222,10 +222,11 @@ export default async function handler(req, res) {
       try {
         console.log('SENDING EMAIL VIA RESEND...');
         const emailResult = await resend.emails.send({
-          from: 'Gameday Tickets <noreply@sports-tickets.app>', // Use noreply domain for better deliverability
+          from: 'Sports Tickets <delivered@resend.dev>', // Use Resend's verified domain
           to: buyerEmail,
-          subject: 'Your Game Tickets Are Ready!',
-          html: emailHtml
+          subject: 'Your Tickets - Ready to Scan!',
+          html: emailHtml,
+          reply_to: 'support@sports-tickets.app' // Add reply-to for legitimacy
         });
 
         console.log('EMAIL API RESPONSE:', JSON.stringify(emailResult, null, 2));
