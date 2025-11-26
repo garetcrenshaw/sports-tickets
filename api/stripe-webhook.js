@@ -109,9 +109,30 @@ export default async function handler(req, res) {
 
         const ticketUrl = `https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate/${data.id}`;
         console.log('GENERATING QR FOR TICKET URL:', ticketUrl);
-        const qr = await QRCode.toDataURL(ticketUrl);
-        console.log('QR CODE GENERATED, LENGTH:', qr.length, 'STARTS WITH:', qr.substring(0, 50));
-        qrCodes.push({ type: 'Admission Ticket', qr, url: ticketUrl });
+        const qrDataUrl = await QRCode.toDataURL(ticketUrl);
+        console.log('QR CODE GENERATED, LENGTH:', qrDataUrl.length);
+
+        // Upload QR code to Supabase Storage
+        const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
+        const fileName = `ticket-${data.id}.png`;
+
+        console.log('UPLOADING QR TO SUPABASE STORAGE:', fileName);
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('qr-codes')
+          .upload(fileName, qrBuffer, {
+            contentType: 'image/png',
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('QR UPLOAD ERROR:', uploadError);
+          throw new Error(`QR upload failed: ${uploadError.message}`);
+        }
+
+        const qrImageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/qr-codes/${fileName}`;
+        console.log('QR UPLOAD SUCCESS, PUBLIC URL:', qrImageUrl);
+
+        qrCodes.push({ type: 'Admission Ticket', qr: qrDataUrl, imageUrl: qrImageUrl, url: ticketUrl });
       }
 
       // Insert parking passes
@@ -132,9 +153,30 @@ export default async function handler(req, res) {
 
         const parkingUrl = `https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate-parking/${data.id}`;
         console.log('GENERATING QR FOR PARKING URL:', parkingUrl);
-        const qr = await QRCode.toDataURL(parkingUrl);
-        console.log('PARKING QR GENERATED, LENGTH:', qr.length, 'STARTS WITH:', qr.substring(0, 50));
-        qrCodes.push({ type: 'Parking Pass', qr, url: parkingUrl });
+        const qrDataUrl = await QRCode.toDataURL(parkingUrl);
+        console.log('PARKING QR GENERATED, LENGTH:', qrDataUrl.length);
+
+        // Upload parking QR code to Supabase Storage
+        const parkingQrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
+        const parkingFileName = `parking-${data.id}.png`;
+
+        console.log('UPLOADING PARKING QR TO SUPABASE STORAGE:', parkingFileName);
+        const { data: parkingUploadData, error: parkingUploadError } = await supabase.storage
+          .from('qr-codes')
+          .upload(parkingFileName, parkingQrBuffer, {
+            contentType: 'image/png',
+            upsert: true
+          });
+
+        if (parkingUploadError) {
+          console.error('PARKING QR UPLOAD ERROR:', parkingUploadError);
+          throw new Error(`Parking QR upload failed: ${parkingUploadError.message}`);
+        }
+
+        const parkingQrImageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/qr-codes/${parkingFileName}`;
+        console.log('PARKING QR UPLOAD SUCCESS, PUBLIC URL:', parkingQrImageUrl);
+
+        qrCodes.push({ type: 'Parking Pass', qr: qrDataUrl, imageUrl: parkingQrImageUrl, url: parkingUrl });
       }
 
       console.log('ALL INSERTS COMPLETE, GENERATING EMAIL...');
@@ -148,10 +190,10 @@ export default async function handler(req, res) {
       // Debug QR codes content
       console.log('QR CODES DETAILS:');
       qrCodes.forEach((q, i) => {
-        console.log(`QR ${i+1}: ${q.type} - URL: ${q.url} - QR Length: ${q.qr.length}`);
+        console.log(`QR ${i+1}: ${q.type} - Validation URL: ${q.url} - Hosted Image: ${q.imageUrl}`);
       });
 
-      const emailHtml = `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300" alt="${q.type}"/><br><small>Scan to validate: ${q.url}</small></div>`).join('')}<p>See you at the game!</p>`;
+      const emailHtml = `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.imageUrl}" width="300" alt="${q.type}" style="border: 2px solid #000; border-radius: 10px;"/><br><small>Scan QR code or click: <a href="${q.url}">${q.url}</a></small></div>`).join('')}<p>See you at the game!</p>`;
 
       console.log('EMAIL HTML LENGTH:', emailHtml.length);
       console.log('EMAIL HTML PREVIEW:', emailHtml.substring(0, 200) + '...');
