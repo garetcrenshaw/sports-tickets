@@ -66,7 +66,30 @@ export default async function handler(req, res) {
 
       console.log('STARTING SUPABASE INSERTS...');
       const qrCodes = [];
+
+      console.log('SUPABASE CONNECTION:', {
+        url: process.env.SUPABASE_URL ? 'SET' : 'MISSING',
+        key: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING',
+        urlValue: process.env.SUPABASE_URL?.substring(0, 20) + '...',
+        keyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length
+      });
+
       const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+      console.log('SUPABASE CLIENT CREATED, TESTING CONNECTION...');
+
+      // Test Supabase connection
+      try {
+        const { data: testData, error: testError } = await supabase.from('tickets').select('count').limit(1);
+        if (testError) {
+          console.log('SUPABASE CONNECTION TEST FAILED:', testError);
+          throw new Error(`Supabase connection failed: ${testError.message}`);
+        }
+        console.log('SUPABASE CONNECTION TEST PASSED');
+      } catch (connError) {
+        console.log('SUPABASE CONNECTION ERROR:', connError);
+        throw connError;
+      }
 
       // Insert admission tickets
       for (let i = 0; i < admissionQty; i++) {
