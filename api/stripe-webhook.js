@@ -12,37 +12,31 @@ import { createClient } from '@supabase/supabase-js';
 
 
 
+console.log('🎫 WEBHOOK FILE LOADED - Ready for fulfillment');
+
+
+
 export const config = { api: { bodyParser: false } };
 
 
 
 export default async function handler(req, res) {
 
-  if (req.method !== 'POST') {
-
-    console.log('Non-POST method — skipping');
-
-    return res.status(405).end();
-
-  }
+  console.log('🌐 Webhook hit');
 
 
 
   try {
 
-    console.log('Webhook hit — env check:', {
+    console.log('Env loaded:', {
 
-      stripeKey: !!process.env.STRIPE_SECRET_KEY,
+      stripe: !!process.env.STRIPE_SECRET_KEY,
 
-      webhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+      webhook: !!process.env.STRIPE_WEBHOOK_SECRET,
 
-      resendKey: !!process.env.RESEND_API_KEY,
+      resend: !!process.env.RESEND_API_KEY,
 
-      supabaseUrl: !!process.env.SUPABASE_URL,
-
-      supabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-
-      siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000',
+      supabase: !!process.env.SUPABASE_SERVICE_ROLE_KEY
 
     });
 
@@ -56,9 +50,9 @@ export default async function handler(req, res) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-    let event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET);
+    const event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET);
 
-    console.log('Webhook verified:', event.type, event.id);
+    console.log('✅ Webhook verified:', event.type);
 
 
 
@@ -66,29 +60,27 @@ export default async function handler(req, res) {
 
       const session = event.data.object;
 
-      const metadata = session.metadata || {};
+      const m = session.metadata || {};
+
+      console.log('📦 Metadata:', m);
 
 
 
-      const admissionQty = parseInt(metadata.admissionQuantity || '0', 10);
+      const admissionQty = parseInt(m.admissionQuantity || '0', 10);
 
-      const parkingQty = parseInt(metadata.parkingQuantity || '0', 10);
+      const parkingQty = parseInt(m.parkingQuantity || '0', 10);
 
-      const buyerEmail = metadata.buyerEmail || session.customer_details?.email;
+      const buyerEmail = m.buyerEmail || session.customer_details?.email;
 
-      const buyerName = metadata.buyerName || session.customer_details?.name || 'Customer';
+      const buyerName = m.buyerName || session.customer_details?.name || 'Customer';
 
-      const eventId = metadata.eventId;
-
-
-
-      console.log('Fulfillment start:', { admissionQty, parkingQty, buyerEmail, eventId });
+      const eventId = m.eventId;
 
 
 
       if (!buyerEmail || (admissionQty + parkingQty === 0)) {
 
-        console.log('Nothing to fulfill — skipping');
+        console.log('Nothing to fulfill');
 
         return res.status(200).end();
 
@@ -106,13 +98,11 @@ export default async function handler(req, res) {
 
         const { data, error } = await supabase.from('tickets').insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName }).select().single();
 
-        if (error) throw new Error(`Ticket insert error: ${error.message}`);
+        if (error) throw error;
 
         const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate/${data.id}`);
 
-        qrCodes.push({ type: 'Admission', qr });
-
-        console.log('Ticket created:', data.id);
+        qrCodes.push({ type: 'Admission Ticket', qr });
 
       }
 
@@ -122,13 +112,11 @@ export default async function handler(req, res) {
 
         const { data, error } = await supabase.from('parking_passes').insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName }).select().single();
 
-        if (error) throw new Error(`Parking insert error: ${error.message}`);
+        if (error) throw error;
 
         const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate-parking/${data.id}`);
 
-        qrCodes.push({ type: 'Parking', qr });
-
-        console.log('Parking created:', data.id);
+        qrCodes.push({ type: 'Parking Pass', qr });
 
       }
 
@@ -142,13 +130,15 @@ export default async function handler(req, res) {
 
         to: buyerEmail,
 
-        subject: 'Your Tickets!',
+        subject: 'Your Tickets Are Here!',
 
-        html: `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px 0;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`).join('')}<p>See you there!</p>`,
+        html: `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`).join('')}`
 
       });
 
-      console.log('Email sent to:', buyerEmail);
+
+
+      console.log('🎉 SUCCESS — Email + QR + Supabase complete');
 
     }
 
@@ -158,9 +148,11 @@ export default async function handler(req, res) {
 
   } catch (err) {
 
-    console.error('WEBHOOK ERROR:', err.message, err.stack);
+    console.error('💥 WEBHOOK CRASHED:', err.message);
 
-    res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error('FULL STACK:', err.stack);
+
+    res.status(500).send(`Webhook error: ${err.message}`);
 
   }
 

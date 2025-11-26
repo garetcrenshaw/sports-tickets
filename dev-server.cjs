@@ -201,6 +201,22 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`🚀 Function server running on http://localhost:${PORT}`);
   console.log(`📡 Ready to serve functions at /api/*`);
+  console.log(`🔧 Environment loaded:`, {
+    hasStripe: !!process.env.STRIPE_SECRET_KEY,
+    hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+    hasSupabase: !!process.env.SUPABASE_URL,
+    hasResend: !!process.env.RESEND_API_KEY,
+  });
+}).on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} already in use. Kill existing process first:`);
+    console.error(`   lsof -i :${PORT}`);
+    console.error(`   kill -9 [PID]`);
+    console.error(`   Then restart: npm run dev`);
+  } else {
+    console.error('❌ Function server error:', err.message);
+  }
+  process.exit(1);
 });
 
 process.on('SIGINT', () => {
