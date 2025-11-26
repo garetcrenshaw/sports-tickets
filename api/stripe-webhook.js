@@ -17,19 +17,39 @@ async function handleCheckoutSession(session) {
   const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
     expand: ['line_items', 'customer_details']
   });
+  console.log('WEBHOOK HIT — FULL SESSION:', JSON.stringify(fullSession, null, 2));
   console.log('✅ WEBHOOK: Full session retrieved');
 
   // Parse metadata
   const metadata = fullSession.metadata || {};
   console.log('📋 WEBHOOK METADATA:', JSON.stringify(metadata, null, 2));
 
-  const admissionQuantity = parseInt(metadata.admissionQuantity || '0', 10);
-  const parkingQuantity = parseInt(metadata.parkingQuantity || '0', 10);
-  const buyerEmail = metadata.buyerEmail || fullSession.customer_details?.email;
-  const buyerName = metadata.buyerName || fullSession.customer_details?.name || 'Customer';
-  const eventId = parseInt(metadata.eventId || '1', 10);
+  let admissionQuantity = parseInt(metadata.admissionQuantity || '0', 10);
+  let parkingQuantity = parseInt(metadata.parkingQuantity || '0', 10);
+  let buyerEmail = metadata.buyerEmail || fullSession.customer_details?.email;
+  let buyerName = metadata.buyerName || fullSession.customer_details?.name || 'Customer';
+  let eventId = parseInt(metadata.eventId || '1', 10);
 
-  console.log('🔢 WEBHOOK: Parsed quantities - Admission:', admissionQuantity, 'Parking:', parkingQuantity);
+  // If metadata is empty or quantities are 0, try to parse from line_items
+  if (admissionQuantity === 0 && parkingQuantity === 0 && fullSession.line_items?.data) {
+    console.log('METADATA EMPTY — USING LINE ITEMS');
+    for (const item of fullSession.line_items.data) {
+      const quantity = item.quantity || 1;
+      const productName = item.price?.product_data?.name || '';
+      const unitAmount = item.price?.unit_amount;
+
+      // Check product name or unit amount to identify ticket type
+      if (productName.toLowerCase().includes('admission') || unitAmount === 1500) {
+        admissionQuantity += quantity;
+      } else if (productName.toLowerCase().includes('parking') || unitAmount === 1500) {
+        // For now, assume parking also costs $15 - you may need to adjust this logic
+        parkingQuantity += quantity;
+      }
+    }
+    console.log('PARSED FROM LINE ITEMS - Admission:', admissionQuantity, 'Parking:', parkingQuantity);
+  }
+
+  console.log('🔢 WEBHOOK: Final quantities - Admission:', admissionQuantity, 'Parking:', parkingQuantity);
   console.log('👤 WEBHOOK: Buyer - Name:', buyerName, 'Email:', buyerEmail);
 
   if (admissionQuantity <= 0 && parkingQuantity <= 0) {
