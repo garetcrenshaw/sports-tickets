@@ -175,7 +175,7 @@ async function handleCheckoutSession(session) {
   console.log('🎉 WEBHOOK: Fulfillment complete for session', session.id);
 }
 
-const config = { api: { bodyParser: false } };
+export const config = { api: { bodyParser: false } };
 
 async function handler(req, res) {
   console.log('🔥 WEBHOOK: Received request');
@@ -197,8 +197,13 @@ async function handler(req, res) {
     const webhookSecret = requireEnv('STRIPE_WEBHOOK_SECRET');
     console.log('🔐 WEBHOOK: Loading webhook secret...');
 
-    const rawBody = await readRawBody(req);
-    console.log('📦 WEBHOOK: Received body, length:', rawBody.length);
+    const buf = await new Promise((resolve, reject) => {
+      const chunks = [];
+      req.on('data', chunk => chunks.push(chunk));
+      req.on('end', () => resolve(Buffer.concat(chunks)));
+      req.on('error', reject);
+    });
+    console.log('RAW BODY LENGTH:', buf.length);
 
     const signature = req.headers['stripe-signature'];
     if (!signature) {
@@ -206,7 +211,7 @@ async function handler(req, res) {
     }
     console.log('✍️ WEBHOOK: Verifying signature...');
 
-    const stripeEvent = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    const stripeEvent = stripe.webhooks.constructEvent(buf, signature, webhookSecret);
     console.log('✅ WEBHOOK: Event verified, type:', stripeEvent.type);
 
     if (stripeEvent.type === 'checkout.session.completed') {

@@ -177,6 +177,12 @@ const server = http.createServer((req, res) => {
     const pathAfterApi = req.url.split('/api/')[1];
     const functionName = pathAfterApi.split(/[/?]/)[0]; // Stop at / or ?
     console.log(`🎯 API call detected, function: ${functionName}`);
+
+    // Special handling for stripe-webhook to ensure raw body is preserved
+    if (functionName === 'stripe-webhook') {
+      return createFunctionHandler(functionName)(req, res);
+    }
+
     return createFunctionHandler(functionName)(req, res);
   }
 
