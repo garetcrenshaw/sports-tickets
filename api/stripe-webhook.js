@@ -133,17 +133,36 @@ export default async function handler(req, res) {
 
       console.log('ALL INSERTS COMPLETE, GENERATING EMAIL...');
 
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const emailResult = await resend.emails.send({
-        from: 'Gameday Tickets <tickets@yourdomain.com>',
-        to: buyerEmail,
-        subject: 'Your Tickets Are Here!',
-        html: `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`).join('')}<p>See you at the game!</p>`
-      });
+      console.log('RESEND API KEY STATUS:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
+      console.log('EMAIL RECIPIENT:', buyerEmail);
+      console.log('QR CODES COUNT:', qrCodes.length);
 
-      console.log('🎉 SUCCESS — EMAIL SENT, QR GENERATED, SUPABASE UPDATED');
-      console.log('EMAIL ID:', emailResult.id);
-      console.log('TOTAL QR CODES:', qrCodes.length);
+      const resend = new Resend(process.env.RESEND_API_KEY);
+
+      try {
+        console.log('SENDING EMAIL VIA RESEND...');
+        const emailResult = await resend.emails.send({
+          from: 'Gameday Tickets <tickets@yourdomain.com>',
+          to: buyerEmail,
+          subject: 'Your Tickets Are Here!',
+          html: `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`).join('')}<p>See you at the game!</p>`
+        });
+
+        console.log('EMAIL API RESPONSE:', JSON.stringify(emailResult, null, 2));
+
+        if (emailResult.error) {
+          console.error('RESEND API ERROR:', emailResult.error);
+          throw new Error(`Email send failed: ${emailResult.error.message}`);
+        }
+
+        console.log('🎉 SUCCESS — EMAIL SENT, QR GENERATED, SUPABASE UPDATED');
+        console.log('EMAIL ID:', emailResult.id || emailResult.data?.id || 'unknown');
+        console.log('TOTAL QR CODES:', qrCodes.length);
+
+      } catch (emailError) {
+        console.error('EMAIL SENDING FAILED:', emailError);
+        throw new Error(`Email send error: ${emailError.message}`);
+      }
     }
 
     res.status(200).end();
