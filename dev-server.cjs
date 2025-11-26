@@ -111,15 +111,24 @@ function createFunctionHandler(functionName) {
         return;
       }
 
-      delete require.cache[require.resolve(functionPath)];
-      const requiredModule = require(functionPath);
-      const handler = typeof requiredModule === 'function' ? requiredModule : null;
+      console.log(`🔄 Loading ES module: ${functionPath}`);
 
-      if (!handler) {
+      // Use dynamic import for ES modules
+      const moduleUrl = `file://${functionPath}`;
+      const requiredModule = await import(moduleUrl);
+
+      console.log('📦 Module loaded, checking exports:', Object.keys(requiredModule));
+
+      const handler = requiredModule.default || requiredModule;
+
+      if (typeof handler !== 'function') {
+        console.error('❌ Invalid handler type:', typeof handler, 'Expected function');
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Invalid function export. Expected default export function.' }));
         return;
       }
+
+      console.log('✅ Handler function found, executing...');
 
       const chunks = [];
       req.on('data', (chunk) => {
