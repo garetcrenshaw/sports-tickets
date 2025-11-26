@@ -12,7 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 
 
 
-console.log('🎫 WEBHOOK FILE LOADED - Ready for fulfillment');
+console.log('WEBHOOK FILE LOADED - Ready');
 
 
 
@@ -22,25 +22,11 @@ export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
 
-  console.log('🌐 Webhook hit');
+  console.log('Webhook hit - starting handler');
 
 
 
   try {
-
-    console.log('Env loaded:', {
-
-      stripe: !!process.env.STRIPE_SECRET_KEY,
-
-      webhook: !!process.env.STRIPE_WEBHOOK_SECRET,
-
-      resend: !!process.env.RESEND_API_KEY,
-
-      supabase: !!process.env.SUPABASE_SERVICE_ROLE_KEY
-
-    });
-
-
 
     const buf = await buffer(req);
 
@@ -52,19 +38,19 @@ export default async function handler(req, res) {
 
     const event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET);
 
-    console.log('✅ Webhook verified:', event.type);
+    console.log('Webhook verified:', event.type);
 
 
 
     if (event.type === 'checkout.session.completed') {
+
+      console.log('checkout.session.completed received - starting fulfillment');
 
       const session = event.data.object;
 
       const m = session.metadata || {};
 
       console.log('📦 Metadata:', m);
-
-
 
       const admissionQty = parseInt(m.admissionQuantity || '0', 10);
 
@@ -76,8 +62,6 @@ export default async function handler(req, res) {
 
       const eventId = m.eventId;
 
-
-
       if (!buyerEmail || (admissionQty + parkingQty === 0)) {
 
         console.log('Nothing to fulfill');
@@ -86,13 +70,9 @@ export default async function handler(req, res) {
 
       }
 
-
-
       const qrCodes = [];
 
       const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-
 
       for (let i = 0; i < admissionQty; i++) {
 
@@ -106,8 +86,6 @@ export default async function handler(req, res) {
 
       }
 
-
-
       for (let i = 0; i < parkingQty; i++) {
 
         const { data, error } = await supabase.from('parking_passes').insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName }).select().single();
@@ -119,8 +97,6 @@ export default async function handler(req, res) {
         qrCodes.push({ type: 'Parking Pass', qr });
 
       }
-
-
 
       const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -136,8 +112,6 @@ export default async function handler(req, res) {
 
       });
 
-
-
       console.log('🎉 SUCCESS — Email + QR + Supabase complete');
 
     }
@@ -148,9 +122,13 @@ export default async function handler(req, res) {
 
   } catch (err) {
 
-    console.error('💥 WEBHOOK CRASHED:', err.message);
+    console.error('FATAL WEBHOOK ERROR:', err);
 
-    console.error('FULL STACK:', err.stack);
+    console.error('ERROR MESSAGE:', err.message);
+
+    console.error('ERROR STACK:', err.stack);
+
+    console.error('RAW ERROR OBJECT:', JSON.stringify(err, null, 2));
 
     res.status(500).send(`Webhook error: ${err.message}`);
 
