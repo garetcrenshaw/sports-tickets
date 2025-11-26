@@ -107,8 +107,11 @@ export default async function handler(req, res) {
 
         console.log('TICKET INSERTED, ID:', data.id);
 
-        const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate/${data.id}`);
-        qrCodes.push({ type: 'Admission Ticket', qr });
+        const ticketUrl = `https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate/${data.id}`;
+        console.log('GENERATING QR FOR TICKET URL:', ticketUrl);
+        const qr = await QRCode.toDataURL(ticketUrl);
+        console.log('QR CODE GENERATED, LENGTH:', qr.length, 'STARTS WITH:', qr.substring(0, 50));
+        qrCodes.push({ type: 'Admission Ticket', qr, url: ticketUrl });
       }
 
       // Insert parking passes
@@ -127,8 +130,11 @@ export default async function handler(req, res) {
 
         console.log('PARKING INSERTED, ID:', data.id);
 
-        const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate-parking/${data.id}`);
-        qrCodes.push({ type: 'Parking Pass', qr });
+        const parkingUrl = `https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate-parking/${data.id}`;
+        console.log('GENERATING QR FOR PARKING URL:', parkingUrl);
+        const qr = await QRCode.toDataURL(parkingUrl);
+        console.log('PARKING QR GENERATED, LENGTH:', qr.length, 'STARTS WITH:', qr.substring(0, 50));
+        qrCodes.push({ type: 'Parking Pass', qr, url: parkingUrl });
       }
 
       console.log('ALL INSERTS COMPLETE, GENERATING EMAIL...');
@@ -139,13 +145,24 @@ export default async function handler(req, res) {
 
       const resend = new Resend(process.env.RESEND_API_KEY);
 
+      // Debug QR codes content
+      console.log('QR CODES DETAILS:');
+      qrCodes.forEach((q, i) => {
+        console.log(`QR ${i+1}: ${q.type} - URL: ${q.url} - QR Length: ${q.qr.length}`);
+      });
+
+      const emailHtml = `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300" alt="${q.type}"/><br><small>Scan to validate: ${q.url}</small></div>`).join('')}<p>See you at the game!</p>`;
+
+      console.log('EMAIL HTML LENGTH:', emailHtml.length);
+      console.log('EMAIL HTML PREVIEW:', emailHtml.substring(0, 200) + '...');
+
       try {
         console.log('SENDING EMAIL VIA RESEND...');
         const emailResult = await resend.emails.send({
           from: 'onboarding@resend.dev', // Use Resend's default verified domain for testing
           to: buyerEmail,
           subject: 'Your Tickets Are Here!',
-          html: `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`).join('')}<p>See you at the game!</p>`
+          html: emailHtml
         });
 
         console.log('EMAIL API RESPONSE:', JSON.stringify(emailResult, null, 2));
