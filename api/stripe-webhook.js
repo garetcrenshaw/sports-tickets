@@ -1,5 +1,7 @@
 // /api/stripe-webhook.js
 
+console.log('STRIPE-WEBHOOK.JS LOADED — IF YOU SEE THIS, FILE IMPORT SUCCEEDED');
+
 import { buffer } from 'micro';
 
 import Stripe from 'stripe';
@@ -10,128 +12,146 @@ import QRCode from 'qrcode';
 
 import { createClient } from '@supabase/supabase-js';
 
-
-
-console.log('WEBHOOK FILE LOADED - Ready');
-
-
+console.log('ALL IMPORTS SUCCESSFUL');
 
 export const config = { api: { bodyParser: false } };
 
+let handler;
 
+try {
 
-export default async function handler(req, res) {
+  handler = async function handler(req, res) {
 
-  console.log('Webhook hit - starting handler');
-
-
-
-  try {
-
-    const buf = await buffer(req);
-
-    const sig = req.headers['stripe-signature'];
+    console.log('HANDLER STARTED');
 
 
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    try {
 
-    const event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET);
+      const buf = await buffer(req);
 
-    console.log('Webhook verified:', event.type);
+      const sig = req.headers['stripe-signature'];
 
 
 
-    if (event.type === 'checkout.session.completed') {
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-      console.log('checkout.session.completed received - starting fulfillment');
+      const event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET);
 
-      const session = event.data.object;
+      console.log('EVENT VERIFIED:', event.type);
 
-      const m = session.metadata || {};
 
-      console.log('📦 Metadata:', m);
 
-      const admissionQty = parseInt(m.admissionQuantity || '0', 10);
+      if (event.type === 'checkout.session.completed') {
 
-      const parkingQty = parseInt(m.parkingQuantity || '0', 10);
+        console.log('FULFILLMENT STARTING');
 
-      const buyerEmail = m.buyerEmail || session.customer_details?.email;
+        const session = event.data.object;
 
-      const buyerName = m.buyerName || session.customer_details?.name || 'Customer';
+        const m = session.metadata || {};
 
-      const eventId = m.eventId;
+        console.log('📦 Metadata:', m);
 
-      if (!buyerEmail || (admissionQty + parkingQty === 0)) {
+        const admissionQty = parseInt(m.admissionQuantity || '0', 10);
 
-        console.log('Nothing to fulfill');
+        const parkingQty = parseInt(m.parkingQuantity || '0', 10);
 
-        return res.status(200).end();
+        const buyerEmail = m.buyerEmail || session.customer_details?.email;
+
+        const buyerName = m.buyerName || session.customer_details?.name || 'Customer';
+
+        const eventId = m.eventId;
+
+        if (!buyerEmail || (admissionQty + parkingQty === 0)) {
+
+          console.log('Nothing to fulfill');
+
+          return res.status(200).end();
+
+        }
+
+        const qrCodes = [];
+
+        const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+        for (let i = 0; i < admissionQty; i++) {
+
+          const { data, error } = await supabase.from('tickets').insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName }).select().single();
+
+          if (error) throw error;
+
+          const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate/${data.id}`);
+
+          qrCodes.push({ type: 'Admission Ticket', qr });
+
+        }
+
+        for (let i = 0; i < parkingQty; i++) {
+
+          const { data, error } = await supabase.from('parking_passes').insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName }).select().single();
+
+          if (error) throw error;
+
+          const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate-parking/${data.id}`);
+
+          qrCodes.push({ type: 'Parking Pass', qr });
+
+        }
+
+        const resend = new Resend(process.env.RESEND_API_KEY);
+
+        await resend.emails.send({
+
+          from: 'Gameday Tickets <tickets@yourdomain.com>',
+
+          to: buyerEmail,
+
+          subject: 'Your Tickets Are Here!',
+
+          html: `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`).join('')}`
+
+        });
+
+        console.log('🎉 SUCCESS — Email + QR + Supabase complete');
 
       }
 
-      const qrCodes = [];
 
-      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-      for (let i = 0; i < admissionQty; i++) {
+      res.status(200).end();
 
-        const { data, error } = await supabase.from('tickets').insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName }).select().single();
+    } catch (err) {
 
-        if (error) throw error;
+      console.error('HANDLER ERROR:', err.message);
 
-        const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate/${data.id}`);
+      console.error('STACK:', err.stack);
 
-        qrCodes.push({ type: 'Admission Ticket', qr });
-
-      }
-
-      for (let i = 0; i < parkingQty; i++) {
-
-        const { data, error } = await supabase.from('parking_passes').insert({ event_id: eventId, buyer_email: buyerEmail, buyer_name: buyerName }).select().single();
-
-        if (error) throw error;
-
-        const qr = await QRCode.toDataURL(`https://${process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000'}/validate-parking/${data.id}`);
-
-        qrCodes.push({ type: 'Parking Pass', qr });
-
-      }
-
-      const resend = new Resend(process.env.RESEND_API_KEY);
-
-      await resend.emails.send({
-
-        from: 'Gameday Tickets <tickets@yourdomain.com>',
-
-        to: buyerEmail,
-
-        subject: 'Your Tickets Are Here!',
-
-        html: `<h1>Hey ${buyerName}!</h1><p>Here are your tickets:</p>${qrCodes.map(q => `<div style="margin:40px;text-align:center"><strong>${q.type}</strong><br><img src="${q.qr}" width="300"/></div>`).join('')}`
-
-      });
-
-      console.log('🎉 SUCCESS — Email + QR + Supabase complete');
+      res.status(500).send(`Error: ${err.message}`);
 
     }
 
+  };
 
+  console.log('HANDLER SETUP SUCCESSFUL');
 
-    res.status(200).end();
+} catch (err) {
 
-  } catch (err) {
+  console.error('FATAL ERROR LOADING WEBHOOK FILE');
 
-    console.error('FATAL WEBHOOK ERROR:', err);
+  console.error('ERROR:', err);
 
-    console.error('ERROR MESSAGE:', err.message);
+  console.error('MESSAGE:', err.message);
 
-    console.error('ERROR STACK:', err.stack);
+  console.error('STACK:', err.stack);
 
-    console.error('RAW ERROR OBJECT:', JSON.stringify(err, null, 2));
+  handler = function fallback(req, res) {
 
-    res.status(500).send(`Webhook error: ${err.message}`);
+    console.error('FALLBACK HANDLER — WEBHOOK FILE CRASHED ON IMPORT');
 
-  }
+    res.status(500).send('Webhook failed to load');
+
+  };
 
 }
+
+export default handler;
