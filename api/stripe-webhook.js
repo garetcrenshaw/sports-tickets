@@ -117,7 +117,7 @@ export default async function handler(req, res) {
         const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
         const fileName = `ticket-${data.id}.png`;
 
-        console.log('UPLOADING QR TO SUPABASE STORAGE:', fileName);
+        console.log('UPLOADING QR TO SUPABASE STORAGE:', fileName, 'Buffer size:', qrBuffer.length);
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('qr-codes')
           .upload(fileName, qrBuffer, {
@@ -132,6 +132,17 @@ export default async function handler(req, res) {
 
         const qrImageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/qr-codes/${fileName}`;
         console.log('QR UPLOAD SUCCESS, PUBLIC URL:', qrImageUrl);
+
+        // Verify the file exists
+        const { data: fileList, error: listError } = await supabase.storage
+          .from('qr-codes')
+          .list('', { search: fileName });
+
+        if (listError) {
+          console.error('FILE LIST ERROR:', listError);
+        } else {
+          console.log('FILE EXISTS IN STORAGE:', fileList.some(f => f.name === fileName));
+        }
 
         qrCodes.push({ type: 'Admission Ticket', qr: qrDataUrl, imageUrl: qrImageUrl, url: ticketUrl });
       }
