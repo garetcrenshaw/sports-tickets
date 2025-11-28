@@ -62,7 +62,7 @@ export default async function handler(req, res) {
       if (!buyerEmail || (admissionQty + parkingQty === 0)) {
         console.log('NOTHING TO FULFILL - SKIPPING');
         return res.status(200).end();
-      }
+  }
 
       console.log('STARTING SUPABASE INSERTS...');
       const qrCodes = [];
@@ -128,7 +128,7 @@ export default async function handler(req, res) {
         if (uploadError) {
           console.error('QR UPLOAD ERROR:', uploadError);
           throw new Error(`QR upload failed: ${uploadError.message}`);
-        }
+  }
 
         const qrImageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/qr-codes/${fileName}`;
         console.log('QR UPLOAD SUCCESS, PUBLIC URL:', qrImageUrl);
@@ -145,7 +145,7 @@ export default async function handler(req, res) {
         }
 
         qrCodes.push({ type: 'Admission Ticket', qr: qrDataUrl, imageUrl: qrImageUrl, url: ticketUrl });
-      }
+  }
 
       // Insert parking passes
       for (let i = 0; i < parkingQty; i++) {
