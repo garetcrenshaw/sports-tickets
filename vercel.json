@@ -1,6 +1,17 @@
 {
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "functions": {
+    "api/stripe-webhook.js": {
+      "memory": 1024,
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/stripe-webhook",
+      "dest": "/api/stripe-webhook.js",
+      "headers": {
+        "x-vercel-protection-bypass": "1"
+      }
+    }
   ]
 }
