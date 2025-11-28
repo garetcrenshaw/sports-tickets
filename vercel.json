@@ -5,13 +5,15 @@
       "maxDuration": 30
     }
   },
-  "routes": [
+  "headers": [
     {
-      "src": "/api/stripe-webhook",
-      "dest": "/api/stripe-webhook.js",
-      "headers": {
-        "x-vercel-protection-bypass": "1"
-      }
+      "source": "/api/stripe-webhook",
+      "headers": [
+        {
+          "key": "x-vercel-protection-bypass",
+          "value": "1"
+        }
+      ]
     }
   ]
 }
