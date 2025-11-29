@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   const bypassQuery = req.query['x-vercel-protection-bypass'] ||
                        req.url.split('?')[1]?.split('&')
                          .find(p => p.startsWith('x-vercel-protection-bypass='))?.split('=')[1];
-  const expectedSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  const expectedSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || 'CLH3sK7fdRVp8m9GGY8B46O9Mio7TKGk'; // Fallback to hardcoded for testing
 
   if (expectedSecret && bypassHeader !== expectedSecret && bypassQuery !== expectedSecret) {
     console.log('❌ Vercel bypass failed');
