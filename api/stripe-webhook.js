@@ -17,25 +17,36 @@ console.log('ALL IMPORTS SUCCESSFUL');
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
-  // === VERCEL DEPLOYMENT PROTECTION BYPASS (2025 official) ===
-  const bypassHeader = req.headers['x-vercel-protection-bypass'];
-  const bypassQuery = req.query['x-vercel-protection-bypass'] ||
-                       req.url.split('?')[1]?.split('&')
-                         .find(p => p.startsWith('x-vercel-protection-bypass='))?.split('=')[1];
-  const expectedSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || 'CLH3sK7fdRVp8m9GGY8B46O9Mio7TKGk'; // Fallback to hardcoded for testing
+  console.log('🚨 WEBHOOK HIT - START');
+  console.log('Method:', req.method);
+  console.log('Headers:', req.headers);
+  console.log('Env keys present:', {
+    RESEND: !!process.env.RESEND_API_KEY,
+    SUPABASE_URL: !!process.env.SUPABASE_URL,
+    SUPABASE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    STRIPE_SECRET: !!process.env.STRIPE_SECRET_KEY,
+  });
 
-  if (expectedSecret && bypassHeader !== expectedSecret && bypassQuery !== expectedSecret) {
-    console.log('❌ Vercel bypass failed');
-    return res.status(401).json({ error: 'Unauthorized - invalid bypass' });
-  }
-  console.log('✅ Vercel bypass verified');
-  // === END BYPASS ===
+  try {
+    // === VERCEL DEPLOYMENT PROTECTION BYPASS (2025 official) ===
+    const bypassHeader = req.headers['x-vercel-protection-bypass'];
+    const bypassQuery = req.query['x-vercel-protection-bypass'] ||
+                         req.url.split('?')[1]?.split('&')
+                           .find(p => p.startsWith('x-vercel-protection-bypass='))?.split('=')[1];
+    const expectedSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || 'CLH3sK7fdRVp8m9GGY8B46O9Mio7TKGk'; // Fallback to hardcoded for testing
 
-  if (req.method !== 'POST') {
-    return res.status(405).end();
-  }
+    if (expectedSecret && bypassHeader !== expectedSecret && bypassQuery !== expectedSecret) {
+      console.log('❌ Vercel bypass failed');
+      return res.status(401).json({ error: 'Unauthorized - invalid bypass' });
+    }
+    console.log('✅ Vercel bypass verified');
+    // === END BYPASS ===
 
-  console.log('HANDLER STARTED - WEBHOOK EXECUTING');
+    if (req.method !== 'POST') {
+      return res.status(405).end();
+    }
+
+    console.log('HANDLER STARTED - WEBHOOK EXECUTING');
 
   try {
     const buf = await buffer(req);
@@ -275,12 +286,12 @@ export default async function handler(req, res) {
       }
     }
 
-    res.status(200).end();
+    res.status(200).json({ received: true });
 
-  } catch (err) {
-    console.error('💥 WEBHOOK CRASHED:', err.message);
-    console.error('💥 ERROR STACK:', err.stack);
-    console.error('💥 FULL ERROR OBJECT:', JSON.stringify(err, null, 2));
-    res.status(500).send(`Webhook error: ${err.message}`);
+  } catch (error) {
+    console.error('💥 WEBHOOK CRASHED:', error);
+    console.error('💥 ERROR MESSAGE:', error.message);
+    console.error('💥 ERROR STACK:', error.stack);
+    res.status(500).json({ error: 'Webhook handler failed', message: error.message });
   }
 }
