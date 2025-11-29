@@ -17,6 +17,24 @@ console.log('ALL IMPORTS SUCCESSFUL');
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
+  // === VERCEL DEPLOYMENT PROTECTION BYPASS (2025 official) ===
+  const bypassHeader = req.headers['x-vercel-protection-bypass'];
+  const bypassQuery = req.query['x-vercel-protection-bypass'] ||
+                       req.url.split('?')[1]?.split('&')
+                         .find(p => p.startsWith('x-vercel-protection-bypass='))?.split('=')[1];
+  const expectedSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+
+  if (expectedSecret && bypassHeader !== expectedSecret && bypassQuery !== expectedSecret) {
+    console.log('❌ Vercel bypass failed');
+    return res.status(401).json({ error: 'Unauthorized - invalid bypass' });
+  }
+  console.log('✅ Vercel bypass verified');
+  // === END BYPASS ===
+
+  if (req.method !== 'POST') {
+    return res.status(405).end();
+  }
+
   console.log('HANDLER STARTED - WEBHOOK EXECUTING');
 
   try {
