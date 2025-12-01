@@ -2,25 +2,9 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { Readable } = require('stream');
-const httpProxy = require('http-proxy');
 
 const PORT = 3001;
 const FRONTEND_TARGET = 'http://localhost:3000';
-const proxy = httpProxy.createProxyServer({});
-
-proxy.on('error', (error, req, res) => {
-  console.error('Proxy error:', error);
-  if (!res.headersSent) {
-    res.writeHead(502, { 'Content-Type': 'application/json' });
-  }
-  if (!res.writableEnded) {
-    res.end(JSON.stringify({ error: 'Proxy error' }));
-  }
-});
-
-const FUNCTION_ROOTS = [
-  path.join(__dirname, 'api'),
-];
 
 function loadEnv() {
   // Try to load .env.local, but don't fail if we can't due to sandbox restrictions
@@ -53,11 +37,10 @@ function loadEnv() {
 loadEnv();
 
 function resolveFunctionPath(functionName) {
-  for (const root of FUNCTION_ROOTS) {
-    const candidate = path.join(root, `${functionName}.js`);
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
+  const apiDir = path.join(__dirname, 'api');
+  const functionPath = path.join(apiDir, functionName, 'index.js');
+  if (fs.existsSync(functionPath)) {
+    return functionPath;
   }
   return null;
 }
@@ -111,20 +94,20 @@ function createFunctionHandler(functionName) {
         return;
       }
 
-      console.log(`🔄 Loading ES module: ${functionPath}`);
+      console.log(`🔄 Loading function: ${functionPath}`);
 
       // Use dynamic import for ES modules
       const moduleUrl = `file://${functionPath}`;
       const requiredModule = await import(moduleUrl);
 
-      console.log('📦 Module loaded, checking exports:', Object.keys(requiredModule));
+      console.log('📦 Function loaded, checking exports:', Object.keys(requiredModule));
 
-      const handler = requiredModule.default || requiredModule;
+      const handler = requiredModule.handler || requiredModule.default?.handler || requiredModule.default;
 
       if (typeof handler !== 'function') {
         console.error('❌ Invalid handler type:', typeof handler, 'Expected function');
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Invalid function export. Expected default export function.' }));
+        res.end(JSON.stringify({ error: 'Invalid function export. Expected handler function.' }));
         return;
       }
 
@@ -145,51 +128,22 @@ function createFunctionHandler(functionName) {
       });
       req.on('end', async () => {
         const bodyBuffer = Buffer.concat(chunks);
-        const bodyString = bodyBuffer.length ? bodyBuffer.toString('utf8') : '';
+        const bodyString = bodyBuffer.length ? bodyBuffer.toString('utf8') : null;
+
+        // Create Vercel-style event object
         const event = {
           httpMethod: req.method,
           body: methodAllowsBody(req.method) ? bodyString : null,
           headers: req.headers,
           queryStringParameters: parseQueryParameters(req.url, req.headers),
           path: req.url,
+          isBase64Encoded: false,
         };
 
         try {
-          const clonedReq = createBufferedRequest(req, bodyBuffer);
-
-          // Create Express-like response wrapper
-          const expressRes = {
-            status: (code) => {
-              expressRes.statusCode = code;
-              return expressRes;
-            },
-            send: (data) => {
-              if (!res.headersSent) {
-                res.writeHead(expressRes.statusCode || 200, {
-                  'Content-Type': 'application/json',
-                  'Content-Length': Buffer.byteLength(typeof data === 'string' ? data : JSON.stringify(data))
-                });
-              }
-              res.end(typeof data === 'string' ? data : JSON.stringify(data));
-            },
-            end: (data) => {
-              if (data) res.end(data);
-              else res.end();
-            },
-            json: (data) => {
-              if (!res.headersSent) {
-                res.writeHead(expressRes.statusCode || 200, {
-                  'Content-Type': 'application/json'
-                });
-              }
-              res.end(JSON.stringify(data));
-            }
-          };
-
-          await handler(clonedReq, expressRes);
-          if (!res.writableEnded) {
-            res.end();
-          }
+          // Call the handler with Express-style parameters
+          console.log('Calling handler with Express-style req/res...');
+          await handler(req, res);
         } catch (error) {
           console.error('Function error:', error);
           if (!res.headersSent) {
@@ -217,29 +171,18 @@ const server = http.createServer((req, res) => {
     const functionName = pathAfterApi.split(/[/?]/)[0]; // Stop at / or ?
     console.log(`🎯 API call detected, function: ${functionName}`);
 
-    // Special handling for stripe-webhook to ensure raw body is preserved
-    if (functionName === 'stripe-webhook') {
-      return createFunctionHandler(functionName)(req, res);
-    }
-
     return createFunctionHandler(functionName)(req, res);
   }
 
-  // Guard against serving success/cancel pages from API server
-  if (req.url.startsWith('/success') || req.url.startsWith('/cancel')) {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not an API route - use frontend server');
-    return;
-  }
-
-  // For everything else, proxy to frontend (including success/cancel pages with or without query params)
-  console.log('🔄 Proxying to frontend');
-  proxy.web(req, res, { target: FRONTEND_TARGET });
+  // For everything else, redirect to frontend (this server is API-only)
+  console.log('🔄 Redirecting to frontend - this is API server only');
+  res.writeHead(302, { 'Location': `${FRONTEND_TARGET}${req.url}` });
+  res.end();
 });
 
 server.listen(PORT, () => {
-  console.log(`🚀 Function server running on http://localhost:${PORT}`);
-  console.log(`📡 Ready to serve functions at /api/*`);
+  console.log(`🚀 API server running on http://localhost:${PORT}`);
+  console.log(`📡 Ready to serve API functions at /api/*`);
   console.log(`🔧 Environment loaded:`, {
     hasStripe: !!process.env.STRIPE_SECRET_KEY,
     hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
@@ -253,13 +196,13 @@ server.listen(PORT, () => {
     console.error(`   kill -9 [PID]`);
     console.error(`   Then restart: npm run dev`);
   } else {
-    console.error('❌ Function server error:', err.message);
+    console.error('❌ API server error:', err.message);
   }
   process.exit(1);
 });
 
 process.on('SIGINT', () => {
-  console.log('👋 Shutting down function server');
+  console.log('👋 Shutting down API server');
   server.close();
   process.exit(0);
 });

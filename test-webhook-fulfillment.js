@@ -8,6 +8,8 @@
  * - Email sending with proper HTML
  */
 
+import fs from 'fs';
+
 const sessionId = 'cs_test_webhook_test_' + Date.now();
 
 console.log('🧪 TESTING WEBHOOK FULFILLMENT SYSTEM');
@@ -16,19 +18,36 @@ console.log(`Session ID: ${sessionId}`);
 console.log('');
 
 // Load environment variables
-require('fs').readFileSync('.env', 'utf8').split('\n').forEach(line => {
+fs.readFileSync('.env', 'utf8').split('\n').forEach(line => {
   const [key, ...value] = line.split('=');
-  if (key && value.length) process.env[key.trim()] = value.join('=').trim();
+  if (key && value.length) {
+    let val = value.join('=').trim();
+    // Remove surrounding quotes if present
+    if (val.startsWith('"') && val.endsWith('"')) {
+      val = val.slice(1, -1);
+    }
+    process.env[key.trim()] = val;
+  }
 });
 
 try {
-  require('fs').readFileSync('.env.local', 'utf8').split('\n').forEach(line => {
+  fs.readFileSync('.env.local', 'utf8').split('\n').forEach(line => {
     const [key, ...value] = line.split('=');
-    if (key && value.length) process.env[key.trim()] = value.join('=').trim();
+    if (key && value.length) {
+      let val = value.join('=').trim();
+      // Remove surrounding quotes if present
+      if (val.startsWith('"') && val.endsWith('"')) {
+        val = val.slice(1, -1);
+      }
+      process.env[key.trim()] = val;
+    }
   });
 } catch (e) {
   console.log('⚠️  .env.local not found - make sure to copy env-local-template.txt to .env.local and fill in your keys');
 }
+
+// Force development mode for testing
+process.env.NODE_ENV = 'development';
 
 // Mock session data
 const mockSession = {
@@ -51,11 +70,45 @@ async function testFulfillment() {
   try {
     console.log('🎫 Testing webhook fulfillment...');
 
-    // Import the handler
-    const { handleCheckoutSession } = require('./api/webhook');
+    // Import the webhook handler
+    const { default: webhookHandler } = await import('./api/stripe-webhook.js');
 
-    console.log('📦 Processing checkout session...');
-    await handleCheckoutSession(mockSession);
+    // Create mock request with Stripe event
+    const mockEvent = {
+      id: 'evt_test_' + Date.now(),
+      type: 'checkout.session.completed',
+      data: { object: mockSession }
+    };
+
+    const mockReq = {
+      method: 'POST',
+      url: '/api/stripe-webhook',
+      headers: {
+        'content-type': 'application/json',
+        'stripe-signature': 't=1234567890,v1=test_signature' // Mock signature
+      },
+      rawBody: Buffer.from(JSON.stringify(mockEvent))
+    };
+
+    const mockRes = {
+      statusCode: 200,
+      headers: {},
+      setHeader(key, value) { this.headers[key] = value; },
+      json(data) {
+        console.log('📝 Webhook Response:', data);
+        return data;
+      },
+      status(code) {
+        this.statusCode = code;
+        return this;
+      },
+      end() {
+        console.log(`📝 Response sent with status: ${this.statusCode}`);
+      }
+    };
+
+    console.log('📦 Calling webhook handler...');
+    await webhookHandler(mockReq, mockRes);
 
     console.log('');
     console.log('✅ WEBHOOK PROCESSING COMPLETE');

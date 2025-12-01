@@ -28,7 +28,8 @@ export default function Validate() {
     setMessage('')
 
     try {
-      const response = await fetch('/api/validate-ticket', {
+      const apiUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
+      const response = await fetch(`${apiUrl}/api/validate-ticket`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticketId, password })

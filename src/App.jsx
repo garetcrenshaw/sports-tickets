@@ -96,7 +96,8 @@ function EventPage() {
     setMessage('')
 
     try {
-      const response = await fetch('/api/create-checkout', {
+      const apiUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
+      const response = await fetch(`${apiUrl}/api/create-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -17,6 +17,36 @@ End-to-end ticketing flow inspired by Ticketmaster, SeatGeek, and every high-per
 
 ---
 
+## 🔧 Development Setup & Troubleshooting
+
+### Permission Issues on macOS
+
+If you see EPERM errors when starting dev servers:
+
+```bash
+# 1. Enable Full Disk Access for Terminal
+System Settings → Privacy & Security → Full Disk Access → enable Terminal.app (or iTerm)
+
+# 2. Restart terminal completely (quit and reopen)
+
+# 3. Check for remaining issues
+npm run diagnose
+
+# 4. Fix any remaining problems
+npm run predev
+
+# 5. Start development
+npm run dev
+```
+
+**The diagnostic tool checks:**
+- ✅ Environment file access (.env, .env.local)
+- ✅ Stripe CLI config directory (~/.config/stripe/)
+- ✅ Vercel global installation
+- ✅ Port binding (3000, 3001)
+
+---
+
 ## 🔧 Troubleshooting
 
 ### ngrok Setup for Real Webhook Testing

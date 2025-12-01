@@ -22,7 +22,8 @@ export default function Success() {
   const fetchSessionDetails = async (id) => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/get-session?session_id=${id}`);
+      const apiUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
+      const response = await fetch(`${apiUrl}/api/get-session?session_id=${id}`);
       const data = await response.json();
 
       if (!response.ok) {

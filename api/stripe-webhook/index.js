@@ -1,82 +1,66 @@
-// /api/stripe-webhook.js
+const { createClient } = require('@supabase/supabase-js');
+const { Resend } = require('resend');
+const QRCode = require('qrcode');
+const Stripe = require('stripe');
 
-console.log('STRIPE-WEBHOOK.JS LOADED — IF YOU SEE THIS, FILE IMPORT SUCCEEDED');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-import { buffer } from 'micro';
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-import Stripe from 'stripe';
-
-import { Resend } from 'resend';
-
-import QRCode from 'qrcode';
-
-import { createClient } from '@supabase/supabase-js';
-
-console.log('ALL IMPORTS SUCCESSFUL');
-
-export const config = { api: { bodyParser: false } };
-
-export default async function handler(req, res) {
+// Vercel-compatible Express-style handler
+module.exports = async (req, res) => {
   console.log('🚨 WEBHOOK HIT - START');
-  console.log('Method:', req.method);
-  console.log('Headers:', req.headers);
-  console.log('Env keys present:', {
-    RESEND: !!process.env.RESEND_API_KEY,
-    SUPABASE_URL: !!process.env.SUPABASE_URL,
-    SUPABASE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    STRIPE_SECRET: !!process.env.STRIPE_SECRET_KEY,
-  });
 
   try {
-    // === VERCEL DEPLOYMENT PROTECTION BYPASS (2025 official) ===
-    const bypassHeader = req.headers['x-vercel-protection-bypass'];
-    const bypassQuery = req.query['x-vercel-protection-bypass'] ||
-                         req.url.split('?')[1]?.split('&')
-                           .find(p => p.startsWith('x-vercel-protection-bypass='))?.split('=')[1];
-    const expectedSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || 'CLH3sK7fdRVp8m9GGY8B46O9Mio7TKGk'; // Fallback to hardcoded for testing
-
-    if (expectedSecret && bypassHeader !== expectedSecret && bypassQuery !== expectedSecret) {
-      console.log('❌ Vercel bypass failed');
-      return res.status(401).json({ error: 'Unauthorized - invalid bypass' });
-    }
-    console.log('✅ Vercel bypass verified');
-    // === END BYPASS ===
-
-    if (req.method !== 'POST') {
-      return res.status(405).end();
-    }
-
-    console.log('HANDLER STARTED - WEBHOOK EXECUTING');
-
-  try {
-    const buf = await buffer(req);
+    const body = req.body;
     const sig = req.headers['stripe-signature'];
 
-    console.log('BUFFER LENGTH:', buf.length);
+    console.log('BODY LENGTH:', body ? body.length : 'undefined');
     console.log('SIGNATURE PRESENT:', !!sig);
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-    // TEMPORARY: Skip signature verification for testing
-    let event;
+    let eventData;
     try {
-      event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET);
-      console.log('EVENT VERIFIED:', event.type, event.id);
+      eventData = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+      console.log('✅ EVENT VERIFIED:', eventData.type, eventData.id);
     } catch (sigError) {
-      console.log('SIGNATURE VERIFICATION FAILED, USING RAW EVENT FOR TESTING');
-      const rawEvent = JSON.parse(buf.toString());
-      event = {
-        type: rawEvent.type,
-        data: { object: rawEvent.data.object },
-        id: rawEvent.id
-      };
-      console.log('USING RAW EVENT:', event.type, event.id);
+      console.error('❌ SIGNATURE VERIFICATION FAILED:', sigError.message);
+
+      if (!process.env.STRIPE_WEBHOOK_SECRET || process.env.NODE_ENV === 'development') {
+        console.log('🔧 DEVELOPMENT MODE: Using raw event data for testing');
+        try {
+          const rawEvent = typeof body === 'string' ? JSON.parse(body) : body;
+          eventData = {
+            type: rawEvent.type,
+            data: { object: rawEvent.data.object },
+            id: rawEvent.id
+          };
+          console.log('✅ USING RAW EVENT:', eventData.type, eventData.id);
+        } catch (parseError) {
+          console.error('❌ FAILED TO PARSE RAW EVENT:', parseError.message);
+          res.setHeader('Content-Type', 'application/json');
+          res.status(400).json({ error: 'Invalid webhook payload' });
+          return;
+        }
+      } else {
+        console.error('🔍 DEBUG INFO:');
+        console.error('   - Body length:', body ? body.length : 'undefined');
+        console.error('   - Signature present:', !!sig);
+        res.setHeader('Content-Type', 'application/json');
+        res.status(400).json({ error: 'Webhook signature verification failed' });
+        return;
+      }
     }
 
-    if (event.type === 'checkout.session.completed') {
-      console.log('FULFILLMENT STARTING - CHECKOUT COMPLETED');
+    if (eventData.type === 'checkout.session.completed') {
+      console.log('✅ CHECKOUT SESSION COMPLETED - STARTING FULFILLMENT');
+      console.log('Session ID:', eventData.data.object.id);
+      console.log('Customer Email:', eventData.data.object.customer_details?.email);
 
-      const session = event.data.object;
+      const session = eventData.data.object;
       const m = session.metadata || {};
       console.log('📦 METADATA RECEIVED:', JSON.stringify(m, null, 2));
 
@@ -90,35 +74,19 @@ export default async function handler(req, res) {
 
       if (!buyerEmail || (admissionQty + parkingQty === 0)) {
         console.log('NOTHING TO FULFILL - SKIPPING');
-        return res.status(200).end();
-  }
+        res.setHeader('Content-Type', 'application/json');
+        res.status(200).json({ received: true });
+        return;
+      }
 
-      console.log('STARTING SUPABASE INSERTS...');
-      const qrCodes = [];
+      console.log('🗄️  STARTING DATABASE INSERTS...');
 
       console.log('SUPABASE CONNECTION:', {
         url: process.env.SUPABASE_URL ? 'SET' : 'MISSING',
-        key: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING',
-        urlValue: process.env.SUPABASE_URL?.substring(0, 20) + '...',
-        keyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length
+        key: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING'
       });
 
-      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-      console.log('SUPABASE CLIENT CREATED, TESTING CONNECTION...');
-
-      // Test Supabase connection
-      try {
-        const { data: testData, error: testError } = await supabase.from('tickets').select('count').limit(1);
-        if (testError) {
-          console.log('SUPABASE CONNECTION TEST FAILED:', testError);
-          throw new Error(`Supabase connection failed: ${testError.message}`);
-        }
-        console.log('SUPABASE CONNECTION TEST PASSED');
-      } catch (connError) {
-        console.log('SUPABASE CONNECTION ERROR:', connError);
-        throw connError;
-      }
+      const qrCodes = [];
 
       // Insert admission tickets
       for (let i = 0; i < admissionQty; i++) {
@@ -136,8 +104,10 @@ export default async function handler(req, res) {
 
         console.log('TICKET INSERTED, ID:', data.id);
 
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000';
-        const ticketUrl = `${baseUrl.startsWith('http') ? '' : 'https://'}${baseUrl}/validate/${data.id}`;
+        const baseUrl = process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : (process.env.SITE_URL || 'http://localhost:3000');
+        const ticketUrl = `${baseUrl}/validate/${data.id}`;
         console.log('GENERATING QR FOR TICKET URL:', ticketUrl);
         const qrDataUrl = await QRCode.toDataURL(ticketUrl);
         console.log('QR CODE GENERATED, LENGTH:', qrDataUrl.length);
@@ -157,24 +127,13 @@ export default async function handler(req, res) {
         if (uploadError) {
           console.error('QR UPLOAD ERROR:', uploadError);
           throw new Error(`QR upload failed: ${uploadError.message}`);
-  }
+        }
 
         const qrImageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/qr-codes/${fileName}`;
         console.log('QR UPLOAD SUCCESS, PUBLIC URL:', qrImageUrl);
 
-        // Verify the file exists
-        const { data: fileList, error: listError } = await supabase.storage
-          .from('qr-codes')
-          .list('', { search: fileName });
-
-        if (listError) {
-          console.error('FILE LIST ERROR:', listError);
-        } else {
-          console.log('FILE EXISTS IN STORAGE:', fileList.some(f => f.name === fileName));
-        }
-
         qrCodes.push({ type: 'Admission Ticket', qr: qrDataUrl, imageUrl: qrImageUrl, url: ticketUrl });
-  }
+      }
 
       // Insert parking passes
       for (let i = 0; i < parkingQty; i++) {
@@ -192,8 +151,10 @@ export default async function handler(req, res) {
 
         console.log('PARKING INSERTED, ID:', data.id);
 
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'localhost:3000';
-        const parkingUrl = `${baseUrl.startsWith('http') ? '' : 'https://'}${baseUrl}/validate-parking/${data.id}`;
+        const baseUrl = process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : (process.env.SITE_URL || 'http://localhost:3000');
+        const parkingUrl = `${baseUrl}/validate-parking/${data.id}`;
         console.log('GENERATING QR FOR PARKING URL:', parkingUrl);
         const qrDataUrl = await QRCode.toDataURL(parkingUrl);
         console.log('PARKING QR GENERATED, LENGTH:', qrDataUrl.length);
@@ -227,8 +188,6 @@ export default async function handler(req, res) {
       console.log('EMAIL RECIPIENT:', buyerEmail);
       console.log('QR CODES COUNT:', qrCodes.length);
 
-      const resend = new Resend(process.env.RESEND_API_KEY);
-
       // Debug QR codes content
       console.log('QR CODES DETAILS:');
       qrCodes.forEach((q, i) => {
@@ -257,16 +216,15 @@ export default async function handler(req, res) {
       `;
 
       console.log('EMAIL HTML LENGTH:', emailHtml.length);
-      console.log('EMAIL HTML PREVIEW:', emailHtml.substring(0, 200) + '...');
 
       try {
         console.log('SENDING EMAIL VIA RESEND...');
         const emailResult = await resend.emails.send({
-          from: 'Sports Tickets <delivered@resend.dev>', // Use Resend's verified domain
+          from: 'Sports Tickets <delivered@resend.dev>',
           to: buyerEmail,
           subject: 'Your Tickets - Ready to Scan!',
           html: emailHtml,
-          reply_to: 'support@sports-tickets.app' // Add reply-to for legitimacy
+          reply_to: 'support@sports-tickets.app'
         });
 
         console.log('EMAIL API RESPONSE:', JSON.stringify(emailResult, null, 2));
@@ -277,8 +235,9 @@ export default async function handler(req, res) {
         }
 
         console.log('🎉 SUCCESS — EMAIL SENT, QR GENERATED, SUPABASE UPDATED');
-        console.log('EMAIL ID:', emailResult.id || emailResult.data?.id || 'unknown');
-        console.log('TOTAL QR CODES:', qrCodes.length);
+        console.log('📧 EMAIL ID:', emailResult.data?.id || 'unknown');
+        console.log('🎫 TOTAL ITEMS:', qrCodes.length, `(Tickets: ${admissionQty}, Parking: ${parkingQty})`);
+        console.log('✅ FULFILLMENT COMPLETE FOR SESSION:', session.id);
 
       } catch (emailError) {
         console.error('EMAIL SENDING FAILED:', emailError);
@@ -286,12 +245,14 @@ export default async function handler(req, res) {
       }
     }
 
+    res.setHeader('Content-Type', 'application/json');
     res.status(200).json({ received: true });
 
   } catch (error) {
     console.error('💥 WEBHOOK CRASHED:', error);
     console.error('💥 ERROR MESSAGE:', error.message);
     console.error('💥 ERROR STACK:', error.stack);
+    res.setHeader('Content-Type', 'application/json');
     res.status(500).json({ error: 'Webhook handler failed', message: error.message });
   }
-}
+};
