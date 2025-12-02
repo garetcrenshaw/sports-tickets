@@ -23,5 +23,5 @@ export default defineConfig({
     }
   },
   // Disable automatic .env loading to avoid sandbox issues
-  envDir: false
+  envPrefix: []
 })
