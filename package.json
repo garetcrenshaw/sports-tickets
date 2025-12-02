@@ -3,9 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently --kill-others-on-fail=false \"vite --port 3000\" \"node dev-server.cjs\" \"stripe listen --forward-to localhost:3000/api/stripe-webhook\"",
+    "dev": "concurrently \"vite --port 3000\" \"node dev-server.cjs\" \"stripe listen --forward-to localhost:3000/api/stripe-webhook\"",
     "build": "vite build",
-    "preview": "vite preview",
     "deploy": "npm run build && vercel --prod"
   },
   "dependencies": {

@@ -25,7 +25,7 @@ envContent.split('\n').forEach(line => {
   }
 });
 
-const { generateTicketQr } = require('./src/lib/qr');
+const { generateTicketQr } = require('./src/lib/qr.js');
 
 async function testQRCodes() {
   const SITE_URL = process.env.SITE_URL;

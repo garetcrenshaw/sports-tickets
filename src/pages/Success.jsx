@@ -16,19 +16,31 @@ export default function Success() {
 
       // Fetch session details from API
       fetchSessionDetails(id);
+    } else {
+      setLoading(false);
+      setError('Session ID is missing. Please check your payment was successful.');
     }
   }, [searchParams]);
 
   const fetchSessionDetails = async (id) => {
     try {
       setLoading(true);
-      const apiUrl = process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '';
-      const response = await fetch(`${apiUrl}/api/get-session?session_id=${id}`);
-      const data = await response.json();
+      const response = await fetch(`/api/get-session?session_id=${id}`);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch session details');
+        // Try to parse error as JSON, but handle non-JSON responses
+        let errorMessage = 'Failed to fetch session details';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          // If response is not JSON, use the status text
+          errorMessage = `Failed to fetch session details: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const data = await response.json();
 
       setSessionData(data);
       console.log('✅ Session details loaded:', data);

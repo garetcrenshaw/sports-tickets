@@ -38,10 +38,19 @@ loadEnv();
 
 function resolveFunctionPath(functionName) {
   const apiDir = path.join(__dirname, 'api');
-  const functionPath = path.join(apiDir, functionName, 'index.js');
-  if (fs.existsSync(functionPath)) {
-    return functionPath;
+
+  // First try the new Vercel structure: /api/functionName/index.js
+  const vercelPath = path.join(apiDir, functionName, 'index.js');
+  if (fs.existsSync(vercelPath)) {
+    return vercelPath;
   }
+
+  // Fallback to old structure: /api/functionName.js
+  const oldPath = path.join(apiDir, `${functionName}.js`);
+  if (fs.existsSync(oldPath)) {
+    return oldPath;
+  }
+
   return null;
 }
 
@@ -130,6 +139,19 @@ function createFunctionHandler(functionName) {
         const bodyBuffer = Buffer.concat(chunks);
         const bodyString = bodyBuffer.length ? bodyBuffer.toString('utf8') : null;
 
+        // Parse JSON body for POST requests
+        let parsedBody = null;
+        if (methodAllowsBody(req.method) && bodyString) {
+          try {
+            parsedBody = JSON.parse(bodyString);
+          } catch (e) {
+            console.error('Failed to parse request body as JSON:', e);
+          }
+        }
+
+        // Add body to request object for Express-style compatibility
+        req.body = parsedBody;
+
         // Create Vercel-style event object
         const event = {
           httpMethod: req.method,
@@ -141,7 +163,7 @@ function createFunctionHandler(functionName) {
         };
 
         try {
-          // Call the handler with Express-style parameters
+          // Call the handler - works with both CommonJS and ES module exports
           console.log('Calling handler with Express-style req/res...');
           await handler(req, res);
         } catch (error) {

@@ -1,7 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const { Resend } = require('resend');
-const QRCode = require('qrcode');
-const Stripe = require('stripe');
+const { generateTicketQr } = require('../src/lib/qr.js');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -11,12 +10,25 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Vercel-compatible Express-style handler
-module.exports = async (req, res) => {
+// Vercel config for raw body
+module.exports.config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+// Vercel serverless function
+module.exports = async function handler(req, res) {
   console.log('🚨 WEBHOOK HIT - START');
 
   try {
-    const body = req.body;
+    // Collect raw body for Stripe signature verification
+    const chunks = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    const body = Buffer.concat(chunks);
+
     const sig = req.headers['stripe-signature'];
 
     console.log('BODY LENGTH:', body ? body.length : 'undefined');
@@ -42,7 +54,8 @@ module.exports = async (req, res) => {
         } catch (parseError) {
           console.error('❌ FAILED TO PARSE RAW EVENT:', parseError.message);
           res.setHeader('Content-Type', 'application/json');
-          res.status(400).json({ error: 'Invalid webhook payload' });
+          res.writeHead(400);
+          res.end(JSON.stringify({ error: 'Invalid webhook payload' }));
           return;
         }
       } else {
@@ -50,7 +63,8 @@ module.exports = async (req, res) => {
         console.error('   - Body length:', body ? body.length : 'undefined');
         console.error('   - Signature present:', !!sig);
         res.setHeader('Content-Type', 'application/json');
-        res.status(400).json({ error: 'Webhook signature verification failed' });
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Webhook signature verification failed' }));
         return;
       }
     }
@@ -75,7 +89,8 @@ module.exports = async (req, res) => {
       if (!buyerEmail || (admissionQty + parkingQty === 0)) {
         console.log('NOTHING TO FULFILL - SKIPPING');
         res.setHeader('Content-Type', 'application/json');
-        res.status(200).json({ received: true });
+        res.writeHead(200);
+        res.end(JSON.stringify({ received: true }));
         return;
       }
 
@@ -91,10 +106,20 @@ module.exports = async (req, res) => {
       // Insert admission tickets
       for (let i = 0; i < admissionQty; i++) {
         console.log(`INSERTING TICKET ${i + 1}/${admissionQty}`);
+
+        const ticketId = `ticket-${session.id}-${i + 1}`;
+        const validateUrl = process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}/validate/${ticketId}`
+          : `http://localhost:3000/validate/${ticketId}`;
+
+        const qrCodeUrl = await generateTicketQr(validateUrl);
+
         const { data, error } = await supabase.from('tickets').insert({
+          ticket_id: ticketId,
           event_id: eventId,
-          buyer_email: buyerEmail,
-          buyer_name: buyerName
+          purchaser_email: buyerEmail,
+          purchaser_name: buyerName,
+          qr_code_url: qrCodeUrl
         }).select().single();
 
         if (error) {
@@ -102,46 +127,27 @@ module.exports = async (req, res) => {
           throw new Error(`Ticket insert error: ${error.message}`);
         }
 
-        console.log('TICKET INSERTED, ID:', data.id);
-
-        const baseUrl = process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : (process.env.SITE_URL || 'http://localhost:3000');
-        const ticketUrl = `${baseUrl}/validate/${data.id}`;
-        console.log('GENERATING QR FOR TICKET URL:', ticketUrl);
-        const qrDataUrl = await QRCode.toDataURL(ticketUrl);
-        console.log('QR CODE GENERATED, LENGTH:', qrDataUrl.length);
-
-        // Upload QR code to Supabase Storage
-        const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
-        const fileName = `ticket-${data.id}.png`;
-
-        console.log('UPLOADING QR TO SUPABASE STORAGE:', fileName, 'Buffer size:', qrBuffer.length);
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('qr-codes')
-          .upload(fileName, qrBuffer, {
-            contentType: 'image/png',
-            upsert: true
-          });
-
-        if (uploadError) {
-          console.error('QR UPLOAD ERROR:', uploadError);
-          throw new Error(`QR upload failed: ${uploadError.message}`);
-        }
-
-        const qrImageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/qr-codes/${fileName}`;
-        console.log('QR UPLOAD SUCCESS, PUBLIC URL:', qrImageUrl);
-
-        qrCodes.push({ type: 'Admission Ticket', qr: qrDataUrl, imageUrl: qrImageUrl, url: ticketUrl });
+        console.log('TICKET INSERTED, ID:', data.id, 'TICKET_ID:', ticketId);
+        qrCodes.push({ type: 'Admission Ticket', qr: qrCodeUrl, url: validateUrl });
       }
 
       // Insert parking passes
       for (let i = 0; i < parkingQty; i++) {
         console.log(`INSERTING PARKING PASS ${i + 1}/${parkingQty}`);
+
+        const ticketId = `parking-${session.id}-${i + 1}`;
+        const validateUrl = process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}/validate/${ticketId}`
+          : `http://localhost:3000/validate/${ticketId}`;
+
+        const qrCodeUrl = await generateTicketQr(validateUrl);
+
         const { data, error } = await supabase.from('parking_passes').insert({
+          ticket_id: ticketId,
           event_id: eventId,
-          buyer_email: buyerEmail,
-          buyer_name: buyerName
+          purchaser_email: buyerEmail,
+          purchaser_name: buyerName,
+          qr_code_url: qrCodeUrl
         }).select().single();
 
         if (error) {
@@ -149,37 +155,8 @@ module.exports = async (req, res) => {
           throw new Error(`Parking insert error: ${error.message}`);
         }
 
-        console.log('PARKING INSERTED, ID:', data.id);
-
-        const baseUrl = process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : (process.env.SITE_URL || 'http://localhost:3000');
-        const parkingUrl = `${baseUrl}/validate-parking/${data.id}`;
-        console.log('GENERATING QR FOR PARKING URL:', parkingUrl);
-        const qrDataUrl = await QRCode.toDataURL(parkingUrl);
-        console.log('PARKING QR GENERATED, LENGTH:', qrDataUrl.length);
-
-        // Upload parking QR code to Supabase Storage
-        const parkingQrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
-        const parkingFileName = `parking-${data.id}.png`;
-
-        console.log('UPLOADING PARKING QR TO SUPABASE STORAGE:', parkingFileName);
-        const { data: parkingUploadData, error: parkingUploadError } = await supabase.storage
-          .from('qr-codes')
-          .upload(parkingFileName, parkingQrBuffer, {
-            contentType: 'image/png',
-            upsert: true
-          });
-
-        if (parkingUploadError) {
-          console.error('PARKING QR UPLOAD ERROR:', parkingUploadError);
-          throw new Error(`Parking QR upload failed: ${parkingUploadError.message}`);
-        }
-
-        const parkingQrImageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/qr-codes/${parkingFileName}`;
-        console.log('PARKING QR UPLOAD SUCCESS, PUBLIC URL:', parkingQrImageUrl);
-
-        qrCodes.push({ type: 'Parking Pass', qr: qrDataUrl, imageUrl: parkingQrImageUrl, url: parkingUrl });
+        console.log('PARKING INSERTED, ID:', data.id, 'TICKET_ID:', ticketId);
+        qrCodes.push({ type: 'Parking Pass', qr: qrCodeUrl, url: validateUrl });
       }
 
       console.log('ALL INSERTS COMPLETE, GENERATING EMAIL...');
@@ -202,7 +179,7 @@ module.exports = async (req, res) => {
 
           ${qrCodes.map(q => `<div style="margin: 40px 0; text-align: center; padding: 20px; border: 1px solid #ddd; border-radius: 10px; background-color: #f9f9f9;">
             <h3 style="margin: 0 0 15px 0; color: #333;">${q.type}</h3>
-            <img src="${q.imageUrl}" width="250" height="250" alt="${q.type} QR Code" style="border: 2px solid #000; border-radius: 10px; display: block; margin: 0 auto;"/>
+            <img src="${q.qr}" width="250" height="250" alt="${q.type} QR Code" style="border: 2px solid #000; border-radius: 10px; display: block; margin: 0 auto;"/>
             <p style="margin: 15px 0 0 0; font-size: 14px; color: #666;">
               <a href="${q.url}" style="color: #007bff; text-decoration: none;">Click here if you can't scan the QR code</a>
             </p>
@@ -246,13 +223,15 @@ module.exports = async (req, res) => {
     }
 
     res.setHeader('Content-Type', 'application/json');
-    res.status(200).json({ received: true });
+    res.statusCode = 200;
+    res.end(JSON.stringify({ received: true }));
 
   } catch (error) {
     console.error('💥 WEBHOOK CRASHED:', error);
     console.error('💥 ERROR MESSAGE:', error.message);
     console.error('💥 ERROR STACK:', error.stack);
     res.setHeader('Content-Type', 'application/json');
-    res.status(500).json({ error: 'Webhook handler failed', message: error.message });
+    res.writeHead(500);
+    res.end(JSON.stringify({ error: 'Webhook handler failed', message: error.message }));
   }
 };

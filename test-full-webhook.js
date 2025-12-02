@@ -89,7 +89,7 @@ async function testWebhook() {
     // Since we can't easily mock the Stripe signature verification,
     // let's call the business logic directly
     const { createTickets, createParkingPasses } = require('./src/lib/db');
-    const { generateTicketQr } = require('./src/lib/qr');
+    const { generateTicketQr } = require('./src/lib/qr.js');
     const { sendTicketsEmail } = require('./api/send-ticket');
     
     const SITE_URL = 'http://localhost:3000';

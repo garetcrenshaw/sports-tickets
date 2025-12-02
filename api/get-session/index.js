@@ -2,45 +2,46 @@ const Stripe = require('stripe');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Vercel-compatible Express-style handler
 module.exports = async (req, res) => {
-  // Handle preflight CORS
+  console.log('GET-SESSION: Request received', req.method);
+
+  // Handle CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.status(200).end();
+    res.statusCode = 200;
+    res.end();
     return;
   }
 
   if (req.method !== 'GET') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.status(405).json({ error: 'Method Not Allowed' });
+    res.statusCode = 405;
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
     return;
   }
 
   try {
-    const sessionId = req.query?.session_id;
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    const sessionId = url.searchParams.get('session_id');
+
+    console.log('GET-SESSION: Fetching session', sessionId);
+    console.log('GET-SESSION: STRIPE_SECRET_KEY loaded:', process.env.STRIPE_SECRET_KEY ? 'YES' : 'NO');
 
     if (!sessionId) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/json');
-      res.status(400).json({ error: 'Session ID required' });
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'Session ID required' }));
       return;
     }
-
-    console.log('🔍 Fetching session:', sessionId);
-    console.log('🔑 STRIPE_SECRET_KEY loaded:', process.env.STRIPE_SECRET_KEY ? 'YES (' + process.env.STRIPE_SECRET_KEY.substring(0, 10) + '...)' : 'NO');
 
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ['payment_intent', 'line_items']
     });
 
     if (!session) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/json');
-      res.status(404).json({ error: 'Session not found' });
+      res.statusCode = 404;
+      res.end(JSON.stringify({ error: 'Session not found' }));
       return;
     }
 
@@ -56,15 +57,14 @@ module.exports = async (req, res) => {
       metadata: session.metadata || {}
     };
 
-    console.log('✅ Session retrieved:', session.id, session.payment_status);
+    console.log('GET-SESSION: Session retrieved', session.id, session.payment_status);
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.status(200).json(sessionData);
+    res.statusCode = 200;
+    res.end(JSON.stringify(sessionData));
+
   } catch (error) {
-    console.error('GET SESSION ERROR:', error);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.status(500).json({ error: error.message });
+    console.error('GET-SESSION: Error', error);
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: error.message }));
   }
 };

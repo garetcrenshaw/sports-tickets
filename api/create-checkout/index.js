@@ -2,34 +2,37 @@ const Stripe = require('stripe');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Vercel-compatible Express-style handler
 module.exports = async (req, res) => {
-  // Handle preflight CORS
+  console.log('CREATE-CHECKOUT: Request received', req.method);
+
+  // Handle CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.status(200).end();
+    res.statusCode = 200;
+    res.end();
     return;
   }
 
   if (req.method !== 'POST') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.status(405).json({ error: 'Method Not Allowed' });
+    res.statusCode = 405;
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
     return;
   }
 
   try {
-    const body = req.body || {};
-    const { name, email, eventId, admissionQuantity, parkingQuantity } = body;
+    const { name, email, eventId, admissionQuantity, parkingQuantity } = req.body || {};
+
+    console.log('CREATE-CHECKOUT: Processing order', { name, email, admissionQuantity, parkingQuantity });
 
     const lineItems = [];
 
     // Add admission tickets
     if (admissionQuantity > 0) {
       lineItems.push({
-        price: process.env.STRIPE_PRICE_ID_TICKET,
+        price: process.env.GA_PRICE_ID,
         quantity: admissionQuantity,
       });
     }
@@ -37,14 +40,23 @@ module.exports = async (req, res) => {
     // Add parking passes
     if (parkingQuantity > 0) {
       lineItems.push({
-        price: process.env.STRIPE_PRICE_ID_PARKING,
+        price: process.env.PARKING_PRICE_ID,
         quantity: parkingQuantity,
       });
+    }
+
+    // Validate that at least one item is being purchased
+    if (lineItems.length === 0) {
+      res.statusCode = 400;
+      res.end(JSON.stringify({ error: 'At least one admission ticket or parking pass must be selected' }));
+      return;
     }
 
     const SITE_URL = process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : (process.env.SITE_URL || 'http://localhost:3000');
+
+    console.log('CREATE-CHECKOUT: Using site URL', SITE_URL);
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -62,13 +74,14 @@ module.exports = async (req, res) => {
       cancel_url: `${SITE_URL}/cancel`,
     });
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.status(200).json({ url: session.url });
+    console.log('CREATE-CHECKOUT: Session created', session.id);
+
+    res.statusCode = 200;
+    res.end(JSON.stringify({ url: session.url }));
+
   } catch (error) {
-    console.error('Create checkout error:', error);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.status(500).json({ error: error.message });
+    console.error('CREATE-CHECKOUT: Error', error);
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: error.message }));
   }
 };

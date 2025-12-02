@@ -5,32 +5,34 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Vercel-compatible Express-style handler
-module.exports = async (req, res) => {
+// Vercel serverless function
+module.exports = async function handler(req, res) {
   // Handle preflight CORS
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.status(200).end();
+    res.writeHead(200);
+    res.end();
     return;
   }
 
   if (req.method !== 'POST') {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
-    res.status(405).json({ error: 'Method Not Allowed' });
+    res.writeHead(405);
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
     return;
   }
 
   try {
-    const body = req.body || {};
-    const { ticketId, password } = body;
+    const { ticketId, password } = req.body || {};
 
     if (!ticketId) {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Content-Type', 'application/json');
-      res.status(400).json({ error: 'ticketId is required' });
+      res.writeHead(400);
+      res.end(JSON.stringify({ error: 'ticketId is required' }));
       return;
     }
 
@@ -38,7 +40,8 @@ module.exports = async (req, res) => {
     if (!password || password !== requiredPassword) {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Content-Type', 'application/json');
-      res.status(401).json({ error: 'Invalid validation password' });
+      res.writeHead(401);
+      res.end(JSON.stringify({ error: 'Invalid validation password' }));
       return;
     }
 
@@ -66,7 +69,8 @@ module.exports = async (req, res) => {
     if (!ticket.data) {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Content-Type', 'application/json');
-      res.status(404).json({ error: 'Ticket not found' });
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: 'Ticket not found' }));
       return;
     }
 
@@ -75,14 +79,15 @@ module.exports = async (req, res) => {
     if (ticketData.status === 'validated') {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Content-Type', 'application/json');
-      res.status(200).json({
+      res.writeHead(200);
+      res.end(JSON.stringify({
         valid: false,
         ticket: {
           ...ticketData,
           ticket_type: ticketType
         },
         message: 'Ticket already validated'
-      });
+      }));
       return;
     }
 
@@ -102,24 +107,27 @@ module.exports = async (req, res) => {
       console.error('Ticket update error:', updateError);
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Content-Type', 'application/json');
-      res.status(500).json({ error: 'Failed to validate ticket' });
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: 'Failed to validate ticket' }));
       return;
     }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
-    res.status(200).json({
+    res.writeHead(200);
+    res.end(JSON.stringify({
       valid: true,
       ticket: {
         ...updatedTicket,
         ticket_type: ticketType
       }
-    });
+    }));
 
   } catch (error) {
     console.error('Validate ticket error:', error);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
-    res.status(500).json({ error: 'Internal server error' });
+    res.writeHead(500);
+    res.end(JSON.stringify({ error: 'Internal server error' }));
   }
 };

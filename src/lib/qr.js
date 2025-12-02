@@ -1,6 +1,6 @@
-import QRCode from 'qrcode';
+const QRCode = require('qrcode');
 
-export async function generateTicketQr(data) {
+async function generateTicketQr(data) {
   try {
     // Generate QR code as data URL for now
     // TODO: Upload to Supabase storage for better email compatibility
@@ -23,3 +23,7 @@ export async function generateTicketQr(data) {
     return 'https://via.placeholder.com/256x256?text=QR+Code+Error';
   }
 }
+
+module.exports = {
+  generateTicketQr,
+};
