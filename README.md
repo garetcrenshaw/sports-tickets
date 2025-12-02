@@ -1,9 +1,10 @@
 # Gameday Empire – Sports Ticketing Experience
 
-## 🚨 PERMANENT URL (NEVER CHANGES)
+## 🚨 REAL DOMAIN (NEVER CHANGES)
 **https://sports-tickets.vercel.app**
 
-All deploys go here. No more random Vercel URLs. This is the site FOREVER.
+All fulfillment, emails, QRs, and links use this URL.
+Random Vercel deploy URLs are DEAD.
 
 ---
 

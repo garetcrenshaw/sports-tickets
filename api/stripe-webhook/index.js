@@ -71,6 +71,14 @@ export default async function handler(req, res) {
 
     console.log('✅ 3 TICKETS INSERTED INTO SUPABASE');
 
+    // Generate QR codes with REAL DOMAIN
+    const QRCode = (await import('qrcode')).default;
+    for (const ticket of data) {
+      const url = `https://sports-tickets.vercel.app/validate?ticket=${ticket.id}`;
+      const qr = await QRCode.toDataURL(url);
+      console.log(`QR generated for ticket ${ticket.id}: ${url}`);
+    }
+
     // FAST Resend email
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);

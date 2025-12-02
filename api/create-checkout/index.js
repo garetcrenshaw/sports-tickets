@@ -52,12 +52,7 @@ module.exports = async (req, res) => {
       return;
     }
 
-    // PERMANENT URL - NEVER CHANGES
-    const SITE_URL = 'https://sports-tickets.vercel.app';
-
-    console.log('CREATE-CHECKOUT: Using PERMANENT site URL:', SITE_URL);
-    console.log('CREATE-CHECKOUT: Success URL will be:', `${SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`);
-
+    // REAL DOMAIN - NEVER CHANGES
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -70,8 +65,8 @@ module.exports = async (req, res) => {
         parkingQuantity: parkingQuantity?.toString(),
       },
       line_items: lineItems,
-      success_url: `${SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${SITE_URL}/cancel`,
+      success_url: `https://sports-tickets.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://sports-tickets.vercel.app/cancel`,
     });
 
     console.log('CREATE-CHECKOUT: Session created', session.id);
