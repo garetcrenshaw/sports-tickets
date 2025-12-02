@@ -46,8 +46,6 @@ export default async function handler(req, res) {
 
 
 
-  // Respond immediately
-
   res.status(200).json({ received: true });
 
 
@@ -64,7 +62,7 @@ export default async function handler(req, res) {
 
 
 
-        // 1. Supabase
+        // Supabase
 
         const { createClient } = await import('@supabase/supabase-js');
 
@@ -94,7 +92,7 @@ export default async function handler(req, res) {
 
 
 
-        // 2. Generate QR codes
+        // QR codes
 
         const qrUrls = [];
 
@@ -118,15 +116,17 @@ export default async function handler(req, res) {
 
 
 
-          const publicUrl = `${process.env.SUPABASE_URL.replace('.co', '.co/storage/v1/object/public')}/qr-codes/public/${ticket.id}.png`;
-
-          qrUrls.push(publicUrl);
+          qrUrls.push(`${process.env.SUPABASE_URL.replace('.co', '.co/storage/v1/object/public')}/qr-codes/public/${ticket.id}.png`);
 
         }
 
 
 
-        // 3. Send beautiful email to garetcrenshaw@gmail.com
+        console.log('QR CODES GENERATED');
+
+
+
+        // EMAIL WITH VERIFIED FROM
 
         const { Resend } = await import('resend');
 
@@ -136,13 +136,13 @@ export default async function handler(req, res) {
 
         await resend.emails.send({
 
-          from: 'GameDay Tickets <tickets@sports-tickets.vercel.app>',
+          from: 'GameDay Tickets <noreply@sports-tickets.vercel.app>',  // ← VERIFIED DOMAIN
 
           to: email,
 
-          bcc: 'garetcrenshaw@gmail.com', // ← ALWAYS GET A COPY
+          bcc: 'garetcrenshaw@gmail.com',
 
-          subject: 'Your GameDay Tickets + Parking Pass',
+          subject: 'Your GameDay Tickets + Parking',
 
           html: `
 
@@ -150,29 +150,23 @@ export default async function handler(req, res) {
 
               <h1 style="color:#1a5fb4;">GameDay Tickets</h1>
 
-              <p>Here are your tickets for the big game!</p>
+              <p>Your tickets are ready!</p>
 
-              <div style="text-align:center;margin:30px 0;">
+              <div style="text-align:center;">
 
-                <img src="${qrUrls[0]}" width="280" style="margin:10px;" /><br/>
-
-                <strong>Admission Ticket #1</strong>
+                <img src="${qrUrls[0]}" width="280" style="margin:10px;" /><br><strong>Ticket #1</strong>
 
               </div>
 
-              <div style="text-align:center;margin:30px 0;">
+              <div style="text-align:center;">
 
-                <img src="${qrUrls[1]}" width="280" style="margin:10px;" /><br/>
-
-                <strong>Admission Ticket #2</strong>
+                <img src="${qrUrls[1]}" width="280" style="margin:10px;" /><br><strong>Ticket #2</strong>
 
               </div>
 
-              <div style="text-align:center;margin:30px 0;">
+              <div style="text-align:center;">
 
-                <img src="${qrUrls[2]}" width="280" style="margin:10px;" /><br/>
-
-                <strong>Parking Pass</strong>
+                <img src="${qrUrls[2]}" width="280" style="margin:10px;" /><br><strong>Parking Pass</strong>
 
               </div>
 
@@ -186,11 +180,11 @@ export default async function handler(req, res) {
 
 
 
-        console.log('BEAUTIFUL EMAIL + QR CODES SENT TO', email);
+        console.log('EMAIL + QR SENT TO', email);
 
       } catch (err) {
 
-        console.error('FULFILLMENT ERROR:', err);
+        console.error('ERROR:', err.message);
 
       }
 

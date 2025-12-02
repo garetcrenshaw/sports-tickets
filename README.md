@@ -187,6 +187,13 @@ Set these environment variables in your Vercel dashboard (no .env files needed):
 
 > ℹ️ Stripe CLI prints a fresh `whsec_...` every time you run `stripe listen`. Paste it into `.env.local` and restart the function server.
 
+#### Resend Email Setup
+**REQUIRED for emails to work:**
+1. Go to [Resend Dashboard](https://resend.com/domains)
+2. Click "Add Domain"
+3. Enter: `sports-tickets.vercel.app`
+4. Click "Add" and follow verification steps (may need to add TXT record to DNS)
+
 ### 3. Run everything (3 terminals)
 
 ```
