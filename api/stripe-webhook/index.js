@@ -7,6 +7,8 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
+  console.log('WEBHOOK HIT');
+
   const buf = await buffer(req);
   const sig = req.headers['stripe-signature'];
 
@@ -15,11 +17,11 @@ export default async function handler(req, res) {
   try {
     event = stripe.webhooks.constructEvent(buf.toString(), sig, endpointSecret);
   } catch (err) {
-    console.error('WEBHOOK SIGNATURE FAILED:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    console.error('SIGNATURE FAILED:', err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+    return;
   }
 
-  // Respond IMMEDIATELY
   res.status(200).json({ received: true });
 
   if (event.type === 'checkout.session.completed') {
@@ -43,20 +45,20 @@ export default async function handler(req, res) {
         const QRCode = (await import('qrcode')).default;
         for (const ticket of tickets) {
           const url = `https://sports-tickets.vercel.app/validate?ticket=${ticket.id}`;
-          const qr = await QRCode.toDataURL(url);
+          await QRCode.toDataURL(url);
           console.log('QR READY:', ticket.id);
         }
 
         const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
-          from: 'tickets@garetcrenshaw.com',
+          from: 'test@garetcrenshaw.com',
           to: email,
-          subject: 'YOUR TICKETS ARE READY',
-          html: '<h1>Tickets processed!</h1>',
+          subject: 'TICKETS READY',
+          html: '<h1>Success!</h1>',
         });
 
-        console.log('FULFILLMENT COMPLETE');
+        console.log('FULLFILLMENT COMPLETE');
       } catch (err) {
         console.error('FULFILLMENT FAILED:', err);
       }

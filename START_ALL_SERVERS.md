@@ -21,13 +21,13 @@ VITE v5.4.21 ready in 240 ms
 
 ```bash
 cd /Users/garetcrenshaw/Desktop/sports-tickets
-npm run dev:functions
+node dev-server.cjs
 ```
 
 **Keep this running. You should see:**
 ```
 🚀 Function server running on http://localhost:3001
-📡 Ready to serve functions at /.netlify/functions/*
+📡 Ready to serve functions at /api/*
 🔥 WEBHOOK MODULE LOADING...
 🔥 STEP 1: Modules imported
 🔥 STEP 2: Checking environment variables...
@@ -48,7 +48,7 @@ npm run dev:functions
 ## Terminal 3: Stripe CLI Webhook Forwarding ⚠️ THIS IS MISSING!
 
 ```bash
-stripe listen --forward-to http://localhost:3001/.netlify/functions/stripe-webhook
+stripe listen --forward-to localhost:3000/api/stripe-webhook
 ```
 
 **Keep this running. You should see:**
@@ -75,7 +75,7 @@ Open a 4th terminal and run:
 curl http://localhost:3000
 
 # Check Function Server
-curl http://localhost:3001/.netlify/functions/create-checkout
+curl http://localhost:3001/api/create-checkout
 
 # Check Stripe CLI
 # (should show "Ready!" in terminal 3)
@@ -125,8 +125,8 @@ stripe login
 ## 📋 QUICK START CHECKLIST:
 
 - [ ] Terminal 1: `npm run dev` (Vite on 3000)
-- [ ] Terminal 2: `npm run dev:functions` (Functions on 3001)
-- [ ] Terminal 3: `stripe listen --forward-to http://localhost:3001/.netlify/functions/stripe-webhook`
+- [ ] Terminal 2: `node dev-server.cjs` (Functions on 3001)
+- [ ] Terminal 3: `stripe listen --forward-to localhost:3000/api/stripe-webhook`
 - [ ] Copy `whsec_xxx` from Terminal 3 to `.env` as `STRIPE_WEBHOOK_SECRET=whsec_xxx`
 - [ ] Restart Terminal 2 (CTRL+C, then `npm run dev:functions` again)
 - [ ] Verify Terminal 2 shows "WEBHOOK MODULE LOADED SUCCESSFULLY ✅"

@@ -52,12 +52,12 @@ ZIP: Any 5 digits (e.g., 12345)
 **Terminal 3 (Stripe CLI)** should show:
 ```
 2025-XX-XX XX:XX:XX   --> checkout.session.completed [evt_xxx]
-2025-XX-XX XX:XX:XX  <--  [200] POST http://localhost:3001/.netlify/functions/stripe-webhook [evt_xxx]
+2025-XX-XX XX:XX:XX  <--  [200] POST localhost:3000/api/stripe-webhook [evt_xxx]
 ```
 
 **Terminal 2 (Functions)** should EXPLODE with logs:
 ```
-POST /.netlify/functions/stripe-webhook
+POST /api/stripe-webhook
 🔥 WEBHOOK MODULE LOADING...
 🔥 STEP 1: Modules imported
 🔥 STEP 2: Checking environment variables...
@@ -90,7 +90,7 @@ STEP 25.0.2: UUID generated: abc-123...
 
 ### Terminal 2 shows NO webhook logs?
 - Check Terminal 3 - does it show the event being sent?
-- Make sure Terminal 3 shows: `<-- [200] POST http://localhost:3001/.netlify/functions/stripe-webhook`
+- Make sure Terminal 3 shows: `<-- [200] POST localhost:3000/api/stripe-webhook`
 
 ### Terminal 3 shows error (not 200)?
 - Look at the error message in Terminal 2

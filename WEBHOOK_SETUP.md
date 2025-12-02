@@ -121,7 +121,7 @@ stripe login
 npm run dev:functions
 
 # Then in another terminal:
-stripe listen --forward-to http://localhost:3001/.netlify/functions/stripe-webhook
+stripe listen --forward-to localhost:3000/api/stripe-webhook
 ```
 
 **You'll see:**
@@ -200,7 +200,7 @@ You should see 2 rows with unique `ticket_id` and `qr_code_url` values.
 
 1. Go to: https://dashboard.stripe.com/test/webhooks
 2. Click **Add endpoint**
-3. **Endpoint URL:** `https://your-netlify-site.netlify.app/.netlify/functions/stripe-webhook`
+3. **Endpoint URL:** `https://sports-tickets.vercel.app/api/stripe-webhook`
 4. **Events to send:** Select `checkout.session.completed`
 5. Click **Add endpoint**
 
@@ -209,8 +209,8 @@ You should see 2 rows with unique `ticket_id` and `qr_code_url` values.
 2. Click **Reveal** under "Signing secret"
 3. Copy the secret (starts with `whsec_...`)
 
-### **C. Add to Netlify environment variables:**
-1. Go to Netlify dashboard → Your site → **Site settings** → **Environment variables**
+### **C. Add to Vercel environment variables:**
+1. Go to Vercel dashboard → Your project → **Settings** → **Environment Variables**
 2. Add `STRIPE_WEBHOOK_SECRET` with the production value
 3. Click **Save**
 
@@ -219,7 +219,7 @@ You should see 2 rows with unique `ticket_id` and `qr_code_url` values.
 git push
 ```
 
-Netlify will auto-deploy with the new webhook secret.
+Vercel will auto-deploy with the new webhook secret.
 
 ---
 
@@ -236,7 +236,7 @@ Before going live, verify:
 - [ ] QR code images are accessible via public URLs
 - [ ] Email contains all QR codes for multi-ticket purchases
 - [ ] Production webhook added in Stripe dashboard
-- [ ] Production webhook secret added to Netlify env vars
+- [ ] Production webhook secret added to Vercel env vars
 
 ---
 

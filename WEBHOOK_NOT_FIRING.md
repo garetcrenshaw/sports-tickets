@@ -6,7 +6,7 @@ Your Terminal 2 (function server) shows:
 - ✅ Checkout session created successfully
 - ✅ Stripe Checkout URL generated
 - ❌ **NO webhook activity at all**
-- ❌ **NO "POST /.netlify/functions/stripe-webhook"**
+- ❌ **NO "POST /api/stripe-webhook"**
 - ❌ **NO "WEBHOOK MODULE LOADING"**
 
 This means: **The webhook event is NOT reaching your server.**
@@ -85,12 +85,12 @@ The **instant** you click "Pay" in step 6, Terminal 3 should show:
 
 ```
 2025-XX-XX XX:XX:XX   --> checkout.session.completed [evt_1234567890]
-2025-XX-XX XX:XX:XX  <--  [200] POST http://localhost:3001/.netlify/functions/stripe-webhook [evt_1234567890]
+2025-XX-XX XX:XX:XX  <--  [200] POST localhost:3000/api/stripe-webhook [evt_1234567890]
 ```
 
 If you see this, then Terminal 2 will immediately show:
 ```
-POST /.netlify/functions/stripe-webhook
+POST /api/stripe-webhook
 🔥 WEBHOOK MODULE LOADING...
 🚨 WEBHOOK HANDLER CALLED!
 [... 40+ lines of logs ...]

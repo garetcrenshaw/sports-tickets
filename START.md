@@ -34,17 +34,17 @@ VITE v5.4.21  ready in 240 ms
 ### Terminal 2: Start Backend Functions
 ```bash
 cd /Users/garetcrenshaw/Desktop/sports-tickets
-npm run dev:functions
+node dev-server.cjs
 ```
 **Expected output:**
 ```
 🚀 Function server running on http://localhost:3001
-📡 Ready to serve functions at /.netlify/functions/*
+📡 Ready to serve functions at /api/*
 ```
 
 ### Terminal 3: Forward Stripe Webhooks
 ```bash
-stripe listen --forward-to http://localhost:3001/.netlify/functions/stripe-webhook
+stripe listen --forward-to localhost:3000/api/stripe-webhook
 ```
 **Expected output:**
 ```
@@ -120,15 +120,15 @@ Browser
   ↓
 http://localhost:3000/api/create-checkout (POST)
   ↓
-Vite Proxy (rewrites /api → /.netlify/functions)
+Vite Proxy (rewrites /api → /api)
   ↓
-http://localhost:3001/.netlify/functions/create-checkout
+http://localhost:3001/api/create-checkout
   ↓
-dev-server.js loads netlify/functions/create-checkout.js
+dev-server.cjs loads api/create-checkout/index.js
   ↓
 Creates Stripe Checkout Session
   ↓
-Returns { sessionId: "cs_test_..." }
+Returns { url: "https://checkout.stripe.com/..." }
   ↓
 Frontend redirects to Stripe
 ```
@@ -144,9 +144,9 @@ When everything works locally:
    git push
    ```
 
-2. **Netlify auto-deploys** from your repo
+2. **Vercel auto-deploys** from your repo
 
-3. **Test production** at your Netlify URL
+3. **Test production** at your Vercel URL
 
 ---
 

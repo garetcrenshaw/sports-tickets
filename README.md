@@ -33,7 +33,7 @@ End-to-end ticketing flow inspired by Ticketmaster, SeatGeek, and every high-per
 - **Stripe Checkout** for ultra-fast conversion.
 - **Supabase** stores both tickets and parking passes (each with unique QR codes).
 - **Resend** delivers beautiful, adaptive emails (tickets only, parking only, or bundled).
-- **Netlify Functions** handle all backend logic with bulletproof logging and schema fallbacks.
+- **Vercel Serverless Functions** handle all backend logic with bulletproof logging and schema fallbacks.
 
 ## ✨ Highlights
 
@@ -219,11 +219,11 @@ Set these environment variables in your Vercel dashboard (no .env files needed):
 # Terminal 1 – Vite frontend
 npm run dev
 
-# Terminal 2 – Netlify-style functions
-npm run dev:functions
+# Terminal 2 – Vercel serverless functions
+node dev-server.cjs
 
 # Terminal 3 – Stripe webhook forwarding
-stripe listen --forward-to http://localhost:3001/.netlify/functions/stripe-webhook
+stripe listen --forward-to localhost:3000/api/stripe-webhook
 ```
 
 Visit `http://localhost:3000` → click **Get Tickets + Parking**.
@@ -289,13 +289,13 @@ Bundle both price IDs into the same checkout to mirror Ticketmaster’s best pra
 
 ---
 
-## 📦 Deploying to Netlify
+## 📦 Deploying to Vercel
 
 1. **Build command:** `npm run build`
-2. **Publish directory:** `dist`
-3. **Functions folder:** `api/`
-4. Replicate all env vars from `.env`.
-5. Update Stripe webhook endpoint to point at `https://your-site.vercel.app/api/stripe-webhook`.
+2. **Output directory:** `dist`
+3. **Install command:** `npm install`
+4. Set environment variables in Vercel dashboard.
+5. Update Stripe webhook endpoint to point at `https://sports-tickets.vercel.app/api/stripe-webhook`.
 
 ---
 
