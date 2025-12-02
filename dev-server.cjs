@@ -165,7 +165,18 @@ function createFunctionHandler(functionName) {
         try {
           // Call the handler - works with both CommonJS and ES module exports
           console.log('Calling handler with Express-style req/res...');
-          await handler(req, res);
+
+          // Add timeout protection for slow webhooks
+          const timeout = setTimeout(() => {
+            console.log('⚠️ Webhook taking too long — forcing response');
+            if (!res.headersSent) res.status(200).json({ timeout: true });
+          }, 8000);
+
+          try {
+            await handler(req, res);
+          } finally {
+            clearTimeout(timeout);
+          }
         } catch (error) {
           console.error('Function error:', error);
           if (!res.headersSent) {
