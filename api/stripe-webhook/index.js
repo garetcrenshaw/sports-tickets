@@ -1,53 +1,223 @@
-const { createClient } = require('@supabase/supabase-js');
-const { Resend } = require('resend');
-const { generateTicketQr } = require('../src/lib/qr.js');
+import Stripe from 'stripe';
+import { buffer } from 'micro';
+import { createClient } from '@supabase/supabase-js';
+import QRCode from 'qrcode';
+import { Resend } from 'resend';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+export const config = { api: { bodyParser: false } };
 
-// Vercel config for raw body
-module.exports.config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export default async function handler(req, res) {
+  if (req.method !== 'POST') return res.status(405).end();
 
-// Vercel serverless function
-module.exports = async function handler(req, res) {
-  console.log('🚨 WEBHOOK HIT - START');
+  const buf = await buffer(req);
+  const sig = req.headers['stripe-signature'];
+
+  let event;
 
   try {
-    // Collect raw body for Stripe signature verification
-    const chunks = [];
-    for await (const chunk of req) {
-      chunks.push(chunk);
+    event = stripe.webhooks.constructEvent(buf.toString(), sig, endpointSecret);
+  } catch (err) {
+    console.log('Webhook signature failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+
+    console.log('🎟️ FULFILLMENT STARTED for session:', session.id);
+
+    const {
+      buyerName,
+      buyerEmail,
+      eventId,
+      admissionQuantity,
+      parkingQuantity
+    } = session.metadata;
+
+    const admissionQty = parseInt(admissionQuantity || '0', 10);
+    const parkingQty = parseInt(parkingQuantity || '0', 10);
+
+    console.log('📊 Processing quantities:', { admissionQty, parkingQty });
+
+    if (!buyerEmail) {
+      console.error('❌ Missing buyer email in session metadata');
+      return res.status(400).send('Missing buyer email');
     }
-    const body = Buffer.concat(chunks);
 
-    const sig = req.headers['stripe-signature'];
+    const qrCodes = [];
 
-    console.log('BODY LENGTH:', body ? body.length : 'undefined');
-    console.log('SIGNATURE PRESENT:', !!sig);
+    // Create admission tickets
+    for (let i = 0; i < admissionQty; i++) {
+      console.log(`🎫 Creating admission ticket ${i + 1}/${admissionQty}`);
+      const ticketId = `ticket-${session.id}-${i + 1}`;
 
-    let eventData;
-    try {
-      eventData = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-      console.log('✅ EVENT VERIFIED:', eventData.type, eventData.id);
-    } catch (sigError) {
-      console.error('❌ SIGNATURE VERIFICATION FAILED:', sigError.message);
+      // Insert ticket in Supabase
+      const { data: ticket, error: insertError } = await supabase
+        .from('tickets')
+        .insert({
+          ticket_id: ticketId,
+          session_id: session.id,
+          event_id: eventId,
+          purchaser_email: buyerEmail,
+          purchaser_name: buyerName,
+          status: 'pending'
+        })
+        .select()
+        .single();
 
-      if (!process.env.STRIPE_WEBHOOK_SECRET || process.env.NODE_ENV === 'development') {
-        console.log('🔧 DEVELOPMENT MODE: Using raw event data for testing');
-        try {
-          const rawEvent = typeof body === 'string' ? JSON.parse(body) : body;
-          eventData = {
-            type: rawEvent.type,
-            data: { object: rawEvent.data.object },
+      if (insertError) {
+        console.error('❌ Ticket insert error:', insertError);
+        throw new Error(`Ticket insert error: ${insertError.message}`);
+      }
+
+      console.log('✅ Ticket inserted:', ticket.id);
+
+      // Generate QR code
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : (process.env.SITE_URL || 'http://localhost:3000');
+      const ticketUrl = `${baseUrl}/validate/${ticketId}`;
+
+      console.log('🎨 Generating QR for:', ticketUrl);
+      const qrDataUrl = await QRCode.toDataURL(ticketUrl);
+      const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
+
+      // Upload to Supabase storage
+      const fileName = `ticket-${ticketId}.png`;
+      console.log('📤 Uploading QR:', fileName);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('qr-codes')
+        .upload(fileName, qrBuffer, {
+          contentType: 'image/png',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('❌ QR upload error:', uploadError);
+        throw new Error(`QR upload failed: ${uploadError.message}`);
+      }
+
+      const qrImageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/qr-codes/${fileName}`;
+      console.log('✅ QR uploaded:', qrImageUrl);
+
+      qrCodes.push({
+        type: 'Admission Ticket',
+        qr: qrDataUrl,
+        imageUrl: qrImageUrl,
+        url: ticketUrl
+      });
+    }
+
+    // Create parking passes
+    for (let i = 0; i < parkingQty; i++) {
+      console.log(`🅿️ Creating parking pass ${i + 1}/${parkingQty}`);
+      const ticketId = `parking-${session.id}-${i + 1}`;
+
+      // Insert parking pass in Supabase
+      const { data: parkingPass, error: insertError } = await supabase
+        .from('parking_passes')
+        .insert({
+          ticket_id: ticketId,
+          session_id: session.id,
+          event_id: eventId,
+          purchaser_email: buyerEmail,
+          purchaser_name: buyerName,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('❌ Parking pass insert error:', insertError);
+        throw new Error(`Parking pass insert error: ${insertError.message}`);
+      }
+
+      console.log('✅ Parking pass inserted:', parkingPass.id);
+
+      // Generate QR code
+      const baseUrl = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : (process.env.SITE_URL || 'http://localhost:3000');
+      const parkingUrl = `${baseUrl}/validate/${ticketId}`;
+
+      console.log('🎨 Generating QR for parking:', parkingUrl);
+      const qrDataUrl = await QRCode.toDataURL(parkingUrl);
+      const qrBuffer = Buffer.from(qrDataUrl.split(',')[1], 'base64');
+
+      // Upload to Supabase storage
+      const fileName = `parking-${ticketId}.png`;
+      console.log('📤 Uploading parking QR:', fileName);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('qr-codes')
+        .upload(fileName, qrBuffer, {
+          contentType: 'image/png',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('❌ Parking QR upload error:', uploadError);
+        throw new Error(`Parking QR upload failed: ${uploadError.message}`);
+      }
+
+      const qrImageUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/qr-codes/${fileName}`;
+      console.log('✅ Parking QR uploaded:', qrImageUrl);
+
+      qrCodes.push({
+        type: 'Parking Pass',
+        qr: qrDataUrl,
+        imageUrl: qrImageUrl,
+        url: parkingUrl
+      });
+    }
+
+    console.log('📧 Sending email to:', buyerEmail);
+
+    // Send email
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #333; text-align: center;">Your Game Tickets Are Ready!</h1>
+        <p style="font-size: 16px; line-height: 1.6;">Hi ${buyerName},</p>
+        <p style="font-size: 16px; line-height: 1.6;">Thank you for your purchase! Here are your digital tickets and parking passes. Simply show the QR codes at the gate or parking entrance.</p>
+
+        ${qrCodes.map(q => `<div style="margin: 40px 0; text-align: center; padding: 20px; border: 1px solid #ddd; border-radius: 10px; background-color: #f9f9f9;">
+          <h3 style="margin: 0 0 15px 0; color: #333;">${q.type}</h3>
+          <img src="${q.imageUrl}" width="250" height="250" alt="${q.type} QR Code" style="border: 2px solid #000; border-radius: 10px; display: block; margin: 0 auto;"/>
+          <p style="margin: 15px 0 0 0; font-size: 14px; color: #666;">
+            <a href="${q.url}" style="color: #007bff; text-decoration: none;">Click here if you can't scan the QR code</a>
+          </p>
+        </div>`).join('')}
+
+        <p style="font-size: 14px; color: #666; text-align: center; margin-top: 30px;">
+          If you have any questions, please contact our support team.<br>
+          <a href="mailto:support@sports-tickets.app" style="color: #007bff; text-decoration: none;">support@sports-tickets.app</a>
+        </p>
+      </div>
+    `;
+
+    const emailResult = await resend.emails.send({
+      from: 'GameDay Tickets <tickets@gamedaytickets.app>',
+      to: buyerEmail,
+      subject: 'Your Tickets - Ready to Scan!',
+      html: emailHtml,
+      reply_to: 'support@sports-tickets.app'
+    });
+
+    if (emailResult.error) {
+      console.error('❌ Email send failed:', emailResult.error);
+      throw new Error(`Email send failed: ${emailResult.error.message}`);
+    }
+
+    console.log('✅ Email sent successfully, ID:', emailResult.data?.id);
+    console.log('🎉 FULFILLMENT COMPLETE! Session:', session.id, 'Items:', qrCodes.length);
+  }
+
+  res.status(200).json({ received: true });
+}
             id: rawEvent.id
           };
           console.log('✅ USING RAW EVENT:', eventData.type, eventData.id);
