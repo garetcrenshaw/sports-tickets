@@ -163,6 +163,17 @@ VALIDATE_PASSWORD=staff123
 ```
 
 #### Production (Vercel)
+
+**Vercel Dashboard Settings (REQUIRED):**
+
+1. Go to Project Settings → General → Build & Development Settings
+2. Set:
+   - **Framework Preset:** "Vite"
+   - **Build Command:** "vite build"
+   - **Output Directory:** "dist"
+   - **Install Command:** "npm install"
+
+**Environment Variables:**
 Set these environment variables in your Vercel dashboard (no .env files needed):
 - All variables except `VITE_STRIPE_PUBLISHABLE_KEY` (use `STRIPE_PUBLISHABLE_KEY` in Vercel)
 
