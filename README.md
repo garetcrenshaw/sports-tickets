@@ -1,5 +1,12 @@
 # Gameday Empire – Sports Ticketing Experience
 
+## 🚨 PERMANENT URL (NEVER CHANGES)
+**https://sports-tickets.vercel.app**
+
+All deploys go here. No more random Vercel URLs. This is the site FOREVER.
+
+---
+
 End-to-end ticketing flow inspired by Ticketmaster, SeatGeek, and every high-performing indie platform in 2025:
 
 - Single event page with **one cart** for admission + parking.

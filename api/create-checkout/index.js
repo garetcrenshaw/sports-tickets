@@ -52,16 +52,10 @@ module.exports = async (req, res) => {
       return;
     }
 
-    console.log('CREATE-CHECKOUT: Environment debug:');
-    console.log('  VERCEL_URL:', process.env.VERCEL_URL);
-    console.log('  SITE_URL:', process.env.SITE_URL);
-    console.log('  NEXT_PUBLIC_URL:', process.env.NEXT_PUBLIC_URL);
+    // PERMANENT URL - NEVER CHANGES
+    const SITE_URL = 'https://sports-tickets.vercel.app';
 
-    const SITE_URL = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : (process.env.SITE_URL || 'http://localhost:3000');
-
-    console.log('CREATE-CHECKOUT: Using site URL', SITE_URL);
+    console.log('CREATE-CHECKOUT: Using PERMANENT site URL:', SITE_URL);
     console.log('CREATE-CHECKOUT: Success URL will be:', `${SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`);
 
     const session = await stripe.checkout.sessions.create({

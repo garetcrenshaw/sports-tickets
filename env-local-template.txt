@@ -13,7 +13,10 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 # Resend (for emails)
 RESEND_API_KEY=re_test_your_resend_api_key_here
 
-# Site URL (for redirects and QR codes)
+# Site URL (PERMANENT - NEVER CHANGES)
+NEXT_PUBLIC_URL=https://sports-tickets.vercel.app
+
+# Local development URL
 SITE_URL=http://localhost:3000
 
 # Vercel URL (automatically set in production)
