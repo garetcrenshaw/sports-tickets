@@ -12,10 +12,10 @@ export default defineConfig({
   },
   server: {
     port: devPort,
-    host: '0.0.0.0',
+    host: '127.0.0.1', // Use localhost instead of 0.0.0.0
     proxy: {
       '/api': {
-        target: `http://localhost:${functionsPort}`,
+        target: `http://127.0.0.1:${functionsPort}`,
         changeOrigin: true,
         secure: false,
         ws: true

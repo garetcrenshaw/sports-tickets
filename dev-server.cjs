@@ -32,6 +32,16 @@ function loadEnv() {
       console.log('⚠️  Using default/placeholder environment variables for testing');
     }
   });
+
+  // Set default values for testing if not already set
+  if (!process.env.STRIPE_SECRET_KEY) process.env.STRIPE_SECRET_KEY = 'sk_test_default';
+  if (!process.env.STRIPE_WEBHOOK_SECRET) process.env.STRIPE_WEBHOOK_SECRET = 'whsec_default';
+  if (!process.env.SUPABASE_URL) process.env.SUPABASE_URL = 'https://default.supabase.co';
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) process.env.SUPABASE_SERVICE_ROLE_KEY = 'default_key';
+  if (!process.env.RESEND_API_KEY) process.env.RESEND_API_KEY = 're_default';
+  if (!process.env.GA_PRICE_ID) process.env.GA_PRICE_ID = 'price_default_ga';
+  if (!process.env.PARKING_PRICE_ID) process.env.PARKING_PRICE_ID = 'price_default_parking';
+  if (!process.env.VALIDATE_PASSWORD) process.env.VALIDATE_PASSWORD = 'gameday2024';
 }
 
 loadEnv();
@@ -199,6 +209,16 @@ function createFunctionHandler(functionName) {
 }
 
 const server = http.createServer((req, res) => {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
   console.log(`🌐 ${req.method} ${req.url}`);
 
   // Handle API routes first
@@ -216,7 +236,7 @@ const server = http.createServer((req, res) => {
   res.end();
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`🚀 API server running on http://localhost:${PORT}`);
   console.log(`📡 Ready to serve API functions at /api/*`);
   console.log(`🔧 Environment loaded:`, {
