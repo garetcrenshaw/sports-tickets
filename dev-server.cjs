@@ -169,7 +169,10 @@ function createFunctionHandler(functionName) {
           // Add timeout protection for slow webhooks
           const timeout = setTimeout(() => {
             console.log('⚠️ Webhook taking too long — forcing response');
-            if (!res.headersSent) res.status(200).json({ timeout: true });
+            if (!res.headersSent) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ timeout: true }));
+            }
           }, 8000);
 
           try {
