@@ -59,7 +59,7 @@ function resolveFunctionPath(functionName) {
   const oldPath = path.join(apiDir, `${functionName}.js`);
   if (fs.existsSync(oldPath)) {
     return oldPath;
-  }
+    }
 
   return null;
 }
@@ -161,6 +161,7 @@ function createFunctionHandler(functionName) {
 
         // Add body to request object for Express-style compatibility
         req.body = parsedBody;
+        req.rawBody = bodyBuffer; // For webhook signature verification
 
         // Create Vercel-style event object
         const event = {
@@ -176,20 +177,8 @@ function createFunctionHandler(functionName) {
           // Call the handler - works with both CommonJS and ES module exports
           console.log('Calling handler with Express-style req/res...');
 
-          // Add timeout protection for slow webhooks
-          const timeout = setTimeout(() => {
-            console.log('⚠️ Webhook taking too long — forcing response');
-            if (!res.headersSent) {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ timeout: true }));
-            }
-          }, 8000);
-
-          try {
-            await handler(req, res);
-          } finally {
-            clearTimeout(timeout);
-          }
+          // No timeout - webhook responds immediately, fulfillment runs in background
+          await handler(req, res);
         } catch (error) {
           console.error('Function error:', error);
           if (!res.headersSent) {

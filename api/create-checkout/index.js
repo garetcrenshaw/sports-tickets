@@ -1,8 +1,8 @@
-const Stripe = require('stripe');
+import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   console.log('CREATE-CHECKOUT: Request received', req.method);
 
   // Handle CORS
@@ -11,14 +11,12 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
+    res.status(200).end();
     return;
   }
 
   if (req.method !== 'POST') {
-    res.statusCode = 405;
-    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    res.status(405).json({ error: 'Method Not Allowed' });
     return;
   }
 
@@ -47,12 +45,11 @@ module.exports = async (req, res) => {
 
     // Validate that at least one item is being purchased
     if (lineItems.length === 0) {
-      res.statusCode = 400;
-      res.end(JSON.stringify({ error: 'At least one admission ticket or parking pass must be selected' }));
+      res.status(400).json({ error: 'At least one admission ticket or parking pass must be selected' });
       return;
     }
 
-    // REAL DOMAIN - NEVER CHANGES
+    // VERCEL PRODUCTION URLS - NEVER CHANGES
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -65,18 +62,16 @@ module.exports = async (req, res) => {
         parkingQuantity: parkingQuantity?.toString(),
       },
       line_items: lineItems,
-      success_url: 'https://gamedaytickets.io/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'https://gamedaytickets.io/cancel',
+      success_url: `https://sports-tickets.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://sports-tickets.vercel.app/cancel`,
     });
 
     console.log('CREATE-CHECKOUT: Session created', session.id);
 
-    res.statusCode = 200;
-    res.end(JSON.stringify({ url: session.url }));
+    res.status(200).json({ url: session.url });
 
   } catch (error) {
     console.error('CREATE-CHECKOUT: Error', error);
-    res.statusCode = 500;
-    res.end(JSON.stringify({ error: error.message }));
+    res.status(500).json({ error: error.message });
   }
-};
+}
