@@ -2,6 +2,8 @@ import Stripe from 'stripe';
 
 import { buffer } from 'micro';
 
+import QRCode from 'qrcode';
+
 
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -16,7 +18,7 @@ export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
 
-  console.log('🚨 WEBHOOK HIT — STARTING');
+  console.log('WEBHOOK RECEIVED');
 
 
 
@@ -32,11 +34,11 @@ export default async function handler(req, res) {
 
     event = stripe.webhooks.constructEvent(buf.toString(), sig, endpointSecret);
 
-    console.log('✅ WEBHOOK VERIFIED:', event.type);
+    console.log('WEBHOOK VERIFIED:', event.type);
 
   } catch (err) {
 
-    console.error('❌ WEBHOOK SIGNATURE FAILED:', err.message);
+    console.error('SIGNATURE FAILED:', err.message);
 
     return res.status(400).send(`Webhook Error: ${err.message}`);
 
@@ -48,8 +50,6 @@ export default async function handler(req, res) {
 
   res.status(200).json({ received: true });
 
-  console.log('✅ 200 sent — now running background');
-
 
 
   if (event.type === 'checkout.session.completed') {
@@ -60,37 +60,29 @@ export default async function handler(req, res) {
 
         const session = event.data.object;
 
-        console.log('🎯 FULFILLMENT START — session:', session.id);
-
-        console.log('Email:', session.customer_details?.email || 'MISSING');
+        const email = session.customer_details?.email || 'garetcrenshaw@gmail.com';
 
 
 
-        // 1. SUPABASE
-
-        console.log('Creating Supabase client...');
+        // 1. Supabase
 
         const { createClient } = await import('@supabase/supabase-js');
 
         const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-        console.log('Supabase client created');
 
 
-
-        console.log('Inserting tickets...');
-
-        const { data, error } = await supabase
+        const { data: tickets } = await supabase
 
           .from('tickets')
 
           .insert([
 
-            { session_id: session.id, email: session.customer_details?.email || 'test@example.com', type: 'admission' },
+            { session_id: session.id, buyer_email: email, buyer_name: session.customer_details?.name || 'Guest', type: 'admission' },
 
-            { session_id: session.id, email: session.customer_details?.email || 'test@example.com', type: 'admission' },
+            { session_id: session.id, buyer_email: email, buyer_name: session.customer_details?.name || 'Guest', type: 'admission' },
 
-            { session_id: session.id, email: session.customer_details?.email || 'test@example.com', type: 'parking' },
+            { session_id: session.id, buyer_email: email, buyer_name: session.customer_details?.name || 'Guest', type: 'parking' },
 
           ])
 
@@ -98,15 +90,43 @@ export default async function handler(req, res) {
 
 
 
-        if (error) throw error;
-
-        console.log('✅ 3 TICKETS INSERTED:', data);
+        console.log('3 TICKETS INSERTED');
 
 
 
-        // 2. RESEND EMAIL
+        // 2. Generate QR codes
 
-        console.log('Sending email via Resend...');
+        const qrUrls = [];
+
+        for (const ticket of tickets) {
+
+          const validateUrl = `https://sports-tickets.vercel.app/validate?ticket=${ticket.id}&pass=${process.env.VALIDATE_PASSWORD || 'gameday2024'}`;
+
+          const qrDataUrl = await QRCode.toDataURL(validateUrl);
+
+          const { error } = await supabase.storage
+
+            .from('qr-codes')
+
+            .upload(`public/${ticket.id}.png`, Buffer.from(qrDataUrl.split(',')[1], 'base64'), {
+
+              contentType: 'image/png',
+
+              upsert: true,
+
+            });
+
+
+
+          const publicUrl = `${process.env.SUPABASE_URL.replace('.co', '.co/storage/v1/object/public')}/qr-codes/public/${ticket.id}.png`;
+
+          qrUrls.push(publicUrl);
+
+        }
+
+
+
+        // 3. Send beautiful email to garetcrenshaw@gmail.com
 
         const { Resend } = await import('resend');
 
@@ -114,29 +134,63 @@ export default async function handler(req, res) {
 
 
 
-        const emailResult = await resend.emails.send({
+        await resend.emails.send({
 
-          from: 'tickets@sports-tickets.vercel.app',
+          from: 'GameDay Tickets <tickets@sports-tickets.vercel.app>',
 
-          to: session.customer_details?.email || 'garetcrenshaw@gmail.com',
+          to: email,
 
-          subject: 'TEST EMAIL — Webhook is working!',
+          bcc: 'garetcrenshaw@gmail.com', // ← ALWAYS GET A COPY
 
-          text: 'If you get this, the webhook is 100% working.',
+          subject: 'Your GameDay Tickets + Parking Pass',
 
-          html: '<h1>WEBHOOK WORKS!</h1><p>Your tickets are being processed.</p>',
+          html: `
+
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;border:1px solid #ddd;">
+
+              <h1 style="color:#1a5fb4;">GameDay Tickets</h1>
+
+              <p>Here are your tickets for the big game!</p>
+
+              <div style="text-align:center;margin:30px 0;">
+
+                <img src="${qrUrls[0]}" width="280" style="margin:10px;" /><br/>
+
+                <strong>Admission Ticket #1</strong>
+
+              </div>
+
+              <div style="text-align:center;margin:30px 0;">
+
+                <img src="${qrUrls[1]}" width="280" style="margin:10px;" /><br/>
+
+                <strong>Admission Ticket #2</strong>
+
+              </div>
+
+              <div style="text-align:center;margin:30px 0;">
+
+                <img src="${qrUrls[2]}" width="280" style="margin:10px;" /><br/>
+
+                <strong>Parking Pass</strong>
+
+              </div>
+
+              <p style="text-align:center;color:#666;">See you at the game! 🚀</p>
+
+            </div>
+
+          `,
 
         });
 
 
 
-        console.log('✅ EMAIL SENT — Resend ID:', emailResult.id);
+        console.log('BEAUTIFUL EMAIL + QR CODES SENT TO', email);
 
       } catch (err) {
 
-        console.error('❌ BACKGROUND FULFILLMENT FAILED:', err);
-
-        console.error('Stack:', err.stack);
+        console.error('FULFILLMENT ERROR:', err);
 
       }
 
