@@ -12,13 +12,19 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 
 
+// REAL PRODUCTION DOMAIN — NEVER CHANGES
+
+const PRODUCTION_URL = 'https://gamedaytickets.io';
+
+
+
 export const config = { api: { bodyParser: false } };
 
 
 
 export default async function handler(req, res) {
 
-  console.log('WEBHOOK RECEIVED');
+  console.log('WEBHOOK — gamedaytickets.io mode');
 
 
 
@@ -34,13 +40,13 @@ export default async function handler(req, res) {
 
     event = stripe.webhooks.constructEvent(buf.toString(), sig, endpointSecret);
 
-    console.log('WEBHOOK VERIFIED:', event.type);
+    console.log('VERIFIED:', event.type);
 
   } catch (err) {
 
     console.error('SIGNATURE FAILED:', err.message);
 
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    return res.status(400).send(`Error: ${err.message}`);
 
   }
 
@@ -62,7 +68,7 @@ export default async function handler(req, res) {
 
 
 
-        // Supabase
+        // Supabase insert
 
         const { createClient } = await import('@supabase/supabase-js');
 
@@ -88,21 +94,17 @@ export default async function handler(req, res) {
 
 
 
-        console.log('3 TICKETS INSERTED');
-
-
-
-        // QR codes
+        // QR codes with gamedaytickets.io
 
         const qrUrls = [];
 
         for (const ticket of tickets) {
 
-          const validateUrl = `https://sports-tickets.vercel.app/validate?ticket=${ticket.id}&pass=${process.env.VALIDATE_PASSWORD || 'gameday2024'}`;
+          const validateUrl = `${PRODUCTION_URL}/validate?ticket=${ticket.id}&pass=${process.env.VALIDATE_PASSWORD || 'gameday2024'}`;
 
           const qrDataUrl = await QRCode.toDataURL(validateUrl);
 
-          const { error } = await supabase.storage
+          await supabase.storage
 
             .from('qr-codes')
 
@@ -114,19 +116,13 @@ export default async function handler(req, res) {
 
             });
 
-
-
           qrUrls.push(`${process.env.SUPABASE_URL.replace('.co', '.co/storage/v1/object/public')}/qr-codes/public/${ticket.id}.png`);
 
         }
 
 
 
-        console.log('QR CODES GENERATED');
-
-
-
-        // EMAIL WITH VERIFIED FROM
+        // EMAIL — from gamedaytickets.io (will work once domain verified)
 
         const { Resend } = await import('resend');
 
@@ -136,41 +132,41 @@ export default async function handler(req, res) {
 
         await resend.emails.send({
 
-          from: 'GameDay Tickets <noreply@sports-tickets.vercel.app>',  // ← VERIFIED DOMAIN
+          from: 'GameDay Tickets <tickets@gamedaytickets.io>',
 
           to: email,
 
           bcc: 'garetcrenshaw@gmail.com',
 
-          subject: 'Your GameDay Tickets + Parking',
+          subject: 'Your GameDay Tickets + Parking Pass',
 
           html: `
 
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;border:1px solid #ddd;">
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;background:#fff;border:1px solid #ddd;">
 
-              <h1 style="color:#1a5fb4;">GameDay Tickets</h1>
+              <h1 style="color:#1a5fb4;text-align:center;">GameDay Tickets</h1>
 
-              <p>Your tickets are ready!</p>
+              <p style="text-align:center;">Your tickets are ready!</p>
 
-              <div style="text-align:center;">
+              <div style="text-align:center;margin:20px 0;">
 
-                <img src="${qrUrls[0]}" width="280" style="margin:10px;" /><br><strong>Ticket #1</strong>
-
-              </div>
-
-              <div style="text-align:center;">
-
-                <img src="${qrUrls[1]}" width="280" style="margin:10px;" /><br><strong>Ticket #2</strong>
+                <img src="${qrUrls[0]}" width="260" /><br><strong>Ticket 1</strong>
 
               </div>
 
-              <div style="text-align:center;">
+              <div style="text-align:center;margin:20px 0;">
 
-                <img src="${qrUrls[2]}" width="280" style="margin:10px;" /><br><strong>Parking Pass</strong>
+                <img src="${qrUrls[1]}" width="260" /><br><strong>Ticket 2</strong>
 
               </div>
 
-              <p style="text-align:center;color:#666;">See you at the game! 🚀</p>
+              <div style="text-align:center;margin:20px 0;">
+
+                <img src="${qrUrls[2]}" width="260" /><br><strong>Parking Pass</strong>
+
+              </div>
+
+              <p style="text-align:center;color:#666;">Present at entry. See you at the game! 🚀</p>
 
             </div>
 
@@ -180,11 +176,11 @@ export default async function handler(req, res) {
 
 
 
-        console.log('EMAIL + QR SENT TO', email);
+        console.log('EMAIL + QR SENT — gamedaytickets.io');
 
       } catch (err) {
 
-        console.error('ERROR:', err.message);
+        console.error('FULFILLMENT ERROR:', err.message);
 
       }
 

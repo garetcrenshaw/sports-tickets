@@ -65,8 +65,8 @@ module.exports = async (req, res) => {
         parkingQuantity: parkingQuantity?.toString(),
       },
       line_items: lineItems,
-      success_url: `https://sports-tickets.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `https://sports-tickets.vercel.app/cancel`,
+      success_url: 'https://gamedaytickets.io/success?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: 'https://gamedaytickets.io/cancel',
     });
 
     console.log('CREATE-CHECKOUT: Session created', session.id);

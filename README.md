@@ -1,10 +1,29 @@
 # Gameday Empire – Sports Ticketing Experience
 
-## 🚨 REAL DOMAIN (NEVER CHANGES)
-**https://sports-tickets.vercel.app**
+## 🚨 REAL PRODUCTION DOMAIN (NEVER CHANGES)
+**https://gamedaytickets.io**
 
 All fulfillment, emails, QRs, and links use this URL.
-Random Vercel deploy URLs are DEAD.
+Vercel is DEV ONLY.
+
+We test everything on Vercel.
+We launch on gamedaytickets.io.
+
+---
+
+## 🔧 Production Setup (gamedaytickets.io)
+
+### Resend Email Domain
+**REQUIRED for emails to work:**
+1. Go to [Resend Dashboard](https://resend.com/domains)
+2. Add domain: `gamedaytickets.io`
+3. Verify DNS records
+
+### Stripe Webhook
+Set webhook endpoint to: `https://gamedaytickets.io/api/stripe-webhook`
+
+### DNS Configuration
+Point `gamedaytickets.io` → Vercel deployment (or Hostinger if preferred)
 
 ---
 
