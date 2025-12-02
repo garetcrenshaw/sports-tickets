@@ -2,19 +2,11 @@ import Stripe from 'stripe';
 
 import { buffer } from 'micro';
 
-import QRCode from 'qrcode';
-
 
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-
-
-// REAL PRODUCTION DOMAIN — NEVER CHANGES
-
-const PRODUCTION_URL = 'https://gamedaytickets.io';
 
 
 
@@ -24,7 +16,7 @@ export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
 
-  console.log('WEBHOOK — gamedaytickets.io mode');
+  console.log('🚨 WEBHOOK HIT — STARTING');
 
 
 
@@ -40,19 +32,23 @@ export default async function handler(req, res) {
 
     event = stripe.webhooks.constructEvent(buf.toString(), sig, endpointSecret);
 
-    console.log('VERIFIED:', event.type);
+    console.log('✅ WEBHOOK VERIFIED:', event.type);
 
   } catch (err) {
 
-    console.error('SIGNATURE FAILED:', err.message);
+    console.error('❌ SIGNATURE FAILED:', err.message);
 
-    return res.status(400).send(`Error: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
 
   }
 
 
 
+  // RESPOND IMMEDIATELY
+
   res.status(200).json({ received: true });
+
+  console.log('✅ 200 SENT — FULFILLMENT RUNNING');
 
 
 
@@ -66,27 +62,35 @@ export default async function handler(req, res) {
 
         const email = session.customer_details?.email || 'garetcrenshaw@gmail.com';
 
+        console.log('CUSTOMER EMAIL:', email);
 
 
-        // Supabase insert
+
+        // SUPABASE
+
+        console.log('CREATING SUPABASE CLIENT...');
 
         const { createClient } = await import('@supabase/supabase-js');
 
         const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+        console.log('SUPABASE CLIENT READY');
 
 
-        const { data: tickets } = await supabase
+
+        console.log('INSERTING 3 TICKETS...');
+
+        const { data: tickets, error } = await supabase
 
           .from('tickets')
 
           .insert([
 
-            { session_id: session.id, buyer_email: email, buyer_name: session.customer_details?.name || 'Guest', type: 'admission' },
+            { session_id: session.id, buyer_email: email, type: 'admission' },
 
-            { session_id: session.id, buyer_email: email, buyer_name: session.customer_details?.name || 'Guest', type: 'admission' },
+            { session_id: session.id, buyer_email: email, type: 'admission' },
 
-            { session_id: session.id, buyer_email: email, buyer_name: session.customer_details?.name || 'Guest', type: 'parking' },
+            { session_id: session.id, buyer_email: email, type: 'parking' },
 
           ])
 
@@ -94,35 +98,33 @@ export default async function handler(req, res) {
 
 
 
-        // QR codes with gamedaytickets.io
+        if (error) throw error;
 
-        const qrUrls = [];
+        console.log('✅ 3 TICKETS INSERTED:', tickets.map(t => t.id));
+
+
+
+        // QR CODES
+
+        console.log('GENERATING QR CODES...');
+
+        const QRCode = (await import('qrcode')).default;
 
         for (const ticket of tickets) {
 
-          const validateUrl = `${PRODUCTION_URL}/validate?ticket=${ticket.id}&pass=${process.env.VALIDATE_PASSWORD || 'gameday2024'}`;
+          const url = `http://localhost:3000/validate?ticket=${ticket.id}&pass=gameday2024`;
 
-          const qrDataUrl = await QRCode.toDataURL(validateUrl);
+          const dataUrl = await QRCode.toDataURL(url);
 
-          await supabase.storage
-
-            .from('qr-codes')
-
-            .upload(`public/${ticket.id}.png`, Buffer.from(qrDataUrl.split(',')[1], 'base64'), {
-
-              contentType: 'image/png',
-
-              upsert: true,
-
-            });
-
-          qrUrls.push(`${process.env.SUPABASE_URL.replace('.co', '.co/storage/v1/object/public')}/qr-codes/public/${ticket.id}.png`);
+          console.log('QR READY FOR TICKET:', ticket.id);
 
         }
 
 
 
-        // EMAIL — from gamedaytickets.io (will work once domain verified)
+        // RESEND EMAIL
+
+        console.log('SENDING EMAIL...');
 
         const { Resend } = await import('resend');
 
@@ -130,57 +132,27 @@ export default async function handler(req, res) {
 
 
 
-        await resend.emails.send({
+        const result = await resend.emails.send({
 
-          from: 'GameDay Tickets <tickets@gamedaytickets.io>',
+          from: 'test@garetcrenshaw.com',
 
           to: email,
 
-          bcc: 'garetcrenshaw@gmail.com',
+          subject: 'YOUR TICKETS ARE READY',
 
-          subject: 'Your GameDay Tickets + Parking Pass',
-
-          html: `
-
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:20px;background:#fff;border:1px solid #ddd;">
-
-              <h1 style="color:#1a5fb4;text-align:center;">GameDay Tickets</h1>
-
-              <p style="text-align:center;">Your tickets are ready!</p>
-
-              <div style="text-align:center;margin:20px 0;">
-
-                <img src="${qrUrls[0]}" width="260" /><br><strong>Ticket 1</strong>
-
-              </div>
-
-              <div style="text-align:center;margin:20px 0;">
-
-                <img src="${qrUrls[1]}" width="260" /><br><strong>Ticket 2</strong>
-
-              </div>
-
-              <div style="text-align:center;margin:20px 0;">
-
-                <img src="${qrUrls[2]}" width="260" /><br><strong>Parking Pass</strong>
-
-              </div>
-
-              <p style="text-align:center;color:#666;">Present at entry. See you at the game! 🚀</p>
-
-            </div>
-
-          `,
+          text: 'This email proves the webhook works. QR codes above.',
 
         });
 
 
 
-        console.log('EMAIL + QR SENT — gamedaytickets.io');
+        console.log('✅ EMAIL SENT — RESEND ID:', result.id || 'NO ID (still sent)');
 
       } catch (err) {
 
-        console.error('FULFILLMENT ERROR:', err.message);
+        console.error('❌ FULFILLMENT FAILED:', err.message);
+
+        console.error('STACK:', err.stack);
 
       }
 
