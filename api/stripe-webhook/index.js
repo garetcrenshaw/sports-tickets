@@ -1,4 +1,3 @@
-import { buffer } from 'micro';
 import Stripe from 'stripe';
 import QRCode from 'qrcode';
 import { createClient } from '@supabase/supabase-js';
@@ -6,8 +5,6 @@ import { Resend } from 'resend';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
-
-export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,7 +15,8 @@ export default async function handler(req, res) {
   console.log('Webhook POST received');
 
   try {
-    const buf = await buffer(req);
+    // Vercel provides raw body directly
+    const buf = Buffer.from(req.body);
     console.log('Raw body buffered, length:', buf.length);
 
     const sig = req.headers['stripe-signature'];
