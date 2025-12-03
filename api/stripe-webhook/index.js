@@ -8,6 +8,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function handler(req, res) {
+  console.log('=== WEBHOOK DEBUG START ===');
+  console.log('Environment check:');
+  console.log('- STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? 'SET' : 'MISSING');
+  console.log('- STRIPE_WEBHOOK_SECRET:', process.env.STRIPE_WEBHOOK_SECRET ? 'SET' : 'MISSING');
+  console.log('- SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'MISSING');
+  console.log('- SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
+  console.log('- RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
+
   if (req.method !== 'POST') {
     console.log('Non-POST method:', req.method);
     return res.status(405).send('Method Not Allowed');
@@ -21,6 +29,7 @@ export default async function handler(req, res) {
     console.log('Raw body length:', buf.length, '| Expected (content-length):', contentLength);
 
     const sig = req.headers['stripe-signature'];
+    console.log('Stripe signature present:', !!sig);
     const stripeEvent = Stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET);
     console.log('Event verified:', stripeEvent.type, 'ID:', stripeEvent.id);
 
