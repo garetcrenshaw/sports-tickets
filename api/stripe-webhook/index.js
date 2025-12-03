@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     const event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET);
     console.log('Event verified:', event.type);
 
-    // QUICK ACKNOWLEDGMENT - respond NOW
+    // QUICK ACKNOWLEDGMENT - respond NOW (only after successful verification)
     res.sendStatus(200);
     console.log('200 sent immediately');
 
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
 
           // Resend
           const emailRes = await resend.emails.send({
-            from: 'tickets@your-verified-domain.com',  // VERIFY IN RESEND
+            from: 'tickets@gamedaytickets.io',  // VERIFIED DOMAIN
             to: session.customer_details?.email || 'garetcrenshaw@gmail.com',
             subject: 'Your Ticket',
             html: `<p>Thanks!</p><img src="${qrDataUrl}" alt="QR Code"/>`
@@ -77,6 +77,9 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('Webhook error:', err.message, err.stack);
-    res.status(400).send(`Webhook Error: ${err.message}`);
+    // Only send error response if we haven't sent 200 already
+    if (!res.headersSent) {
+      res.status(400).send(`Webhook Error: ${err.message}`);
+    }
   }
 }
