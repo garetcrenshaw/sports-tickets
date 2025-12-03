@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import QRCode from 'qrcode';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { buffer } from 'micro';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -13,30 +14,14 @@ export default async function handler(req, res) {
   }
 
   console.log('Webhook POST received. Headers:', JSON.stringify(req.headers));
-
-  let buf;
-  try {
-    // For Vercel functions, body is already parsed unless bodyParser is disabled
-    // Since we can't disable bodyParser in individual functions, we'll work with parsed body
-    if (Buffer.isBuffer(req.body)) {
-      buf = req.body;
-    } else if (typeof req.body === 'string') {
-      buf = Buffer.from(req.body, 'utf8');
-    } else {
-      // If body is already parsed as JSON, we need raw body for Stripe sig verification
-      // This is a limitation - let's use a workaround
-      console.log('Body type:', typeof req.body);
-      buf = Buffer.from(JSON.stringify(req.body || {}), 'utf8');
-    }
-    console.log('Raw body length:', buf.length);
-  } catch (err) {
-    console.error('Raw body error:', err);
-    return res.status(400).send('Bad Request: Body read failed');
-  }
+  const contentLength = req.headers['content-length'] || 'unknown';
 
   try {
+    const buf = await buffer(req); // Gets full raw body reliably
+    console.log('Raw body length:', buf.length, '| Expected (content-length):', contentLength);
+
     const sig = req.headers['stripe-signature'];
-    const stripeEvent = Stripe.webhooks.constructEvent(buf.toString('utf8'), sig, process.env.STRIPE_WEBHOOK_SECRET);
+    const stripeEvent = Stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET);
     console.log('Event verified:', stripeEvent.type, 'ID:', stripeEvent.id);
 
     if (stripeEvent.type === 'checkout.session.completed') {
@@ -82,7 +67,7 @@ export default async function handler(req, res) {
 
     return res.status(200).end();
   } catch (err) {
-    console.error('Webhook processing error:', err.message, err.stack);
-    res.status(200).end(); // Always 200 to ack Stripe; retry if needed via logs
+    console.error('Webhook error:', err.message, err.stack);
+    return res.status(400).send(`Webhook Error: ${err.message}`); // 400 for sig fails (Stripe retries); 200 for processing errors
   }
-}
+};
