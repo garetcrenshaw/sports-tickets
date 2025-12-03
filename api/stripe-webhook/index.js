@@ -10,65 +10,73 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
+  if (req.method !== 'POST') {
+    console.log('Non-POST method:', req.method);
+    return res.status(405).send('Method Not Allowed');
+  }
 
-  const buf = await buffer(req);
-  const sig = req.headers['stripe-signature'];
+  console.log('Webhook POST received');
 
   try {
-    const event = stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    console.log('Webhook verified:', event.type);
+    const buf = await buffer(req);
+    console.log('Raw body buffered, length:', buf.length);
 
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      if (session.payment_status !== 'paid') return res.status(200).send('Ignored: not paid');
+    const sig = req.headers['stripe-signature'];
+    console.log('Signature header:', sig ? 'present' : 'missing');
 
-      console.log('Processing paid session:', session.id);
+    const event = stripe.webhooks.constructEvent(buf.toString(), sig, process.env.STRIPE_WEBHOOK_SECRET);
+    console.log('Event verified:', event.type);
 
-      // QR
-      let qrDataUrl;
-      try {
-        qrDataUrl = await QRCode.toDataURL(`ticket:${session.id || 'fallback'}`);
-        console.log('QR generated');
-      } catch (qrErr) {
-        console.error('QR error:', qrErr.message, qrErr.stack);
-        throw qrErr;
-      }
-
-      // Supabase
-      const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-      const { error: sbError } = await supabase.from('tickets').insert({
-        ticket_id: session.id,
-        event_id: session.metadata?.event_id || 'fallback',
-        purchaser_name: session.customer_details?.name || 'Anonymous',
-        purchaser_email: session.customer_details?.email,
-        qr_code: qrDataUrl,
-        status: 'active'
-      });
-      if (sbError) {
-        console.error('Supabase error:', sbError.message, sbError.details, sbError.hint);
-        throw sbError;
-      }
-      console.log('Supabase insert success');
-
-      // Resend
-      try {
-        const emailRes = await resend.emails.send({
-          from: 'tickets@gamedaytickets.io',  // MUST BE VERIFIED IN RESEND
-          to: session.customer_details?.email || 'garetcrenshaw@gmail.com',  // fallback your email
-          subject: 'Your Ticket',
-          html: `<p>Thanks!</p><img src="${qrDataUrl}" />`
-        });
-        console.log('Email sent:', emailRes.id);
-      } catch (emailErr) {
-        console.error('Resend error:', emailErr.message, emailErr.response?.body);
-        throw emailErr;
-      }
-    }
-
+    // QUICK ACKNOWLEDGMENT - respond NOW
     res.sendStatus(200);
+    console.log('200 sent immediately');
+
+    // DEFER PROCESSING ASYNC (after response)
+    process.nextTick(async () => {
+      try {
+        if (event.type === 'checkout.session.completed') {
+          const session = event.data.object;
+          if (session.payment_status !== 'paid') {
+            console.log('Ignored: not paid');
+            return;
+          }
+          console.log('Processing paid session:', session.id);
+
+          // QR
+          const qrDataUrl = await QRCode.toDataURL(`ticket:${session.id}`);
+          console.log('QR generated');
+
+          // Supabase
+          const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+          const { error } = await supabase.from('tickets').insert({
+            ticket_id: session.id,
+            event_id: session.metadata?.event_id || 'fallback',
+            purchaser_name: session.customer_details?.name || 'Anonymous',
+            purchaser_email: session.customer_details?.email || 'fallback@email.com',
+            qr_code: qrDataUrl,
+            status: 'active'
+          });
+          if (error) throw error;
+          console.log('Supabase insert success');
+
+          // Resend
+          const emailRes = await resend.emails.send({
+            from: 'tickets@your-verified-domain.com',  // VERIFY IN RESEND
+            to: session.customer_details?.email || 'garetcrenshaw@gmail.com',
+            subject: 'Your Ticket',
+            html: `<p>Thanks!</p><img src="${qrDataUrl}" alt="QR Code"/>`
+          });
+          console.log('Email sent:', emailRes.id);
+        } else {
+          console.log('Handled other event:', event.type);
+        }
+      } catch (err) {
+        console.error('Async processing error:', err.message, err.stack);
+      }
+    });
+
   } catch (err) {
-    console.error('Webhook fatal:', err.message, err.stack);
-    res.status(500).json({ error: { code: '500', message: 'Server error', details: err.message } });
+    console.error('Webhook error:', err.message, err.stack);
+    res.status(400).send(`Webhook Error: ${err.message}`);
   }
 }
