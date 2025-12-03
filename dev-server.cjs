@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { Readable } = require('stream');
 
-const PORT = 3001;
-const FRONTEND_TARGET = 'http://localhost:3000';
+const PORT = 3000;
+const FRONTEND_TARGET = 'http://localhost:3002';
 
 function loadEnv() {
   // Try to load .env.local, but don't fail if we can't due to sandbox restrictions

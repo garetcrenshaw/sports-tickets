@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite --port 3000\" \"node dev-server.cjs\" \"stripe listen --forward-to localhost:3000/api/stripe-webhook\"",
+    "dev": "concurrently \"vite --port 3002\" \"node dev-server.cjs\" \"stripe listen --forward-to localhost:3000/api/stripe-webhook\"",
     "build": "vite build",
     "deploy": "npm run build && vercel --prod"
   },
