@@ -10,19 +10,19 @@ export default async function handler(req, res) {
   console.log('WEBHOOK HIT');
 
   let buf;
-
-  if (req.rawBody) {
-    buf = req.rawBody;  // For dev-server
-  } else {
-    buf = await buffer(req);  // For Vercel
+  try {
+    buf = await buffer(req);
+  } catch (err) {
+    console.error('BUFFER FAILED:', err.message);
+    res.status(500).send('Buffer failed');
+    return;
   }
 
   const sig = req.headers['stripe-signature'];
 
   let event;
-
   try {
-    event = stripe.webhooks.constructEvent(buf, sig, endpointSecret);
+    event = stripe.webhooks.constructEvent(buf.toString(), sig, endpointSecret);
     console.log('VERIFIED:', event.type);
   } catch (err) {
     console.error('SIGNATURE FAILED:', err.message);
@@ -41,6 +41,7 @@ export default async function handler(req, res) {
 
         const { createClient } = await import('@supabase/supabase-js');
         const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+        console.log('SUPABASE READY');
 
         const { data: tickets, error } = await supabase
           .from('tickets')
@@ -52,21 +53,21 @@ export default async function handler(req, res) {
           .select();
 
         if (error) throw error;
-        console.log('3 TICKETS INSERTED');
+        console.log('TICKETS INSERTED');
 
         const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
 
         await resend.emails.send({
-          from: 'Sports Tickets <delivered@resend.dev>',  // FREE TIER ONLY
+          from: 'Sports Tickets <delivered@resend.dev>',
           to: 'garetcrenshaw@gmail.com',
-          subject: 'FINAL TEST — TICKETS READY',
+          subject: 'TICKETS READY',
           html: '<h1>WEBHOOK WORKS!</h1><p>3 tickets created.</p>',
         });
 
         console.log('EMAIL SENT');
       } catch (err) {
-        console.error('FULFILLMENT FAILED:', err.message);
+        console.error('FAILED:', err.message);
       }
     })();
   }
