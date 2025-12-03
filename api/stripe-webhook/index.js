@@ -15,19 +15,19 @@ export default async function handler(req, res) {
     const buf = await buffer(req);
     const sig = req.headers['stripe-signature'];
 
-    console.log('RAW BODY SUCCESS - length:', buf.length, 'type:', typeof buf);
-    console.log('SIGNATURE HEADER:', sig ? sig.substring(0, 50) + '...' : 'MISSING');
+  console.log('RAW BODY SUCCESS - length:', buf.length, 'type:', typeof buf);
+  console.log('SIGNATURE HEADER:', sig ? sig.substring(0, 50) + '...' : 'MISSING');
 
-    let event;
-    try {
+  let event;
+  try {
       event = stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET);
-      console.log('VERIFIED SUCCESSFULLY:', event.type);
+    console.log('VERIFIED SUCCESSFULLY:', event.type);
       console.log('Webhook received:', event.type);
-    } catch (err) {
-      console.error('SIGNATURE FAILED:', err.message);
+  } catch (err) {
+    console.error('SIGNATURE FAILED:', err.message);
       res.status(400).send('Webhook Error');
-      return;
-    }
+    return;
+  }
 
     // Handle different event types
     switch (event.type) {
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
 }
 
 async function handleCheckoutSessionCompleted(session) {
-  try {
+      try {
     console.log('PROCESSING CHECKOUT SESSION:', session.id);
 
     // Only process if payment was successful
@@ -113,22 +113,22 @@ async function handleCheckoutSessionCompleted(session) {
     console.log('TICKET CREATED:', data[0].id);
 
     // Send email with QR code
-    const resend = new Resend(process.env.RESEND_API_KEY);
+        const resend = new Resend(process.env.RESEND_API_KEY);
 
-    await resend.emails.send({
+        await resend.emails.send({
       from: 'tickets@sports-tickets.com',
       to: session.customer_details?.email,
       subject: 'Your Sports Ticket',
       html: `<p>Thanks for your purchase!</p><img src="${qrDataUrl}" alt="QR Code"/>`,
-    });
+        });
 
     console.log('EMAIL SENT TO:', session.customer_details?.email);
 
-  } catch (err) {
+      } catch (err) {
     console.error('CHECKOUT SESSION PROCESSING ERROR:', err.message);
-    console.error('STACK:', err.stack);
+        console.error('STACK:', err.stack);
     throw err;
-  }
+      }
 }
 
 async function handleProductEvent(product) {
