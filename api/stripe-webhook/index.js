@@ -2,15 +2,18 @@ import Stripe from 'stripe';
 import { buffer } from 'micro';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+const endpointSecret = 'whsec_938eab87d4b6d6a06a5156e515d2fbc9d77a82db4dd5f354486dc52f5d7a0835'; // CLI dev secret
 
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
   console.log('WEBHOOK HIT - STARTING PROCESSING');
 
-  const buf = await buffer(req);
+  console.log('GETTING RAW BODY...');
+  const buf = req.rawBody;
+  console.log('RAW BODY SUCCESS - length:', buf.length, 'type:', typeof buf);
   const sig = req.headers['stripe-signature'];
+  console.log('SIGNATURE HEADER:', sig ? sig.substring(0, 50) + '...' : 'MISSING');
 
   let event;
   try {
@@ -32,25 +35,8 @@ export default async function handler(req, res) {
         const session = event.data.object;
         const email = session.customer_details?.email || 'garetcrenshaw@gmail.com';
 
-        const { createClient } = await import('@supabase/supabase-js');
-        let supabaseUrl = process.env.SUPABASE_URL || '';
-        supabaseUrl = supabaseUrl.replace(/^["']|["']$/g, '');  // STRIP QUOTES
-        console.log('SUPABASE_URL FIXED:', supabaseUrl);
-
-        const supabase = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY);
-        console.log('SUPABASE CLIENT READY');
-
-        const { data: tickets, error } = await supabase
-          .from('tickets')
-          .insert([
-            { session_id: session.id, buyer_email: email, type: 'admission' },
-            { session_id: session.id, buyer_email: email, type: 'admission' },
-            { session_id: session.id, buyer_email: email, type: 'parking' },
-          ])
-          .select();
-
-        if (error) throw error;
-        console.log('3 TICKETS INSERTED');
+        // Skip Supabase for now - focus on proving webhook works
+        console.log('SKIPPING SUPABASE - PROVING WEBHOOK WORKS');
 
         const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
