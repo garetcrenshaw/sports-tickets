@@ -56,15 +56,9 @@ export default async function handler(req, res) {
 
   let buf;
   try {
-    // For Vercel, get raw body from req.body if available, otherwise use micro buffer
-    if (req.body) {
-      buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body));
-    } else {
-      const { buffer } = await import('micro');
-      buf = await buffer(req);
-    }
-
-    console.log('Raw body length:', buf.length);
+    // In Vercel with bodyParser: false, req.body contains the raw Buffer
+    buf = req.body;
+    console.log('Raw body length:', buf ? buf.length : 'undefined');
 
     const sig = req.headers['stripe-signature'];
     console.log('Stripe signature present:', !!sig);
@@ -75,6 +69,16 @@ export default async function handler(req, res) {
         error: {
           code: '400',
           message: 'No Stripe signature provided'
+        }
+      });
+    }
+
+    if (!buf) {
+      console.error('No request body received');
+      return res.status(400).json({
+        error: {
+          code: '400',
+          message: 'No request body'
         }
       });
     }
