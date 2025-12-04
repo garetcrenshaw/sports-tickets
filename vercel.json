@@ -2,7 +2,8 @@
   "outputDirectory": "dist",
   "functions": {
     "api/stripe-webhook/index.js": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "bodyParser": false
     }
   },
   "rewrites": [

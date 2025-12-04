@@ -6,12 +6,23 @@
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
 
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
+# Supabase (Backend - use service_role key for full access)
+SUPABASE_URL=https://xjvzehjpgbwiiuvsnflk.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+
+# Supabase (Frontend - use anon key, exposed to browser)
+VITE_SUPABASE_URL=https://xjvzehjpgbwiiuvsnflk.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
 # Resend (for emails)
 RESEND_API_KEY=re_test_your_resend_api_key_here
+
+# Stripe Price IDs
+GA_PRICE_ID=price_your_ga_price_id
+PARKING_PRICE_ID=price_your_parking_price_id
+
+# Validation Password
+VALIDATE_PASSWORD=gameday2024
 
 # Site URL (PERMANENT - NEVER CHANGES)
 NEXT_PUBLIC_URL=https://sports-tickets.vercel.app
