@@ -1,4 +1,4 @@
-import { Resend } from 'resend';
+import { Resend } from '@resend/resend';
 
 export default async function handler(req, res) {
   console.log('=== RESEND EMAIL TEST ===');

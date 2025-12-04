@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 import QRCode from 'qrcode';
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from 'resend';
+import { Resend } from '@resend/resend';
 import { buffer } from 'micro';
 
 // Vercel serverless function config to receive raw request bodies
@@ -175,25 +175,25 @@ export default async function handler(req, res) {
         // Add 5s timeout to prevent hangs
         const emailResult = await timeoutPromise(
           resend.emails.send({
-          from: 'tickets@gamedaytickets.io',
-          to: customerEmail,
+        from: 'tickets@gamedaytickets.io',
+        to: customerEmail,
           subject: 'Your Gameday Tickets + Parking are Ready!',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Thank you for your purchase!</h2>
-              <p>Here is your ticket for the event.</p>
-              <div style="text-align: center; margin: 20px 0;">
-                <img src="${qrDataUrl}" alt="QR Code" style="max-width: 300px;" />
-              </div>
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Thank you for your purchase!</h2>
+            <p>Here is your ticket for the event.</p>
+            <div style="text-align: center; margin: 20px 0;">
+              <img src="${qrDataUrl}" alt="QR Code" style="max-width: 300px;" />
+            </div>
               <p><strong>Event ID:</strong> ${session.metadata?.event_id || 'Fallback'}</p>
               <p><strong>Name:</strong> ${ticketData.purchaser_name}</p>
-              <p>Please show this QR code at the entrance.</p>
+            <p>Please show this QR code at the entrance.</p>
               <hr style="margin: 30px 0;" />
               <p style="color: #666; font-size: 12px;">
                 Transaction ID: ${session.id}
               </p>
-            </div>
-          `
+          </div>
+        `
           }),
           5000,
           'Resend email timeout (5s)'

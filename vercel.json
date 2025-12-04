@@ -1,5 +1,15 @@
 {
   "outputDirectory": "dist",
+  "routes": [
+    {
+      "src": "/api/stripe-webhook",
+      "dest": "/api/stripe-webhook",
+      "methods": ["POST"],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  ],
   "functions": {
     "api/stripe-webhook/index.js": {
       "maxDuration": 30
