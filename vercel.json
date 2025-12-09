@@ -9,6 +9,11 @@
       "path": "/api/process-email-queue",
       "schedule": "* * * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
+    }
   ]
 }
-
