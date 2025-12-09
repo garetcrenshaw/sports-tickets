@@ -103,12 +103,18 @@ export default async function handler(req, res) {
 
     if (stripeEvent.type === 'checkout.session.completed') {
       const session = stripeEvent.data.object;
-      console.log('Processing checkout session:', session.id, 'Payment status:', session.payment_status);
+      console.log('=== CHECKOUT SESSION COMPLETED EVENT ===');
+      console.log('Session ID:', session.id);
+      console.log('Payment status:', session.payment_status);
+      console.log('Customer email:', session.customer_details?.email);
+      console.log('Customer name:', session.customer_details?.name);
 
       if (session.payment_status !== 'paid') {
-        console.log('Session not paid:', session.id);
+        console.log('⚠️ Session not paid - ignoring event:', session.id);
         return res.status(200).json({ status: 'ignored', reason: 'payment not completed' });
       }
+      
+      console.log('✅ Payment confirmed - proceeding with fulfillment');
 
       const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -128,9 +134,12 @@ export default async function handler(req, res) {
       }
 
       if (existing) {
-        console.log('✅ Duplicate event - ticket exists:', session.id, '(idempotent skip)');
+        console.log('⚠️ DUPLICATE EVENT DETECTED - Ticket already exists:', session.id);
+        console.log('   This webhook has already been processed - skipping');
         return res.status(200).json({ status: 'ignored', reason: 'duplicate event' });
       }
+      
+      console.log('✅ No duplicate found - proceeding with ticket creation');
 
       console.log('Generating QR code for:', session.id);
       const qrDataUrl = await QRCode.toDataURL(`ticket:${session.id}`);
@@ -165,7 +174,10 @@ export default async function handler(req, res) {
       console.log('✅ Ticket inserted successfully to Supabase');
 
       const customerEmail = session.customer_details?.email || 'garetcrenshaw@gmail.com';
+      console.log('=== EMAIL QUEUE DEBUG START ===');
       console.log('Queueing email for:', customerEmail);
+      console.log('Session ID:', session.id);
+      console.log('QR code data length:', qrDataUrl?.length || 0);
 
       try {
         // Queue email for background processing (async delivery with retry)
@@ -180,29 +192,43 @@ export default async function handler(req, res) {
           retry_count: 0
         };
 
-        console.log('Inserting email job to queue:', {
+        console.log('Email job object prepared:', {
           ticket_id: emailJob.ticket_id,
           recipient_email: emailJob.recipient_email,
-          status: emailJob.status
+          recipient_name: emailJob.recipient_name,
+          event_id: emailJob.event_id,
+          status: emailJob.status,
+          retry_count: emailJob.retry_count,
+          qr_code_data_length: emailJob.qr_code_data?.length || 0
         });
 
-        const { error: queueError } = await supabase
+        console.log('Attempting insert to email_queue table...');
+        const { data: insertedData, error: queueError } = await supabase
           .from('email_queue')
-          .insert(emailJob);
+          .insert(emailJob)
+          .select();
 
         if (queueError) {
-          console.error('❌ Email queue insert error:', queueError.code, queueError.message);
-          await logError(supabase, session.id, `Email queue failed: ${queueError.message}`);
+          console.error('❌ EMAIL QUEUE INSERT FAILED');
+          console.error('Error code:', queueError.code);
+          console.error('Error message:', queueError.message);
+          console.error('Error details:', JSON.stringify(queueError.details));
+          console.error('Error hint:', queueError.hint);
+          await logError(supabase, session.id, `Email queue failed: ${queueError.code} - ${queueError.message}`);
           // Still return 200 - ticket saved, email can be retried manually
         } else {
-          console.log('✅ Email queued successfully for background delivery');
+          console.log('✅ EMAIL QUEUE INSERT SUCCESSFUL');
+          console.log('Inserted data:', JSON.stringify(insertedData));
           console.log('   → Worker will process within 1-2 minutes');
         }
       } catch (queueError) {
-        console.error('❌ Email queue exception:', queueError.message);
+        console.error('❌ EMAIL QUEUE EXCEPTION');
+        console.error('Exception message:', queueError.message);
+        console.error('Exception stack:', queueError.stack);
         await logError(supabase, session.id, `Email queue exception: ${queueError.message}`);
         // Still return 200 - ticket is saved, that's what matters
       }
+      console.log('=== EMAIL QUEUE DEBUG END ===');
     }
 
     // Always return 200 to acknowledge receipt
