@@ -49,7 +49,13 @@ export default async function handler(req, res) {
       return;
     }
 
-    // VERCEL PRODUCTION URLS - NEVER CHANGES
+    // Build base URL from env (prefer NEXT_PUBLIC_URL, fallback to SITE_URL or localhost)
+    const rawBaseUrl =
+      process.env.NEXT_PUBLIC_URL ||
+      process.env.SITE_URL ||
+      'http://localhost:3000';
+    const baseUrl = rawBaseUrl.replace(/\/+$/, ''); // trim trailing slash
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -62,8 +68,8 @@ export default async function handler(req, res) {
         parkingQuantity: parkingQuantity?.toString(),
       },
       line_items: lineItems,
-      success_url: `https://sports-tickets.vercel.app/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `https://sports-tickets.vercel.app/cancel`,
+      success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/cancel`,
     });
 
     console.log('CREATE-CHECKOUT: Session created', session.id);
