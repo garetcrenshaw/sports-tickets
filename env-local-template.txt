@@ -17,6 +17,9 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 # Resend (for emails)
 RESEND_API_KEY=re_test_your_resend_api_key_here
 
+# Cron Security (for email worker authentication)
+CRON_SECRET=your_random_32_char_secret_here
+
 # Stripe Price IDs
 GA_PRICE_ID=price_your_ga_price_id
 PARKING_PRICE_ID=price_your_parking_price_id

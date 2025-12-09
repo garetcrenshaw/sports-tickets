@@ -1,7 +1,6 @@
 import Stripe from 'stripe';
 import QRCode from 'qrcode';
 import { createClient } from '@supabase/supabase-js';
-import { Resend } from '@resend/resend';
 import { buffer } from 'micro';
 
 // Vercel serverless function config to receive raw request bodies
@@ -12,7 +11,6 @@ export const config = {
 };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Timeout helper to prevent hangs
 async function timeoutPromise(promise, ms, errorMsg) {
@@ -31,15 +29,13 @@ export default async function handler(req, res) {
   console.log('- STRIPE_WEBHOOK_SECRET:', process.env.STRIPE_WEBHOOK_SECRET ? 'SET' : 'MISSING');
   console.log('- SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'MISSING');
   console.log('- SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
-  console.log('- RESEND_API_KEY:', process.env.RESEND_API_KEY ? 'SET' : 'MISSING');
 
-  // Check required environment variables
+  // Check required environment variables (RESEND_API_KEY now only needed in worker)
   const requiredEnvVars = [
     'STRIPE_SECRET_KEY',
     'STRIPE_WEBHOOK_SECRET',
     'SUPABASE_URL',
-    'SUPABASE_SERVICE_ROLE_KEY',
-    'RESEND_API_KEY'
+    'SUPABASE_SERVICE_ROLE_KEY'
   ];
 
   const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
@@ -169,41 +165,43 @@ export default async function handler(req, res) {
       console.log('✅ Ticket inserted successfully to Supabase');
 
       const customerEmail = session.customer_details?.email || 'garetcrenshaw@gmail.com';
-      console.log('Sending email to:', customerEmail);
+      console.log('Queueing email for:', customerEmail);
 
       try {
-        // Add 5s timeout to prevent hangs
-        const emailResult = await timeoutPromise(
-          resend.emails.send({
-        from: 'tickets@gamedaytickets.io',
-        to: customerEmail,
-          subject: 'Your Gameday Tickets + Parking are Ready!',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Thank you for your purchase!</h2>
-            <p>Here is your ticket for the event.</p>
-            <div style="text-align: center; margin: 20px 0;">
-              <img src="${qrDataUrl}" alt="QR Code" style="max-width: 300px;" />
-            </div>
-              <p><strong>Event ID:</strong> ${session.metadata?.event_id || 'Fallback'}</p>
-              <p><strong>Name:</strong> ${ticketData.purchaser_name}</p>
-            <p>Please show this QR code at the entrance.</p>
-              <hr style="margin: 30px 0;" />
-              <p style="color: #666; font-size: 12px;">
-                Transaction ID: ${session.id}
-              </p>
-          </div>
-        `
-          }),
-          5000,
-          'Resend email timeout (5s)'
-        );
+        // Queue email for background processing (async delivery with retry)
+        // This decouples email sending from webhook response time
+        const emailJob = {
+          ticket_id: session.id,
+          recipient_email: customerEmail,
+          recipient_name: ticketData.purchaser_name,
+          qr_code_data: qrDataUrl,  // Store QR data for email template
+          event_id: ticketData.event_id,
+          status: 'pending',
+          retry_count: 0
+        };
 
-        console.log('✅ Email sent successfully:', emailResult.id);
-      } catch (emailError) {
-        console.error('❌ Resend email error:', emailError.message);
-        await logError(supabase, session.id, `Email send failed: ${emailError.message}`);
-        // Don't throw - ticket is already saved, email can be retried manually
+        console.log('Inserting email job to queue:', {
+          ticket_id: emailJob.ticket_id,
+          recipient_email: emailJob.recipient_email,
+          status: emailJob.status
+        });
+
+        const { error: queueError } = await supabase
+          .from('email_queue')
+          .insert(emailJob);
+
+        if (queueError) {
+          console.error('❌ Email queue insert error:', queueError.code, queueError.message);
+          await logError(supabase, session.id, `Email queue failed: ${queueError.message}`);
+          // Still return 200 - ticket saved, email can be retried manually
+        } else {
+          console.log('✅ Email queued successfully for background delivery');
+          console.log('   → Worker will process within 1-2 minutes');
+        }
+      } catch (queueError) {
+        console.error('❌ Email queue exception:', queueError.message);
+        await logError(supabase, session.id, `Email queue exception: ${queueError.message}`);
+        // Still return 200 - ticket is saved, that's what matters
       }
     }
 
