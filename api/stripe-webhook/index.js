@@ -122,8 +122,8 @@ export default async function handler(req, res) {
       console.log('Checking for existing ticket:', session.id);
       const { data: existing, error: checkError } = await supabase
         .from('tickets')
-        .select('ticket_id')
-        .eq('ticket_id', session.id)
+        .select('id')
+        .eq('id', session.id)
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') {
