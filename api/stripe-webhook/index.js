@@ -3,10 +3,10 @@ import QRCode from 'qrcode';
 import { createClient } from '@supabase/supabase-js';
 import { buffer } from 'micro';
 
-// Vercel serverless function config to receive raw request bodies
+// CRITICAL: Disable body parsing for Stripe webhook signature verification
 export const config = {
   api: {
-    bodyParser: false, // Disable body parsing, we need raw body for Stripe webhooks
+    bodyParser: false, // Must be disabled to receive raw body for signature verification
   },
 };
 
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   console.log('- SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'MISSING');
   console.log('- SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING');
 
-  // Check required environment variables (RESEND_API_KEY now only needed in worker)
+  // Check required environment variables
   const requiredEnvVars = [
     'STRIPE_SECRET_KEY',
     'STRIPE_WEBHOOK_SECRET',
