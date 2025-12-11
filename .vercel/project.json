@@ -1,1 +1,16 @@
-{"projectId":"prj_4H4jBQPJZ3CLVTIWd4apPg0dAhM9","orgId":"team_GkLE9CvXpXx0IUBmJefGv7o7","projectName":"sports-tickets"}
+{
+  "projectId": "prj_4H4jBQPJZ3CLVTIWd4apPg0dAhM9",
+  "orgId": "team_GkLE9CvXpXx0IUBmJefGv7o7",
+  "projectName": "sports-tickets",
+  "settings": {
+    "createdAt": 1762218328996,
+    "framework": "vite",
+    "devCommand": null,
+    "installCommand": null,
+    "buildCommand": null,
+    "outputDirectory": null,
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "22.x"
+  }
+}
