@@ -124,7 +124,7 @@ export default async function handler(req, res) {
       const { data: existing, error: checkError } = await supabase
         .from('tickets')
         .select('id')
-        .eq('id', session.id)
+        .eq('stripe_session_id', session.id)
         .single();
 
       if (checkError && checkError.code !== 'PGRST116') {
