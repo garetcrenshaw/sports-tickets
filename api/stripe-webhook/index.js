@@ -24,6 +24,7 @@ async function timeoutPromise(promise, ms, errorMsg) {
 
 export default async function handler(req, res) {
   console.log('=== WEBHOOK DEBUG START ===');
+  console.log('--- DB FIX VERSION 2 LIVE ---');
   console.log('Environment check:');
   console.log('- STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? 'SET' : 'MISSING');
   console.log('- STRIPE_WEBHOOK_SECRET:', process.env.STRIPE_WEBHOOK_SECRET ? 'SET' : 'MISSING');
