@@ -25,6 +25,7 @@ async function timeoutPromise(promise, ms, errorMsg) {
 export default async function handler(req, res) {
   console.log('=== WEBHOOK DEBUG START ===');
   console.log('--- DB FIX VERSION 2 LIVE ---');
+  console.log('--- FINAL TICKET FULFILLMENT ATTEMPT ---');
   console.log('Environment check:');
   console.log('- STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? 'SET' : 'MISSING');
   console.log('- STRIPE_WEBHOOK_SECRET:', process.env.STRIPE_WEBHOOK_SECRET ? 'SET' : 'MISSING');
@@ -147,7 +148,7 @@ export default async function handler(req, res) {
       console.log('✅ QR code generated successfully');
 
       const ticketData = {
-        ticket_id: session.id,
+        stripe_session_id: session.id,
         event_id: session.metadata?.event_id || 'fallback',
         purchaser_name: session.customer_details?.name || 'Anonymous',
         purchaser_email: session.customer_details?.email || 'fallback@garetcrenshaw.com',
