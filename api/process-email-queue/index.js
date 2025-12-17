@@ -213,19 +213,23 @@ export default async function handler(req, res) {
 
         console.log(`✅ Email sent successfully (Resend ID: ${emailResult.id})`);
 
-        // Mark as sent
+        // CRITICAL: Immediately mark as completed to prevent duplicate sends
+        // This must happen right after successful send, before any other processing
         const { error: updateError } = await supabase
           .from('email_queue')
           .update({
-            status: 'sent',
+            status: 'completed',
+            sent_at: new Date().toISOString(),
             processed_at: new Date().toISOString()
           })
           .eq('id', job.id);
 
         if (updateError) {
-          console.error(`⚠️ Failed to mark as sent: ${updateError.message}`);
+          // Log error but don't re-throw - the email was already sent
+          console.error(`⚠️ CRITICAL: Failed to mark email job ${job.id} as completed:`, updateError.message);
+          console.error(`   This job may be re-sent on next cron run!`);
         } else {
-          console.log('✅ Job marked as sent in database');
+          console.log(`✅ Job ${job.id} marked as completed in database`);
         }
 
         successCount++;

@@ -19,12 +19,16 @@ CREATE TABLE IF NOT EXISTS email_queue (
   qr_code_data TEXT NOT NULL,  -- Base64 string (without data URL prefix)
   ticket_type TEXT NOT NULL DEFAULT 'General Admission',  -- e.g., 'Admission Ticket', 'Parking Pass'
   event_id TEXT,
-  status TEXT NOT NULL DEFAULT 'pending',  -- pending, sent, failed
+  status TEXT NOT NULL DEFAULT 'pending',  -- pending, completed, failed
   retry_count INT DEFAULT 0,
   last_error TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  processed_at TIMESTAMPTZ
+  sent_at TIMESTAMPTZ,        -- When the email was actually sent
+  processed_at TIMESTAMPTZ    -- When the job was last processed (success or failure)
 );
+
+-- Add sent_at column if table already exists (migration for existing setups)
+ALTER TABLE email_queue ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
 
 -- Add ticket_type column if table already exists (migration for existing setups)
 ALTER TABLE email_queue ADD COLUMN IF NOT EXISTS ticket_type TEXT DEFAULT 'General Admission';
@@ -40,7 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_email_queue_ticket ON email_queue(ticket_id);
 -- we don't queue the same email twice
 CREATE UNIQUE INDEX IF NOT EXISTS idx_email_queue_unique_ticket 
   ON email_queue(ticket_id) 
-  WHERE status IN ('pending', 'sent');
+  WHERE status IN ('pending', 'completed');
 
 -- Index for ticket_type for analytics queries
 CREATE INDEX IF NOT EXISTS idx_email_queue_ticket_type ON email_queue(ticket_type);
