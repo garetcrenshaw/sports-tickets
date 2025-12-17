@@ -47,8 +47,9 @@ function secretsMatch(received, expected) {
 
 export default async function handler(req, res) {
   const startTime = Date.now();
-  console.log('=== EMAIL QUEUE WORKER START ===');
+  console.log('=== EMAIL QUEUE WORKER v2.1 START ===');
   console.log('Timestamp:', new Date().toISOString());
+  console.log('🔧 Using Supabase Storage for QR codes');
 
   // Security: Verify cron secret (prevents unauthorized calls)
   // Vercel Cron automatically sends this header
