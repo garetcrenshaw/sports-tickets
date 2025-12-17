@@ -262,3 +262,4 @@ async function logError(supabase, eventId, errorMessage) {
     console.error('Failed to log error to database:', logErr);
   }
 }
+// Force deploy change
