@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from '@resend/resend';
+import QRCode from 'qrcode';
 
 // Vercel serverless function config
 export const config = {
@@ -162,21 +163,35 @@ export default async function handler(req, res) {
         const attachments = [];
         
         // Generate HTML for each ticket AND build attachments
-        const ticketBlocks = tickets.map((ticket, index) => {
+        // Now generates QR codes on-demand if not present in database
+        const ticketBlocksPromises = tickets.map(async (ticket, index) => {
           const ticketType = ticket.ticket_type || 'Event Ticket';
           
-          // Handle both possible column names: qr_data OR qr_code_data
-          const qrBase64 = ticket.qr_data || ticket.qr_code_data || '';
+          // Check for existing QR data, or generate it fresh
+          let qrBase64 = ticket.qr_data || ticket.qr_code_data || '';
           
-          // Clean the string - remove any whitespace
+          // If no QR data exists, generate it now from the ticket_id
+          if (!qrBase64 || qrBase64.trim().length === 0) {
+            console.log(`Generating QR code for ticket: ${ticket.ticket_id}`);
+            try {
+              const qrDataUrl = await QRCode.toDataURL(ticket.ticket_id, {
+                width: 256,
+                margin: 1,
+                color: { dark: '#000000', light: '#ffffff' }
+              });
+              // Extract Base64 (remove data:image/png;base64, prefix)
+              qrBase64 = qrDataUrl.split(',')[1];
+              console.log(`✅ QR generated for ${ticket.ticket_id}, length: ${qrBase64.length}`);
+            } catch (qrErr) {
+              console.error(`❌ QR generation failed for ${ticket.ticket_id}:`, qrErr.message);
+              qrBase64 = '';
+            }
+          }
+          
+          // Clean the string
           const cleanQr = qrBase64.trim();
           
-          // Debug log
-          console.log(`Ticket ${index + 1}: qr_data=${ticket.qr_data ? 'present' : 'missing'}, qr_code_data=${ticket.qr_code_data ? 'present' : 'missing'}, cleanQr length: ${cleanQr.length}`);
-          
-          if (!cleanQr) {
-            console.error(`⚠️ WARNING: No QR data found for ticket ${ticket.ticket_id}`);
-          } else {
+          if (cleanQr) {
             // Add QR code as CID attachment
             attachments.push({
               filename: `ticket-qr-${index}.png`,
@@ -184,6 +199,8 @@ export default async function handler(req, res) {
               cid: `ticket-qr-${index}`
             });
             console.log(`✅ Added CID attachment: ticket-qr-${index}`);
+          } else {
+            console.error(`⚠️ WARNING: Could not generate QR for ticket ${ticket.ticket_id}`);
           }
           
           return `
@@ -204,7 +221,10 @@ export default async function handler(req, res) {
               </div>
             </div>
           `;
-        }).join('');
+        });
+        
+        // Wait for all QR codes to be generated
+        const ticketBlocks = (await Promise.all(ticketBlocksPromises)).join('');
 
         console.log(`Total attachments prepared: ${attachments.length}`);
 
