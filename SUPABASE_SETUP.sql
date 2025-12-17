@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   ticket_type TEXT NOT NULL DEFAULT 'General Admission',  -- e.g., 'Admission Ticket', 'Parking Pass'
   buyer_name TEXT,
   buyer_email TEXT,
-  qr_data TEXT NOT NULL,  -- Base64 encoded QR code (without data URL prefix)
+  qr_url TEXT NOT NULL DEFAULT '',  -- Public URL to QR code in Supabase Storage
   status TEXT NOT NULL DEFAULT 'active',  -- active, validated, cancelled
   created_at TIMESTAMPTZ DEFAULT NOW(),
   validated_at TIMESTAMPTZ
@@ -25,7 +25,7 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS stripe_session_id TEXT;
 -- Update column names if needed (for backward compatibility)
 -- ALTER TABLE tickets RENAME COLUMN purchaser_name TO buyer_name;
 -- ALTER TABLE tickets RENAME COLUMN purchaser_email TO buyer_email;
--- ALTER TABLE tickets RENAME COLUMN qr_code_url TO qr_data;
+-- Column is now qr_url (stores Supabase Storage public URL)
 -- ALTER TABLE tickets RENAME COLUMN used_at TO validated_at;
 
 CREATE INDEX IF NOT EXISTS idx_tickets_ticket_id ON tickets(ticket_id);
@@ -100,7 +100,7 @@ INSERT INTO tickets (
   ticket_type,
   buyer_name,
   buyer_email,
-  qr_data,
+  qr_url,
   status
 ) VALUES (
   'cs_test_session_001',
@@ -109,7 +109,7 @@ INSERT INTO tickets (
   'Admission Ticket',
   'Test Fan',
   'test@example.com',
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'https://example.supabase.co/storage/v1/object/public/qr-codes/test.png',
   'active'
 ) RETURNING *;
 

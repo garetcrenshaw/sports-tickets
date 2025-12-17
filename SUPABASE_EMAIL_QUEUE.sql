@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS email_queue (
   ticket_id TEXT NOT NULL,
   recipient_email TEXT NOT NULL,
   recipient_name TEXT,
-  qr_code_data TEXT NOT NULL,  -- Base64 string (without data URL prefix)
+  qr_url TEXT DEFAULT '',  -- Public URL to QR code in Supabase Storage
   ticket_type TEXT NOT NULL DEFAULT 'General Admission',  -- e.g., 'Admission Ticket', 'Parking Pass'
   event_id TEXT,
   status TEXT NOT NULL DEFAULT 'pending',  -- pending, completed, failed
@@ -32,6 +32,9 @@ ALTER TABLE email_queue ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
 
 -- Add ticket_type column if table already exists (migration for existing setups)
 ALTER TABLE email_queue ADD COLUMN IF NOT EXISTS ticket_type TEXT DEFAULT 'General Admission';
+
+-- Add qr_url column if table already exists (migration - replaces qr_code_data)
+ALTER TABLE email_queue ADD COLUMN IF NOT EXISTS qr_url TEXT DEFAULT '';
 
 -- Indexes for fast queries
 CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status);

@@ -100,33 +100,65 @@ export default async function handler(req, res) {
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
-    // Fetch ALL pending jobs (we'll group by recipient)
-    console.log(`Fetching pending jobs...`);
+    console.log('🔄 Worker is checking all rows with empty qr_url...');
+    
+    // EMERGENCY FIX: Fetch ANY row where qr_url is empty/null AND status is not 'failed'
+    // This catches pending, sent, and completed rows that never got their QR codes
+    console.log('=== EMERGENCY: Fetching rows needing QR codes ===');
+    
     const { data: pendingJobs, error: fetchError } = await supabase
       .from('email_queue')
       .select('*')
-      .eq('status', 'pending')
-      .lt('retry_count', MAX_RETRIES)
+      .neq('status', 'failed')
+      .or('qr_url.is.null,qr_url.eq.')
       .order('created_at', { ascending: true })
-      .limit(100); // Higher limit since we're grouping
+      .limit(100);
 
     if (fetchError) {
       console.error('❌ Failed to fetch jobs:', fetchError.message);
-      return sendJSON(res, 500, { 
-        error: 'Database fetch failed',
-        details: fetchError.message 
-      });
+      
+      // Fallback: Try simpler query if the OR fails
+      console.log('Trying fallback query (all non-failed rows)...');
+      const { data: fallbackJobs, error: fallbackError } = await supabase
+        .from('email_queue')
+        .select('*')
+        .neq('status', 'failed')
+        .limit(100);
+      
+      if (fallbackError) {
+        console.error('❌ Fallback query also failed:', fallbackError.message);
+        return sendJSON(res, 500, { 
+          error: 'Database fetch failed',
+          details: fetchError.message 
+        });
+      }
+      
+      // Filter in JS: only rows with empty qr_url
+      const jobsNeedingQR = (fallbackJobs || []).filter(job => !job.qr_url || job.qr_url === '');
+      console.log(`Found ${jobsNeedingQR.length} rows needing QR codes (JS filter)`);
+      
+      if (jobsNeedingQR.length === 0) {
+        console.log('✅ All rows have QR URLs - nothing to process');
+        return sendJSON(res, 200, { processed: 0, message: 'All QR codes generated' });
+      }
+      
+      // Use filtered jobs
+      pendingJobs.length = 0;
+      pendingJobs.push(...jobsNeedingQR);
     }
 
     if (!pendingJobs || pendingJobs.length === 0) {
-      console.log('✅ No pending email jobs in queue');
+      console.log('✅ No jobs needing QR codes');
       return sendJSON(res, 200, { 
         processed: 0,
-        message: 'Queue is empty'
+        message: 'Queue is empty or all QR codes generated'
       });
     }
 
-    console.log(`📧 Found ${pendingJobs.length} pending job(s), grouping by recipient...`);
+    console.log(`📧 Found ${pendingJobs.length} job(s) needing QR codes, grouping by recipient...`);
+    
+    // Log sample row for debugging
+    console.log('Sample row:', JSON.stringify(pendingJobs[0], null, 2));
 
     // Group jobs by recipient email
     const jobsByRecipient = {};
@@ -159,7 +191,7 @@ export default async function handler(req, res) {
         // Generate QR codes, upload to Supabase Storage, and build HTML
         const ticketBlocksPromises = tickets.map(async (ticket, index) => {
           const ticketType = ticket.ticket_type || 'Event Ticket';
-          let publicUrl = ticket.qr_data || ''; // Check if URL already exists
+          let publicUrl = ticket.qr_url || ''; // Check if URL already exists
           
           // If no URL exists (or it's base64), generate and upload QR code
           if (!publicUrl || !publicUrl.startsWith('http')) {
@@ -195,16 +227,30 @@ export default async function handler(req, res) {
                 publicUrl = urlData.publicUrl;
                 console.log(`✅ Uploaded QR code: ${publicUrl}`);
                 
-                // Update tickets table with the permanent URL
-                const { error: updateTicketError } = await supabase
-                  .from('tickets')
-                  .update({ qr_data: publicUrl })
-                  .eq('ticket_id', ticket.ticket_id);
+                // CRITICAL: Update BOTH tickets AND email_queue tables with the URL
+                const [ticketUpdate, emailQueueUpdate] = await Promise.all([
+                  // Update tickets table
+                  supabase
+                    .from('tickets')
+                    .update({ qr_url: publicUrl })
+                    .eq('ticket_id', ticket.ticket_id),
+                  // Update email_queue table
+                  supabase
+                    .from('email_queue')
+                    .update({ qr_url: publicUrl })
+                    .eq('ticket_id', ticket.ticket_id)
+                ]);
                 
-                if (updateTicketError) {
-                  console.error(`⚠️ Failed to update ticket with URL: ${updateTicketError.message}`);
+                if (ticketUpdate.error) {
+                  console.error(`⚠️ Failed to update tickets table: ${ticketUpdate.error.message}`);
                 } else {
                   console.log(`✅ Saved URL to tickets table for ${ticket.ticket_id}`);
+                }
+                
+                if (emailQueueUpdate.error) {
+                  console.error(`⚠️ Failed to update email_queue table: ${emailQueueUpdate.error.message}`);
+                } else {
+                  console.log(`✅ Saved URL to email_queue table for ${ticket.ticket_id}`);
                 }
               }
             } catch (qrErr) {
