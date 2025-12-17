@@ -4,22 +4,35 @@
 -- ================================================================
 
 -- Create tickets table
+-- Note: The webhook creates tickets with unique IDs in format: {session_id}-{ticket_type}-{index}
+-- e.g., cs_abc123-Admission_Ticket-1, cs_abc123-Parking_Pass-1
 CREATE TABLE IF NOT EXISTS tickets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ticket_id TEXT UNIQUE NOT NULL,
+  stripe_session_id TEXT NOT NULL,  -- Original Stripe checkout session ID
+  ticket_id TEXT UNIQUE NOT NULL,   -- Unique ID: {session_id}-{type}-{index}
   event_id TEXT NOT NULL,
-  ticket_type TEXT NOT NULL DEFAULT 'General Admission',
-  purchaser_name TEXT,
-  purchaser_email TEXT,
-  qr_code_url TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'purchased',
+  ticket_type TEXT NOT NULL DEFAULT 'General Admission',  -- e.g., 'Admission Ticket', 'Parking Pass'
+  buyer_name TEXT,
+  buyer_email TEXT,
+  qr_data TEXT NOT NULL,  -- Base64 encoded QR code (without data URL prefix)
+  status TEXT NOT NULL DEFAULT 'active',  -- active, validated, cancelled
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  used_at TIMESTAMPTZ
+  validated_at TIMESTAMPTZ
 );
 
+-- Add stripe_session_id column if upgrading from older schema
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS stripe_session_id TEXT;
+-- Update column names if needed (for backward compatibility)
+-- ALTER TABLE tickets RENAME COLUMN purchaser_name TO buyer_name;
+-- ALTER TABLE tickets RENAME COLUMN purchaser_email TO buyer_email;
+-- ALTER TABLE tickets RENAME COLUMN qr_code_url TO qr_data;
+-- ALTER TABLE tickets RENAME COLUMN used_at TO validated_at;
+
 CREATE INDEX IF NOT EXISTS idx_tickets_ticket_id ON tickets(ticket_id);
-CREATE INDEX IF NOT EXISTS idx_tickets_email ON tickets(purchaser_email);
+CREATE INDEX IF NOT EXISTS idx_tickets_session_id ON tickets(stripe_session_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_email ON tickets(buyer_email);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_type ON tickets(ticket_type);
 
 -- Create parking_passes table mirroring tickets
 CREATE TABLE IF NOT EXISTS parking_passes (
@@ -81,21 +94,23 @@ WHERE tablename = 'tickets';
 
 -- Test insert (should work)
 INSERT INTO tickets (
+  stripe_session_id,
   ticket_id,
   event_id,
   ticket_type,
-  purchaser_name,
-  purchaser_email,
-  qr_code_url,
+  buyer_name,
+  buyer_email,
+  qr_data,
   status
 ) VALUES (
-  'test-ticket-001',
+  'cs_test_session_001',
+  'cs_test_session_001-Admission_Ticket-1',
   '1',
-  'Gameday Tickets',
+  'Admission Ticket',
   'Test Fan',
   'test@example.com',
-  'https://example.com/qr/test.png',
-  'purchased'
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'active'
 ) RETURNING *;
 
 INSERT INTO parking_passes (
@@ -117,8 +132,8 @@ INSERT INTO parking_passes (
 ) RETURNING *;
 
 -- Clean up test data
-DELETE FROM tickets WHERE ticket_id = 'test-ticket-001';
-DELETE FROM parking_passes WHERE ticket_id = 'test-parking-001';
+DELETE FROM tickets WHERE ticket_id LIKE 'cs_test_session_001%';
+DELETE FROM parking_passes WHERE ticket_id LIKE 'test-parking%';
 
 -- ================================================================
 -- DONE! ✅

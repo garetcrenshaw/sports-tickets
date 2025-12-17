@@ -24,8 +24,7 @@ async function timeoutPromise(promise, ms, errorMsg) {
 
 export default async function handler(req, res) {
   console.log('=== WEBHOOK DEBUG START ===');
-  console.log('--- DB FIX VERSION 2 LIVE ---');
-  console.log('--- FINAL TICKET FULFILLMENT ATTEMPT ---');
+  console.log('--- MULTI-TICKET FULFILLMENT v1.0 ---');
   console.log('Environment check:');
   console.log('- STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY ? 'SET' : 'MISSING');
   console.log('- STRIPE_WEBHOOK_SECRET:', process.env.STRIPE_WEBHOOK_SECRET ? 'SET' : 'MISSING');
@@ -120,117 +119,140 @@ export default async function handler(req, res) {
 
       const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-      // Idempotency: Check if ticket exists
-      console.log('Checking for existing ticket:', session.id);
-      const { data: existing, error: checkError } = await supabase
+      // Idempotency: Check if any tickets exist for this session
+      console.log('Checking for existing tickets for session:', session.id);
+      const { data: existingTickets, error: checkError } = await supabase
         .from('tickets')
         .select('id')
         .eq('stripe_session_id', session.id)
-        .single();
+        .limit(1);
 
       if (checkError && checkError.code !== 'PGRST116') {
         console.error('Supabase check error:', checkError.code, checkError.message);
-        // Log to error table
         await logError(supabase, session.id, `Database check failed: ${checkError.message}`);
         throw new Error(`Database check failed: ${checkError.message}`);
       }
 
-      if (existing) {
-        console.log('⚠️ DUPLICATE EVENT DETECTED - Ticket already exists:', session.id);
+      if (existingTickets && existingTickets.length > 0) {
+        console.log('⚠️ DUPLICATE EVENT DETECTED - Tickets already exist for session:', session.id);
         console.log('   This webhook has already been processed - skipping');
         return res.status(200).json({ status: 'ignored', reason: 'duplicate event' });
       }
       
       console.log('✅ No duplicate found - proceeding with ticket creation');
 
-      console.log('Generating QR code for:', session.id);
-      const qrDataUrl = await QRCode.toDataURL(`ticket:${session.id}`);
-      console.log('✅ QR code generated successfully');
-
-      const ticketData = {
-        stripe_session_id: session.id,
-        event_id: session.metadata?.event_id || 'fallback',
-        buyer_name: session.customer_details?.name || 'Anonymous',
-        buyer_email: session.customer_details?.email || 'fallback@garetcrenshaw.com',
-        qr_data: qrDataUrl,
-        status: 'active'
-      };
-
-      console.log('Inserting ticket to Supabase:', {
-        ...ticketData,
-        qr_data: '[BASE64_DATA]' // Don't log the full QR
+      // Fetch line items from the checkout session
+      console.log('Fetching line items for session:', session.id);
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+        expand: ['data.price.product']
       });
-      
-      // Add 5s timeout to prevent hangs
-      const { error: insertError } = await timeoutPromise(
-        supabase.from('tickets').insert(ticketData),
-        5000,
-        'Supabase insert timeout (5s)'
-      );
-
-      if (insertError) {
-        console.error('❌ Supabase insert error:', insertError.code, insertError.message, insertError.details);
-        await logError(supabase, session.id, `Database insert failed: ${insertError.message}`);
-        throw new Error(`Database insert failed: ${insertError.message}`);
-      }
-      console.log('✅ Ticket inserted successfully to Supabase');
+      console.log(`✅ Found ${lineItems.data.length} line item(s)`);
 
       const customerEmail = session.customer_details?.email || 'garetcrenshaw@gmail.com';
-      console.log('=== EMAIL QUEUE DEBUG START ===');
-      console.log('Queueing email for:', customerEmail);
-      console.log('Session ID:', session.id);
-      console.log('QR code data length:', qrDataUrl?.length || 0);
+      const buyerName = session.customer_details?.name || 'Anonymous';
+      const eventId = session.metadata?.event_id || 'fallback';
 
-      try {
-        // Queue email for background processing (async delivery with retry)
-        // This decouples email sending from webhook response time
-        const emailJob = {
-          ticket_id: session.id,
-          recipient_email: customerEmail,
-          recipient_name: ticketData.buyer_name,
-          qr_data: qrDataUrl,
-          event_id: ticketData.event_id,
-          status: 'pending',
-          retry_count: 0
-        };
+      let totalTicketsCreated = 0;
+      let totalEmailsQueued = 0;
 
-        console.log('Email job object prepared:', {
-          ticket_id: emailJob.ticket_id,
-          recipient_email: emailJob.recipient_email,
-          recipient_name: emailJob.recipient_name,
-          event_id: emailJob.event_id,
-          status: emailJob.status,
-          retry_count: emailJob.retry_count,
-          qr_data_length: emailJob.qr_data?.length || 0
-        });
+      // Loop through each line item
+      for (const item of lineItems.data) {
+        const ticketType = item.description || item.price?.product?.name || 'General Admission';
+        const quantity = item.quantity || 1;
+        
+        console.log(`\n--- Processing: ${ticketType} (qty: ${quantity}) ---`);
 
-        console.log('Attempting insert to email_queue table...');
-        const { data: insertedData, error: queueError } = await supabase
-          .from('email_queue')
-          .insert(emailJob)
-          .select();
+        // Loop through quantity to create individual tickets
+        for (let i = 0; i < quantity; i++) {
+          const ticketIndex = i + 1;
+          
+          // Generate unique QR content: sessionId-ticketType-index
+          const qrContent = `${session.id}-${ticketType.replace(/\s+/g, '_')}-${ticketIndex}`;
+          console.log(`Generating QR for ticket ${ticketIndex}/${quantity}: ${qrContent}`);
+          
+          // Generate QR code as data URL
+          const qrDataUrl = await QRCode.toDataURL(qrContent, {
+            width: 256,
+            margin: 1,
+            color: { dark: '#000000', light: '#ffffff' }
+          });
+          
+          // Extract only the Base64 string (remove data:image/png;base64, prefix)
+          const qrDataBase64 = qrDataUrl.split(',')[1];
+          
+          // Create unique ticket ID for this specific ticket
+          const uniqueTicketId = `${session.id}-${ticketType.replace(/\s+/g, '_')}-${ticketIndex}`;
 
-        if (queueError) {
-          console.error('❌ EMAIL QUEUE INSERT FAILED');
-          console.error('Error code:', queueError.code);
-          console.error('Error message:', queueError.message);
-          console.error('Error details:', JSON.stringify(queueError.details));
-          console.error('Error hint:', queueError.hint);
-          await logError(supabase, session.id, `Email queue failed: ${queueError.code} - ${queueError.message}`);
-          // Still return 200 - ticket saved, email can be retried manually
-        } else {
-          console.log('✅ EMAIL QUEUE INSERT SUCCESSFUL');
-          console.log('Inserted data:', JSON.stringify(insertedData));
-          console.log('   → Worker will process within 1-2 minutes');
+          const ticketData = {
+            stripe_session_id: session.id,
+            ticket_id: uniqueTicketId,
+            event_id: eventId,
+            ticket_type: ticketType,
+            buyer_name: buyerName,
+            buyer_email: customerEmail,
+            qr_data: qrDataBase64,
+            status: 'active'
+          };
+
+          console.log('Inserting ticket to Supabase:', {
+            ...ticketData,
+            qr_data: `[BASE64_DATA length: ${qrDataBase64.length}]`
+          });
+          
+          // Insert ticket with timeout
+          const { error: insertError } = await timeoutPromise(
+            supabase.from('tickets').insert(ticketData),
+            5000,
+            'Supabase ticket insert timeout (5s)'
+          );
+
+          if (insertError) {
+            console.error(`❌ Ticket insert error for ${uniqueTicketId}:`, insertError.code, insertError.message);
+            await logError(supabase, session.id, `Ticket insert failed for ${uniqueTicketId}: ${insertError.message}`);
+            // Continue with other tickets even if one fails
+            continue;
+          }
+          
+          console.log(`✅ Ticket ${ticketIndex}/${quantity} inserted: ${uniqueTicketId}`);
+          totalTicketsCreated++;
+
+          // Queue email for this specific ticket
+          try {
+            const emailJob = {
+              ticket_id: uniqueTicketId,
+              recipient_email: customerEmail,
+              recipient_name: buyerName,
+              qr_code_data: qrDataBase64,
+              ticket_type: ticketType,
+              event_id: eventId,
+              status: 'pending',
+              retry_count: 0
+            };
+
+            console.log(`Queueing email for ticket: ${uniqueTicketId}`);
+            
+            const { error: queueError } = await supabase
+              .from('email_queue')
+              .insert(emailJob);
+
+            if (queueError) {
+              console.error(`❌ Email queue failed for ${uniqueTicketId}:`, queueError.message);
+              await logError(supabase, session.id, `Email queue failed for ${uniqueTicketId}: ${queueError.message}`);
+            } else {
+              console.log(`✅ Email queued for ticket: ${uniqueTicketId}`);
+              totalEmailsQueued++;
+            }
+          } catch (queueError) {
+            console.error(`❌ Email queue exception for ${uniqueTicketId}:`, queueError.message);
+            await logError(supabase, session.id, `Email queue exception for ${uniqueTicketId}: ${queueError.message}`);
+          }
         }
-      } catch (queueError) {
-        console.error('❌ EMAIL QUEUE EXCEPTION');
-        console.error('Exception message:', queueError.message);
-        console.error('Exception stack:', queueError.stack);
-        await logError(supabase, session.id, `Email queue exception: ${queueError.message}`);
-        // Still return 200 - ticket is saved, that's what matters
       }
-      console.log('=== EMAIL QUEUE DEBUG END ===');
+
+      console.log('\n=== FULFILLMENT SUMMARY ===');
+      console.log(`Total tickets created: ${totalTicketsCreated}`);
+      console.log(`Total emails queued: ${totalEmailsQueued}`);
+      console.log('=== FULFILLMENT COMPLETE ===\n');
     }
 
     // Always return 200 to acknowledge receipt

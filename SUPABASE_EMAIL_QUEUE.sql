@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS email_queue (
   ticket_id TEXT NOT NULL,
   recipient_email TEXT NOT NULL,
   recipient_name TEXT,
-  qr_code_data TEXT NOT NULL,  -- Base64 data URL or storage URL
+  qr_code_data TEXT NOT NULL,  -- Base64 string (without data URL prefix)
+  ticket_type TEXT NOT NULL DEFAULT 'General Admission',  -- e.g., 'Admission Ticket', 'Parking Pass'
   event_id TEXT,
   status TEXT NOT NULL DEFAULT 'pending',  -- pending, sent, failed
   retry_count INT DEFAULT 0,
@@ -25,17 +26,24 @@ CREATE TABLE IF NOT EXISTS email_queue (
   processed_at TIMESTAMPTZ
 );
 
+-- Add ticket_type column if table already exists (migration for existing setups)
+ALTER TABLE email_queue ADD COLUMN IF NOT EXISTS ticket_type TEXT DEFAULT 'General Admission';
+
 -- Indexes for fast queries
 CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status);
 CREATE INDEX IF NOT EXISTS idx_email_queue_created ON email_queue(created_at);
 CREATE INDEX IF NOT EXISTS idx_email_queue_ticket ON email_queue(ticket_id);
 
--- Add constraint to prevent duplicate emails for same ticket
+-- Add constraint to prevent duplicate emails for same specific ticket
+-- ticket_id now includes type and index (e.g., cs_abc123-Admission_Ticket-1)
 -- This ensures if webhook is called twice (Stripe retry), 
 -- we don't queue the same email twice
 CREATE UNIQUE INDEX IF NOT EXISTS idx_email_queue_unique_ticket 
   ON email_queue(ticket_id) 
   WHERE status IN ('pending', 'sent');
+
+-- Index for ticket_type for analytics queries
+CREATE INDEX IF NOT EXISTS idx_email_queue_ticket_type ON email_queue(ticket_type);
 
 -- ================================================================
 -- VERIFICATION QUERIES (run these to confirm setup)
@@ -53,7 +61,7 @@ ORDER BY ordinal_position;
 
 -- Expected columns:
 -- id, ticket_id, recipient_email, recipient_name, qr_code_data,
--- event_id, status, retry_count, last_error, created_at, processed_at
+-- ticket_type, event_id, status, retry_count, last_error, created_at, processed_at
 
 -- 2. Verify indexes exist
 SELECT 
@@ -75,13 +83,15 @@ INSERT INTO email_queue (
   recipient_email,
   recipient_name,
   qr_code_data,
+  ticket_type,
   event_id,
   status
 ) VALUES (
-  'test_ticket_001',
+  'test_session_001-Admission_Ticket-1',
   'test@example.com',
   'Test User',
-  'data:image/png;base64,test',
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'Admission Ticket',
   '1',
   'pending'
 ) RETURNING *;
@@ -89,7 +99,7 @@ INSERT INTO email_queue (
 -- Should return the inserted row with generated id and timestamps
 
 -- 4. Clean up test data
-DELETE FROM email_queue WHERE ticket_id = 'test_ticket_001';
+DELETE FROM email_queue WHERE ticket_id LIKE 'test_session_001%';
 
 -- ================================================================
 -- HEALTH MONITORING QUERIES (use these after deployment)

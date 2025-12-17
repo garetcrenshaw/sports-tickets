@@ -139,27 +139,74 @@ export default async function handler(req, res) {
       try {
         // Send email via Resend
         console.log('Sending email...');
+        
+        // Determine ticket type display name
+        const ticketTypeDisplay = job.ticket_type || 'Event Ticket';
+        
+        // Build the subject line based on ticket type
+        const subject = `Your ${ticketTypeDisplay} is Ready!`;
+        
         const emailResult = await resend.emails.send({
           from: 'tickets@gamedaytickets.io',
           to: job.recipient_email,
-          subject: 'Your Gameday Tickets + Parking are Ready!',
+          subject: subject,
           html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Thank you for your purchase!</h2>
-              <p>Here is your ticket for the event.</p>
-              <div style="text-align: center; margin: 20px 0;">
-                <img src="${job.qr_code_data}" alt="QR Code" style="max-width: 300px;" />
+            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+              <!-- Header -->
+              <div style="background: linear-gradient(135deg, #1a365d 0%, #2563eb 100%); padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">🎟️ Your Ticket is Ready!</h1>
               </div>
-              <p><strong>Event ID:</strong> ${job.event_id || 'N/A'}</p>
-              <p><strong>Name:</strong> ${job.recipient_name || 'Guest'}</p>
-              <p>Please show this QR code at the entrance.</p>
-              <hr style="margin: 30px 0;" />
-              <p style="color: #666; font-size: 12px;">
-                Transaction ID: ${job.ticket_id}
-              </p>
-              <p style="color: #999; font-size: 11px;">
-                Delivered by automated system
-              </p>
+              
+              <!-- Ticket Type Banner -->
+              <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 2px solid #e2e8f0;">
+                <p style="margin: 0; color: #64748b; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Ticket Type</p>
+                <h2 style="margin: 5px 0 0; color: #1e293b; font-size: 22px; font-weight: 600;">${ticketTypeDisplay}</h2>
+              </div>
+              
+              <!-- Main Content -->
+              <div style="padding: 30px 20px;">
+                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
+                  Thank you for your purchase, <strong>${job.recipient_name || 'Guest'}</strong>! 
+                  Your ticket is confirmed and ready for use.
+                </p>
+                
+                <!-- QR Code Section -->
+                <div style="text-align: center; margin: 30px 0; padding: 25px; background: #f1f5f9; border-radius: 12px; border: 2px dashed #cbd5e1;">
+                  <p style="color: #64748b; font-size: 13px; margin: 0 0 15px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Scan this QR code at entry
+                  </p>
+                  <img src="data:image/png;base64,${job.qr_code_data}" alt="${ticketTypeDisplay} QR Code" style="max-width: 250px; height: auto; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
+                </div>
+                
+                <!-- Ticket Details -->
+                <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+                  <p style="margin: 0; color: #854d0e; font-size: 14px;">
+                    <strong>📋 Ticket Details</strong>
+                  </p>
+                  <p style="margin: 10px 0 0; color: #713f12; font-size: 14px;">
+                    <strong>Event ID:</strong> ${job.event_id || 'N/A'}<br/>
+                    <strong>Name:</strong> ${job.recipient_name || 'Guest'}<br/>
+                    <strong>Type:</strong> ${ticketTypeDisplay}
+                  </p>
+                </div>
+                
+                <!-- Instructions -->
+                <div style="margin-top: 25px;">
+                  <p style="color: #475569; font-size: 14px; line-height: 1.6;">
+                    📱 <strong>Tip:</strong> Save this email or take a screenshot of the QR code for easy access at the venue.
+                  </p>
+                </div>
+              </div>
+              
+              <!-- Footer -->
+              <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+                <p style="color: #94a3b8; font-size: 12px; margin: 0 0 5px;">
+                  Ticket ID: ${job.ticket_id}
+                </p>
+                <p style="color: #cbd5e1; font-size: 11px; margin: 0;">
+                  GameDay Tickets • Automated Delivery System
+                </p>
+              </div>
             </div>
           `
         });
