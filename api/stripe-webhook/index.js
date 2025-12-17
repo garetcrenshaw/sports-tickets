@@ -152,13 +152,13 @@ export default async function handler(req, res) {
         event_id: session.metadata?.event_id || 'fallback',
         buyer_name: session.customer_details?.name || 'Anonymous',
         buyer_email: session.customer_details?.email || 'fallback@garetcrenshaw.com',
-        qr_code: qrDataUrl,
+        qr_data: qrDataUrl,
         status: 'active'
       };
 
       console.log('Inserting ticket to Supabase:', {
         ...ticketData,
-        qr_code: '[BASE64_DATA]' // Don't log the full QR
+        qr_data: '[BASE64_DATA]' // Don't log the full QR
       });
       
       // Add 5s timeout to prevent hangs
@@ -188,7 +188,7 @@ export default async function handler(req, res) {
           ticket_id: session.id,
           recipient_email: customerEmail,
           recipient_name: ticketData.buyer_name,
-          qr_code_data: qrDataUrl,  // Store QR data for email template
+          qr_data: qrDataUrl,
           event_id: ticketData.event_id,
           status: 'pending',
           retry_count: 0
@@ -201,7 +201,7 @@ export default async function handler(req, res) {
           event_id: emailJob.event_id,
           status: emailJob.status,
           retry_count: emailJob.retry_count,
-          qr_code_data_length: emailJob.qr_code_data?.length || 0
+          qr_data_length: emailJob.qr_data?.length || 0
         });
 
         console.log('Attempting insert to email_queue table...');
