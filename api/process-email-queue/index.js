@@ -129,7 +129,7 @@ export default async function handler(req, res) {
       console.log('⚠️ email_queue table is empty or all jobs have failed');
       return sendJSON(res, 200, { 
         processed: 0,
-        message: 'No jobs in queue'
+        message: 'Queue is empty'
       });
     }
 
