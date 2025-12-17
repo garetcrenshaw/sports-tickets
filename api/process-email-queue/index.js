@@ -99,15 +99,15 @@ export default async function handler(req, res) {
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
-    // Fetch pending jobs (status='pending' AND retry_count < 3)
-    console.log(`Fetching pending jobs (LIMIT ${BATCH_SIZE})...`);
+    // Fetch ALL pending jobs (we'll group by recipient)
+    console.log(`Fetching pending jobs...`);
     const { data: pendingJobs, error: fetchError } = await supabase
       .from('email_queue')
       .select('*')
       .eq('status', 'pending')
       .lt('retry_count', MAX_RETRIES)
       .order('created_at', { ascending: true })
-      .limit(BATCH_SIZE);
+      .limit(100); // Higher limit since we're grouping
 
     if (fetchError) {
       console.error('❌ Failed to fetch jobs:', fetchError.message);
@@ -125,83 +125,119 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`📧 Processing ${pendingJobs.length} email job(s)...`);
+    console.log(`📧 Found ${pendingJobs.length} pending job(s), grouping by recipient...`);
+
+    // Group jobs by recipient email
+    const jobsByRecipient = {};
+    for (const job of pendingJobs) {
+      const email = job.recipient_email;
+      if (!jobsByRecipient[email]) {
+        jobsByRecipient[email] = [];
+      }
+      jobsByRecipient[email].push(job);
+    }
+
+    const recipientCount = Object.keys(jobsByRecipient).length;
+    console.log(`📬 Grouped into ${recipientCount} recipient(s)`);
 
     let successCount = 0;
     let failureCount = 0;
+    let totalTicketsProcessed = 0;
 
-    // Process each job
-    for (const job of pendingJobs) {
-      console.log(`\n--- Job ${job.id} (ticket: ${job.ticket_id}) ---`);
-      console.log(`Recipient: ${job.recipient_email}`);
-      console.log(`Retry count: ${job.retry_count}`);
+    // Process each recipient group (ONE email per recipient with ALL their tickets)
+    for (const [recipientEmail, tickets] of Object.entries(jobsByRecipient)) {
+      console.log(`\n--- Processing ${tickets.length} ticket(s) for: ${recipientEmail} ---`);
+      
+      const recipientName = tickets[0].recipient_name || 'Guest';
+      const jobIds = tickets.map(t => t.id);
 
       try {
-        // Send email via Resend
-        console.log('Sending email...');
+        // Build the combined email with all tickets
+        console.log('Building combined email template...');
         
-        // Determine ticket type display name
-        const ticketTypeDisplay = job.ticket_type || 'Event Ticket';
-        
-        // Build the subject line based on ticket type
-        const subject = `Your ${ticketTypeDisplay} is Ready!`;
-        
+        // Generate HTML for each ticket
+        const ticketBlocks = tickets.map((ticket, index) => {
+          const ticketType = ticket.ticket_type || 'Event Ticket';
+          return `
+            <!-- Ticket ${index + 1}: ${ticketType} -->
+            <div style="margin-bottom: 30px; padding-bottom: 30px; border-bottom: ${index < tickets.length - 1 ? '2px dashed #e2e8f0' : 'none'};">
+              <!-- Ticket Type Header -->
+              <div style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); padding: 12px 16px; border-radius: 8px 8px 0 0; border: 1px solid #e2e8f0; border-bottom: none;">
+                <p style="margin: 0; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Ticket ${index + 1} of ${tickets.length}</p>
+                <h3 style="margin: 4px 0 0; color: #1e293b; font-size: 18px; font-weight: 600;">${ticketType}</h3>
+              </div>
+              
+              <!-- QR Code -->
+              <div style="text-align: center; padding: 25px; background: #ffffff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
+                <img src="data:image/png;base64,${ticket.qr_code_data}" alt="${ticketType} QR Code" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+                <p style="color: #94a3b8; font-size: 11px; margin: 12px 0 0; font-family: monospace;">
+                  ID: ${ticket.ticket_id}
+                </p>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Count ticket types for subject line
+        const ticketTypes = {};
+        tickets.forEach(t => {
+          const type = t.ticket_type || 'Event Ticket';
+          ticketTypes[type] = (ticketTypes[type] || 0) + 1;
+        });
+        const ticketSummary = Object.entries(ticketTypes)
+          .map(([type, count]) => `${count}x ${type}`)
+          .join(', ');
+
+        const subject = tickets.length === 1 
+          ? `Your ${tickets[0].ticket_type || 'Event Ticket'} is Ready!`
+          : `Your ${tickets.length} Tickets are Ready! (${ticketSummary})`;
+
+        console.log(`Subject: ${subject}`);
+        console.log('Sending combined email via Resend...');
+
         const emailResult = await resend.emails.send({
           from: 'tickets@gamedaytickets.io',
-          to: job.recipient_email,
+          to: recipientEmail,
           subject: subject,
           html: `
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
               <!-- Header -->
               <div style="background: linear-gradient(135deg, #1a365d 0%, #2563eb 100%); padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">🎟️ Your Ticket is Ready!</h1>
-              </div>
-              
-              <!-- Ticket Type Banner -->
-              <div style="background: #f8fafc; padding: 15px 20px; border-bottom: 2px solid #e2e8f0;">
-                <p style="margin: 0; color: #64748b; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Ticket Type</p>
-                <h2 style="margin: 5px 0 0; color: #1e293b; font-size: 22px; font-weight: 600;">${ticketTypeDisplay}</h2>
-              </div>
-              
-              <!-- Main Content -->
-              <div style="padding: 30px 20px;">
-                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin-bottom: 25px;">
-                  Thank you for your purchase, <strong>${job.recipient_name || 'Guest'}</strong>! 
-                  Your ticket is confirmed and ready for use.
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
+                  🎟️ ${tickets.length === 1 ? 'Your Ticket is Ready!' : `Your ${tickets.length} Tickets are Ready!`}
+                </h1>
+                <p style="color: #93c5fd; margin: 10px 0 0; font-size: 14px;">
+                  ${ticketSummary}
                 </p>
-                
-                <!-- QR Code Section -->
-                <div style="text-align: center; margin: 30px 0; padding: 25px; background: #f1f5f9; border-radius: 12px; border: 2px dashed #cbd5e1;">
-                  <p style="color: #64748b; font-size: 13px; margin: 0 0 15px; text-transform: uppercase; letter-spacing: 0.5px;">
-                    Scan this QR code at entry
-                  </p>
-                  <img src="data:image/png;base64,${job.qr_code_data}" alt="${ticketTypeDisplay} QR Code" style="max-width: 250px; height: auto; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" />
-                </div>
-                
-                <!-- Ticket Details -->
-                <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
-                  <p style="margin: 0; color: #854d0e; font-size: 14px;">
-                    <strong>📋 Ticket Details</strong>
-                  </p>
-                  <p style="margin: 10px 0 0; color: #713f12; font-size: 14px;">
-                    <strong>Event ID:</strong> ${job.event_id || 'N/A'}<br/>
-                    <strong>Name:</strong> ${job.recipient_name || 'Guest'}<br/>
-                    <strong>Type:</strong> ${ticketTypeDisplay}
-                  </p>
-                </div>
-                
-                <!-- Instructions -->
-                <div style="margin-top: 25px;">
-                  <p style="color: #475569; font-size: 14px; line-height: 1.6;">
-                    📱 <strong>Tip:</strong> Save this email or take a screenshot of the QR code for easy access at the venue.
-                  </p>
-                </div>
+              </div>
+              
+              <!-- Greeting -->
+              <div style="padding: 25px 20px 15px;">
+                <p style="color: #475569; font-size: 16px; line-height: 1.6; margin: 0;">
+                  Thank you for your purchase, <strong>${recipientName}</strong>! 
+                  ${tickets.length === 1 
+                    ? 'Your ticket is confirmed and ready for use.' 
+                    : `All ${tickets.length} of your tickets are confirmed and ready for use.`}
+                </p>
+              </div>
+              
+              <!-- All Tickets -->
+              <div style="padding: 10px 20px 30px;">
+                ${ticketBlocks}
+              </div>
+              
+              <!-- Instructions -->
+              <div style="background: #fefce8; border-left: 4px solid #eab308; padding: 15px 20px; margin: 0 20px 20px; border-radius: 0 8px 8px 0;">
+                <p style="margin: 0; color: #854d0e; font-size: 14px;">
+                  <strong>📱 Important:</strong> Save this email or screenshot each QR code. 
+                  ${tickets.length > 1 ? 'Each ticket has a unique QR code that must be scanned separately at entry.' : 'Show this QR code at entry.'}
+                </p>
               </div>
               
               <!-- Footer -->
               <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
                 <p style="color: #94a3b8; font-size: 12px; margin: 0 0 5px;">
-                  Ticket ID: ${job.ticket_id}
+                  ${tickets.length} ticket(s) • Event ID: ${tickets[0].event_id || 'N/A'}
                 </p>
                 <p style="color: #cbd5e1; font-size: 11px; margin: 0;">
                   GameDay Tickets • Automated Delivery System
@@ -211,10 +247,9 @@ export default async function handler(req, res) {
           `
         });
 
-        console.log(`✅ Email sent successfully (Resend ID: ${emailResult.id})`);
+        console.log(`✅ Combined email sent successfully (Resend ID: ${emailResult.id})`);
 
-        // CRITICAL: Immediately mark as completed to prevent duplicate sends
-        // This must happen right after successful send, before any other processing
+        // CRITICAL: Bulk update ALL jobs for this recipient as completed
         const { error: updateError } = await supabase
           .from('email_queue')
           .update({
@@ -222,57 +257,47 @@ export default async function handler(req, res) {
             sent_at: new Date().toISOString(),
             processed_at: new Date().toISOString()
           })
-          .eq('id', job.id);
+          .in('id', jobIds);
 
         if (updateError) {
-          // Log error but don't re-throw - the email was already sent
-          console.error(`⚠️ CRITICAL: Failed to mark email job ${job.id} as completed:`, updateError.message);
-          console.error(`   This job may be re-sent on next cron run!`);
+          console.error(`⚠️ CRITICAL: Failed to mark ${jobIds.length} jobs as completed:`, updateError.message);
+          console.error(`   Job IDs: ${jobIds.join(', ')}`);
         } else {
-          console.log(`✅ Job ${job.id} marked as completed in database`);
+          console.log(`✅ All ${jobIds.length} jobs marked as completed`);
         }
 
         successCount++;
+        totalTicketsProcessed += tickets.length;
 
       } catch (emailError) {
-        console.error(`❌ Email send failed: ${emailError.message}`);
+        console.error(`❌ Email send failed for ${recipientEmail}: ${emailError.message}`);
 
-        // Increment retry count
-        const newRetryCount = job.retry_count + 1;
-        const newStatus = newRetryCount >= MAX_RETRIES ? 'failed' : 'pending';
+        // Increment retry count for all jobs in this group
+        for (const job of tickets) {
+          const newRetryCount = job.retry_count + 1;
+          const newStatus = newRetryCount >= MAX_RETRIES ? 'failed' : 'pending';
 
-        console.log(`Updating retry count: ${job.retry_count} → ${newRetryCount}`);
-        console.log(`New status: ${newStatus}`);
+          const { error: updateError } = await supabase
+            .from('email_queue')
+            .update({
+              retry_count: newRetryCount,
+              status: newStatus,
+              last_error: emailError.message,
+              processed_at: new Date().toISOString()
+            })
+            .eq('id', job.id);
 
-        const { error: updateError } = await supabase
-          .from('email_queue')
-          .update({
-            retry_count: newRetryCount,
-            status: newStatus,
-            last_error: emailError.message
-          })
-          .eq('id', job.id);
+          if (updateError) {
+            console.error(`⚠️ Failed to update job ${job.id}: ${updateError.message}`);
+          }
 
-        if (updateError) {
-          console.error(`⚠️ Failed to update retry count: ${updateError.message}`);
-        }
-
-        // If max retries reached, log to errors table for manual intervention
-        if (newStatus === 'failed') {
-          console.error(`🚨 Job failed after ${MAX_RETRIES} attempts`);
-          
-          const { error: logError } = await supabase
-            .from('errors')
-            .insert({
+          // Log failed jobs to errors table
+          if (newStatus === 'failed') {
+            await supabase.from('errors').insert({
               event_id: job.ticket_id,
               error: `Email delivery failed after ${MAX_RETRIES} attempts: ${emailError.message}`,
               timestamp: new Date().toISOString()
             });
-
-          if (logError) {
-            console.error(`⚠️ Failed to log error: ${logError.message}`);
-          } else {
-            console.log('✅ Error logged for manual intervention');
           }
         }
 
@@ -283,15 +308,17 @@ export default async function handler(req, res) {
     const duration = Date.now() - startTime;
     console.log(`\n=== EMAIL QUEUE WORKER COMPLETE ===`);
     console.log(`Duration: ${duration}ms`);
-    console.log(`Processed: ${pendingJobs.length} jobs`);
-    console.log(`Success: ${successCount}`);
-    console.log(`Failures: ${failureCount}`);
+    console.log(`Recipients processed: ${recipientCount}`);
+    console.log(`Emails sent: ${successCount}`);
+    console.log(`Emails failed: ${failureCount}`);
+    console.log(`Total tickets in emails: ${totalTicketsProcessed}`);
 
     return sendJSON(res, 200, {
       success: true,
-      processed: pendingJobs.length,
-      success_count: successCount,
-      failure_count: failureCount,
+      recipients_processed: recipientCount,
+      emails_sent: successCount,
+      emails_failed: failureCount,
+      tickets_processed: totalTicketsProcessed,
       duration_ms: duration
     });
 
