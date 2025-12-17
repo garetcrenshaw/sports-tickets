@@ -156,9 +156,12 @@ export default async function handler(req, res) {
 
       try {
         // Build the combined email with all tickets
-        console.log('Building combined email template...');
+        console.log('Building combined email template with CID attachments...');
         
-        // Generate HTML for each ticket
+        // Build attachments array for CID-based inline images
+        const attachments = [];
+        
+        // Generate HTML for each ticket AND build attachments
         const ticketBlocks = tickets.map((ticket, index) => {
           const ticketType = ticket.ticket_type || 'Event Ticket';
           
@@ -173,6 +176,14 @@ export default async function handler(req, res) {
           
           if (!cleanQr) {
             console.error(`⚠️ WARNING: No QR data found for ticket ${ticket.ticket_id}`);
+          } else {
+            // Add QR code as CID attachment
+            attachments.push({
+              filename: `ticket-qr-${index}.png`,
+              content: Buffer.from(cleanQr, 'base64'),
+              cid: `ticket-qr-${index}`
+            });
+            console.log(`✅ Added CID attachment: ticket-qr-${index}`);
           }
           
           return `
@@ -184,9 +195,9 @@ export default async function handler(req, res) {
                 <h3 style="margin: 4px 0 0; color: #1e293b; font-size: 18px; font-weight: 600;">${ticketType}</h3>
               </div>
               
-              <!-- QR Code -->
+              <!-- QR Code - Using CID reference for Gmail/Outlook compatibility -->
               <div style="text-align: center; padding: 25px; background: #ffffff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-                <img src="data:image/png;base64,${cleanQr}" alt="Ticket QR Code" style="width:200px; height:200px;" />
+                <img src="cid:ticket-qr-${index}" alt="Ticket QR Code" style="width:200px; height:200px;" />
                 <p style="color: #94a3b8; font-size: 11px; margin: 12px 0 0; font-family: monospace;">
                   ID: ${ticket.ticket_id}
                 </p>
@@ -194,6 +205,8 @@ export default async function handler(req, res) {
             </div>
           `;
         }).join('');
+
+        console.log(`Total attachments prepared: ${attachments.length}`);
 
         // Count ticket types for subject line
         const ticketTypes = {};
@@ -210,12 +223,13 @@ export default async function handler(req, res) {
           : `Your ${tickets.length} Tickets are Ready! (${ticketSummary})`;
 
         console.log(`Subject: ${subject}`);
-        console.log('Sending combined email via Resend...');
+        console.log('Sending combined email via Resend with CID attachments...');
 
         const emailResult = await resend.emails.send({
           from: 'tickets@gamedaytickets.io',
           to: recipientEmail,
           subject: subject,
+          attachments: attachments,
           html: `
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
               <!-- Header -->
