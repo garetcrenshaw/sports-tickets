@@ -150,8 +150,8 @@ export default async function handler(req, res) {
       const ticketData = {
         stripe_session_id: session.id,
         event_id: session.metadata?.event_id || 'fallback',
-        name: session.customer_details?.name || 'Anonymous',
-        email: session.customer_details?.email || 'fallback@garetcrenshaw.com',
+        buyer_name: session.customer_details?.name || 'Anonymous',
+        buyer_email: session.customer_details?.email || 'fallback@garetcrenshaw.com',
         qr_code: qrDataUrl,
         status: 'active'
       };
@@ -187,7 +187,7 @@ export default async function handler(req, res) {
         const emailJob = {
           ticket_id: session.id,
           recipient_email: customerEmail,
-          recipient_name: ticketData.name,
+          recipient_name: ticketData.buyer_name,
           qr_code_data: qrDataUrl,  // Store QR data for email template
           event_id: ticketData.event_id,
           status: 'pending',
