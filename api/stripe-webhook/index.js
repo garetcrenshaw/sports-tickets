@@ -49,27 +49,30 @@ export default async function handler(req, res) {
   }
 
   // ============================================
-  // IMMEDIATE RESPONSE - Tell Stripe "Thank You"
-  // ============================================
-  res.status(200).json({ received: true, event_id: stripeEvent.id });
-  console.log('✅ Responded to Stripe immediately');
-
-  // ============================================
-  // BACKGROUND PROCESSING - Fire and Forget
+  // PROCESS BEFORE RESPONDING (Vercel kills after response)
   // ============================================
   if (stripeEvent.type === 'checkout.session.completed') {
     const session = stripeEvent.data.object;
     
     if (session.payment_status !== 'paid') {
       console.log('⚠️ Session not paid - skipping');
-      return;
+      return res.status(200).json({ received: true, skipped: 'not_paid' });
     }
 
-    // Don't await - let this run in background
-    processCheckoutSession(session).catch(err => {
-      console.error('Background processing error:', err.message);
-    });
+    try {
+      // MUST await - Vercel terminates after response!
+      await processCheckoutSession(session);
+      console.log('✅ Processing complete, sending response');
+      return res.status(200).json({ received: true, event_id: stripeEvent.id, processed: true });
+    } catch (err) {
+      console.error('❌ Processing error:', err.message);
+      // Still return 200 so Stripe doesn't retry
+      return res.status(200).json({ received: true, error: err.message });
+    }
   }
+
+  // For other event types
+  return res.status(200).json({ received: true, event_id: stripeEvent.id });
 }
 
 // ============================================
@@ -99,9 +102,10 @@ async function processCheckoutSession(session) {
   });
   console.log(`Found ${lineItems.data.length} line item(s)`);
 
-  const customerEmail = session.customer_details?.email || 'unknown@example.com';
-  const buyerName = session.customer_details?.name || 'Guest';
-  const eventId = session.metadata?.event_id || 'default';
+  const customerEmail = session.customer_details?.email || session.customer_email || 'unknown@example.com';
+  const buyerName = session.customer_details?.name || session.metadata?.buyerName || 'Guest';
+  // Note: metadata uses camelCase (eventId), not snake_case (event_id)
+  const eventId = session.metadata?.eventId || session.metadata?.event_id || 'default';
 
   // Build all ticket and email records at once (NO QR generation here!)
   const ticketRecords = [];
