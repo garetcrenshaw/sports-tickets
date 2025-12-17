@@ -166,17 +166,11 @@ export default async function handler(req, res) {
             console.log(`Generating & uploading QR for ticket: ${ticket.ticket_id}`);
             
             try {
-              // Generate QR code as Buffer (not base64 string)
-              const qrBuffer = await QRCode.toBuffer(ticket.ticket_id, {
-                width: 256,
-                margin: 1,
-                color: { dark: '#000000', light: '#ffffff' }
-              });
+              // Generate QR code as Buffer (not Data URI)
+              const qrBuffer = await QRCode.toBuffer(ticket.ticket_id);
               
-              // Create unique filename: ticket-{ticket_id}-{timestamp}.png
-              const timestamp = Date.now();
-              const safeTicketId = ticket.ticket_id.replace(/[^a-zA-Z0-9-_]/g, '_');
-              const filePath = `ticket-${safeTicketId}-${timestamp}.png`;
+              // Path: tickets/${ticket.ticket_id}-${Date.now()}.png
+              const filePath = `tickets/${ticket.ticket_id}-${Date.now()}.png`;
               
               console.log(`Uploading to Supabase Storage: ${filePath}`);
               
@@ -185,7 +179,7 @@ export default async function handler(req, res) {
                 .from('qr-codes')
                 .upload(filePath, qrBuffer, {
                   contentType: 'image/png',
-                  upsert: false
+                  upsert: true
                 });
               
               if (uploadError) {
@@ -221,26 +215,29 @@ export default async function handler(req, res) {
             console.log(`Using existing QR URL for ${ticket.ticket_id}`);
           }
           
-          // Build HTML block for this ticket
+          // Build HTML block for this ticket (Header + QR Image)
           return `
             <!-- Ticket ${index + 1}: ${ticketType} -->
-            <div style="margin-bottom: 30px; padding-bottom: 30px; border-bottom: ${index < tickets.length - 1 ? '2px dashed #e2e8f0' : 'none'};">
+            <div style="margin-bottom: 30px; padding: 20px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
               <!-- Ticket Type Header -->
-              <div style="background: linear-gradient(135deg, #1a365d 0%, #2563eb 100%); padding: 15px 20px; border-radius: 8px 8px 0 0;">
-                <p style="margin: 0; color: #93c5fd; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Ticket ${index + 1} of ${tickets.length}</p>
-                <h3 style="margin: 5px 0 0; color: #ffffff; font-size: 20px; font-weight: 700;">${ticketType}</h3>
+              <h3 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px; font-weight: 600; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
+                ${ticketType}
+              </h3>
+              <p style="margin: 0 0 15px 0; color: #64748b; font-size: 12px;">
+                Ticket ${index + 1} of ${tickets.length}
+              </p>
+              
+              <!-- QR Code Image -->
+              <div style="text-align: center;">
+                ${publicUrl 
+                  ? `<img src="${publicUrl}" alt="Ticket QR Code" style="width:200px; height:200px; border: 1px solid #ddd; padding: 10px;" />`
+                  : `<p style="color: #ef4444;">QR Code unavailable</p>`
+                }
               </div>
               
-              <!-- QR Code - Using Supabase Storage URL -->
-              <div style="text-align: center; padding: 25px; background: #f8fafc; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-                ${publicUrl 
-                  ? `<img src="${publicUrl}" alt="${ticketType}" style="width:200px; height:200px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />`
-                  : `<p style="color: #ef4444; padding: 50px;">QR Code unavailable</p>`
-                }
-                <p style="color: #64748b; font-size: 11px; margin: 15px 0 0; font-family: monospace; background: #e2e8f0; padding: 8px; border-radius: 4px;">
-                  ${ticket.ticket_id}
-                </p>
-              </div>
+              <p style="color: #94a3b8; font-size: 10px; margin: 15px 0 0; text-align: center; font-family: monospace;">
+                ID: ${ticket.ticket_id}
+              </p>
             </div>
           `;
         });
