@@ -149,84 +149,104 @@ export default async function handler(req, res) {
     for (const [recipientEmail, tickets] of Object.entries(jobsByRecipient)) {
       console.log(`\n--- Processing ${tickets.length} ticket(s) for: ${recipientEmail} ---`);
       
-      // Debug: Log the first ticket's keys to see what columns we have
-      console.log('Available columns in job:', Object.keys(tickets[0]));
-      
       const recipientName = tickets[0].recipient_name || 'Guest';
       const jobIds = tickets.map(t => t.id);
 
       try {
         // Build the combined email with all tickets
-        console.log('Building combined email template with CID attachments...');
+        console.log('Building email with Supabase Storage QR codes...');
         
-        // Build attachments array for CID-based inline images
-        const attachments = [];
-        
-        // Generate HTML for each ticket AND build attachments
-        // Now generates QR codes on-demand if not present in database
+        // Generate QR codes, upload to Supabase Storage, and build HTML
         const ticketBlocksPromises = tickets.map(async (ticket, index) => {
           const ticketType = ticket.ticket_type || 'Event Ticket';
+          let publicUrl = ticket.qr_data || ''; // Check if URL already exists
           
-          // Check for existing QR data, or generate it fresh
-          let qrBase64 = ticket.qr_data || ticket.qr_code_data || '';
-          
-          // If no QR data exists, generate it now from the ticket_id
-          if (!qrBase64 || qrBase64.trim().length === 0) {
-            console.log(`Generating QR code for ticket: ${ticket.ticket_id}`);
+          // If no URL exists (or it's base64), generate and upload QR code
+          if (!publicUrl || !publicUrl.startsWith('http')) {
+            console.log(`Generating & uploading QR for ticket: ${ticket.ticket_id}`);
+            
             try {
-              const qrDataUrl = await QRCode.toDataURL(ticket.ticket_id, {
+              // Generate QR code as Buffer (not base64 string)
+              const qrBuffer = await QRCode.toBuffer(ticket.ticket_id, {
                 width: 256,
                 margin: 1,
                 color: { dark: '#000000', light: '#ffffff' }
               });
-              // Extract Base64 (remove data:image/png;base64, prefix)
-              qrBase64 = qrDataUrl.split(',')[1];
-              console.log(`✅ QR generated for ${ticket.ticket_id}, length: ${qrBase64.length}`);
+              
+              // Create unique filename: ticket-{ticket_id}-{timestamp}.png
+              const timestamp = Date.now();
+              const safeTicketId = ticket.ticket_id.replace(/[^a-zA-Z0-9-_]/g, '_');
+              const filePath = `ticket-${safeTicketId}-${timestamp}.png`;
+              
+              console.log(`Uploading to Supabase Storage: ${filePath}`);
+              
+              // Upload to Supabase Storage bucket 'qr-codes'
+              const { error: uploadError } = await supabase.storage
+                .from('qr-codes')
+                .upload(filePath, qrBuffer, {
+                  contentType: 'image/png',
+                  upsert: false
+                });
+              
+              if (uploadError) {
+                console.error(`❌ Upload failed for ${ticket.ticket_id}:`, uploadError.message);
+                // Fallback: use placeholder or skip
+                publicUrl = '';
+              } else {
+                // Get public URL
+                const { data: urlData } = supabase.storage
+                  .from('qr-codes')
+                  .getPublicUrl(filePath);
+                
+                publicUrl = urlData.publicUrl;
+                console.log(`✅ Uploaded QR code: ${publicUrl}`);
+                
+                // Update tickets table with the permanent URL
+                const { error: updateTicketError } = await supabase
+                  .from('tickets')
+                  .update({ qr_data: publicUrl })
+                  .eq('ticket_id', ticket.ticket_id);
+                
+                if (updateTicketError) {
+                  console.error(`⚠️ Failed to update ticket with URL: ${updateTicketError.message}`);
+                } else {
+                  console.log(`✅ Saved URL to tickets table for ${ticket.ticket_id}`);
+                }
+              }
             } catch (qrErr) {
-              console.error(`❌ QR generation failed for ${ticket.ticket_id}:`, qrErr.message);
-              qrBase64 = '';
+              console.error(`❌ QR generation/upload failed for ${ticket.ticket_id}:`, qrErr.message);
+              publicUrl = '';
             }
-          }
-          
-          // Clean the string
-          const cleanQr = qrBase64.trim();
-          
-          if (cleanQr) {
-            // Add QR code as CID attachment
-            attachments.push({
-              filename: `ticket-qr-${index}.png`,
-              content: Buffer.from(cleanQr, 'base64'),
-              cid: `ticket-qr-${index}`
-            });
-            console.log(`✅ Added CID attachment: ticket-qr-${index}`);
           } else {
-            console.error(`⚠️ WARNING: Could not generate QR for ticket ${ticket.ticket_id}`);
+            console.log(`Using existing QR URL for ${ticket.ticket_id}`);
           }
           
+          // Build HTML block for this ticket
           return `
             <!-- Ticket ${index + 1}: ${ticketType} -->
             <div style="margin-bottom: 30px; padding-bottom: 30px; border-bottom: ${index < tickets.length - 1 ? '2px dashed #e2e8f0' : 'none'};">
               <!-- Ticket Type Header -->
-              <div style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); padding: 12px 16px; border-radius: 8px 8px 0 0; border: 1px solid #e2e8f0; border-bottom: none;">
-                <p style="margin: 0; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Ticket ${index + 1} of ${tickets.length}</p>
-                <h3 style="margin: 4px 0 0; color: #1e293b; font-size: 18px; font-weight: 600;">${ticketType}</h3>
+              <div style="background: linear-gradient(135deg, #1a365d 0%, #2563eb 100%); padding: 15px 20px; border-radius: 8px 8px 0 0;">
+                <p style="margin: 0; color: #93c5fd; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Ticket ${index + 1} of ${tickets.length}</p>
+                <h3 style="margin: 5px 0 0; color: #ffffff; font-size: 20px; font-weight: 700;">${ticketType}</h3>
               </div>
               
-              <!-- QR Code - Using CID reference for Gmail/Outlook compatibility -->
-              <div style="text-align: center; padding: 25px; background: #ffffff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-                <img src="cid:ticket-qr-${index}" alt="Ticket QR Code" style="width:200px; height:200px;" />
-                <p style="color: #94a3b8; font-size: 11px; margin: 12px 0 0; font-family: monospace;">
-                  ID: ${ticket.ticket_id}
+              <!-- QR Code - Using Supabase Storage URL -->
+              <div style="text-align: center; padding: 25px; background: #f8fafc; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
+                ${publicUrl 
+                  ? `<img src="${publicUrl}" alt="${ticketType}" style="width:200px; height:200px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />`
+                  : `<p style="color: #ef4444; padding: 50px;">QR Code unavailable</p>`
+                }
+                <p style="color: #64748b; font-size: 11px; margin: 15px 0 0; font-family: monospace; background: #e2e8f0; padding: 8px; border-radius: 4px;">
+                  ${ticket.ticket_id}
                 </p>
               </div>
             </div>
           `;
         });
         
-        // Wait for all QR codes to be generated
+        // Wait for all QR codes to be generated and uploaded
         const ticketBlocks = (await Promise.all(ticketBlocksPromises)).join('');
-
-        console.log(`Total attachments prepared: ${attachments.length}`);
 
         // Count ticket types for subject line
         const ticketTypes = {};
@@ -243,17 +263,16 @@ export default async function handler(req, res) {
           : `Your ${tickets.length} Tickets are Ready! (${ticketSummary})`;
 
         console.log(`Subject: ${subject}`);
-        console.log('Sending combined email via Resend with CID attachments...');
+        console.log('Sending email via Resend with Storage URLs...');
 
         const emailResult = await resend.emails.send({
           from: 'tickets@gamedaytickets.io',
           to: recipientEmail,
           subject: subject,
-          attachments: attachments,
           html: `
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
               <!-- Header -->
-              <div style="background: linear-gradient(135deg, #1a365d 0%, #2563eb 100%); padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+              <div style="background: linear-gradient(135deg, #0f172a 0%, #1e40af 100%); padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
                 <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
                   🎟️ ${tickets.length === 1 ? 'Your Ticket is Ready!' : `Your ${tickets.length} Tickets are Ready!`}
                 </h1>
@@ -286,11 +305,11 @@ export default async function handler(req, res) {
               </div>
               
               <!-- Footer -->
-              <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
-                <p style="color: #94a3b8; font-size: 12px; margin: 0 0 5px;">
+              <div style="background: #f1f5f9; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+                <p style="color: #64748b; font-size: 12px; margin: 0 0 5px;">
                   ${tickets.length} ticket(s) • Event ID: ${tickets[0].event_id || 'N/A'}
                 </p>
-                <p style="color: #cbd5e1; font-size: 11px; margin: 0;">
+                <p style="color: #94a3b8; font-size: 11px; margin: 0;">
                   GameDay Tickets • Automated Delivery System
                 </p>
               </div>
