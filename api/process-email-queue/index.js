@@ -148,6 +148,9 @@ export default async function handler(req, res) {
     for (const [recipientEmail, tickets] of Object.entries(jobsByRecipient)) {
       console.log(`\n--- Processing ${tickets.length} ticket(s) for: ${recipientEmail} ---`);
       
+      // Debug: Log the first ticket's keys to see what columns we have
+      console.log('Available columns in job:', Object.keys(tickets[0]));
+      
       const recipientName = tickets[0].recipient_name || 'Guest';
       const jobIds = tickets.map(t => t.id);
 
@@ -158,6 +161,17 @@ export default async function handler(req, res) {
         // Generate HTML for each ticket
         const ticketBlocks = tickets.map((ticket, index) => {
           const ticketType = ticket.ticket_type || 'Event Ticket';
+          
+          // Handle both possible column names: qr_code_data OR qr_data
+          const qrData = ticket.qr_code_data || ticket.qr_data || '';
+          
+          // Debug log
+          console.log(`Ticket ${index + 1}: qr_code_data=${ticket.qr_code_data ? 'present' : 'missing'}, qr_data=${ticket.qr_data ? 'present' : 'missing'}, using length: ${qrData.length}`);
+          
+          if (!qrData) {
+            console.error(`⚠️ WARNING: No QR data found for ticket ${ticket.ticket_id}`);
+          }
+          
           return `
             <!-- Ticket ${index + 1}: ${ticketType} -->
             <div style="margin-bottom: 30px; padding-bottom: 30px; border-bottom: ${index < tickets.length - 1 ? '2px dashed #e2e8f0' : 'none'};">
@@ -169,7 +183,7 @@ export default async function handler(req, res) {
               
               <!-- QR Code -->
               <div style="text-align: center; padding: 25px; background: #ffffff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-                <img src="data:image/png;base64,${ticket.qr_code_data}" alt="${ticketType} QR Code" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+                <img src="data:image/png;base64,${qrData}" alt="${ticketType} QR Code" style="width: 200px; height: 200px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
                 <p style="color: #94a3b8; font-size: 11px; margin: 12px 0 0; font-family: monospace;">
                   ID: ${ticket.ticket_id}
                 </p>
