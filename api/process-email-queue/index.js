@@ -100,65 +100,62 @@ export default async function handler(req, res) {
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
-    console.log('🔄 Worker is checking all rows with empty qr_url...');
+    console.log('🔄 Worker starting - fetching jobs to process...');
     
-    // EMERGENCY FIX: Fetch ANY row where qr_url is empty/null AND status is not 'failed'
-    // This catches pending, sent, and completed rows that never got their QR codes
-    console.log('=== EMERGENCY: Fetching rows needing QR codes ===');
+    // SIMPLE APPROACH: Fetch all non-failed jobs, then filter in JavaScript
+    // This avoids complex Supabase query syntax issues
+    console.log('Fetching all non-failed jobs from email_queue...');
     
-    const { data: pendingJobs, error: fetchError } = await supabase
+    const { data: allJobs, error: fetchError } = await supabase
       .from('email_queue')
       .select('*')
       .neq('status', 'failed')
-      .or('qr_url.is.null,qr_url.eq.')
       .order('created_at', { ascending: true })
       .limit(100);
 
     if (fetchError) {
-      console.error('❌ Failed to fetch jobs:', fetchError.message);
-      
-      // Fallback: Try simpler query if the OR fails
-      console.log('Trying fallback query (all non-failed rows)...');
-      const { data: fallbackJobs, error: fallbackError } = await supabase
-        .from('email_queue')
-        .select('*')
-        .neq('status', 'failed')
-        .limit(100);
-      
-      if (fallbackError) {
-        console.error('❌ Fallback query also failed:', fallbackError.message);
-        return sendJSON(res, 500, { 
-          error: 'Database fetch failed',
-          details: fetchError.message 
-        });
-      }
-      
-      // Filter in JS: only rows with empty qr_url
-      const jobsNeedingQR = (fallbackJobs || []).filter(job => !job.qr_url || job.qr_url === '');
-      console.log(`Found ${jobsNeedingQR.length} rows needing QR codes (JS filter)`);
-      
-      if (jobsNeedingQR.length === 0) {
-        console.log('✅ All rows have QR URLs - nothing to process');
-        return sendJSON(res, 200, { processed: 0, message: 'All QR codes generated' });
-      }
-      
-      // Use filtered jobs
-      pendingJobs.length = 0;
-      pendingJobs.push(...jobsNeedingQR);
-    }
-
-    if (!pendingJobs || pendingJobs.length === 0) {
-      console.log('✅ No jobs needing QR codes');
-      return sendJSON(res, 200, { 
-        processed: 0,
-        message: 'Queue is empty or all QR codes generated'
+      console.error('❌ Database fetch failed:', fetchError.message);
+      console.error('Full error:', JSON.stringify(fetchError));
+      return sendJSON(res, 500, { 
+        error: 'Database fetch failed',
+        details: fetchError.message 
       });
     }
 
-    console.log(`📧 Found ${pendingJobs.length} job(s) needing QR codes, grouping by recipient...`);
+    console.log(`📊 Total rows fetched: ${allJobs?.length || 0}`);
     
-    // Log sample row for debugging
-    console.log('Sample row:', JSON.stringify(pendingJobs[0], null, 2));
+    if (!allJobs || allJobs.length === 0) {
+      console.log('⚠️ email_queue table is empty or all jobs have failed');
+      return sendJSON(res, 200, { 
+        processed: 0,
+        message: 'No jobs in queue'
+      });
+    }
+
+    // Log what we got from the database
+    console.log('First row columns:', Object.keys(allJobs[0]));
+    console.log('First row sample:', JSON.stringify(allJobs[0], null, 2));
+
+    // Filter to find jobs that need processing:
+    // 1. Status is 'pending' (never sent)
+    // 2. OR qr_url is empty/null (needs QR code generated)
+    const pendingJobs = allJobs.filter(job => {
+      const needsProcessing = job.status === 'pending';
+      const needsQR = !job.qr_url || job.qr_url === '' || job.qr_url === null;
+      return needsProcessing || needsQR;
+    });
+
+    console.log(`📧 Jobs needing processing: ${pendingJobs.length} (out of ${allJobs.length} total)`);
+
+    if (pendingJobs.length === 0) {
+      console.log('✅ All jobs are completed with QR codes');
+      return sendJSON(res, 200, { 
+        processed: 0,
+        message: 'All jobs completed'
+      });
+    }
+
+    console.log(`Processing ${pendingJobs.length} job(s), grouping by recipient...`);
 
     // Group jobs by recipient email
     const jobsByRecipient = {};
@@ -306,10 +303,11 @@ export default async function handler(req, res) {
           : `Your ${tickets.length} Tickets are Ready! (${ticketSummary})`;
 
         console.log(`Subject: ${subject}`);
-        console.log('Sending email via Resend with Storage URLs...');
+        console.log(`Sending email to: ${recipientEmail}`);
+        console.log('Resend API Key present:', !!process.env.RESEND_API_KEY);
 
         const emailResult = await resend.emails.send({
-          from: 'tickets@gamedaytickets.io',
+          from: 'GameDay Tickets <tickets@gamedaytickets.io>',
           to: recipientEmail,
           subject: subject,
           html: `
@@ -360,7 +358,13 @@ export default async function handler(req, res) {
           `
         });
 
-        console.log(`✅ Combined email sent successfully (Resend ID: ${emailResult.id})`);
+        console.log('📧 Resend response:', JSON.stringify(emailResult));
+        
+        if (emailResult.error) {
+          throw new Error(`Resend error: ${emailResult.error.message || JSON.stringify(emailResult.error)}`);
+        }
+        
+        console.log(`✅ Email sent successfully! Resend ID: ${emailResult.data?.id || emailResult.id || 'unknown'}`);
 
         // CRITICAL: Bulk update ALL jobs for this recipient as completed
         const { error: updateError } = await supabase
