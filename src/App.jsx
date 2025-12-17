@@ -58,8 +58,8 @@ function LandingPage() {
 function EventPage() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [admissionQuantity, setAdmissionQuantity] = useState(1)
-  const [parkingQuantity, setParkingQuantity] = useState(1)
+  const [admissionQuantity, setAdmissionQuantity] = useState(0)
+  const [parkingQuantity, setParkingQuantity] = useState(0)
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
