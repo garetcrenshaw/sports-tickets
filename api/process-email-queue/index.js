@@ -162,13 +162,16 @@ export default async function handler(req, res) {
         const ticketBlocks = tickets.map((ticket, index) => {
           const ticketType = ticket.ticket_type || 'Event Ticket';
           
-          // Handle both possible column names: qr_code_data OR qr_data
-          const qrData = ticket.qr_code_data || ticket.qr_data || '';
+          // Handle both possible column names: qr_data OR qr_code_data
+          const qrBase64 = ticket.qr_data || ticket.qr_code_data || '';
+          
+          // Clean the string - remove any whitespace
+          const cleanQr = qrBase64.trim();
           
           // Debug log
-          console.log(`Ticket ${index + 1}: qr_code_data=${ticket.qr_code_data ? 'present' : 'missing'}, qr_data=${ticket.qr_data ? 'present' : 'missing'}, using length: ${qrData.length}`);
+          console.log(`Ticket ${index + 1}: qr_data=${ticket.qr_data ? 'present' : 'missing'}, qr_code_data=${ticket.qr_code_data ? 'present' : 'missing'}, cleanQr length: ${cleanQr.length}`);
           
-          if (!qrData) {
+          if (!cleanQr) {
             console.error(`⚠️ WARNING: No QR data found for ticket ${ticket.ticket_id}`);
           }
           
@@ -183,7 +186,7 @@ export default async function handler(req, res) {
               
               <!-- QR Code -->
               <div style="text-align: center; padding: 25px; background: #ffffff; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-                <img src="data:image/png;base64,${qrData}" alt="${ticketType} QR Code" style="width: 200px; height: 200px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+                <img src="data:image/png;base64,${cleanQr}" alt="Ticket QR Code" style="width:200px; height:200px;" />
                 <p style="color: #94a3b8; font-size: 11px; margin: 12px 0 0; font-family: monospace;">
                   ID: ${ticket.ticket_id}
                 </p>
