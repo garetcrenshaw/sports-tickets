@@ -12,7 +12,11 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!api).*)",
+      "source": "/scan",
+      "destination": "/scan.html"
+    },
+    {
+      "source": "/((?!api|scan).*)",
       "destination": "/index.html"
     }
   ]

@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0f172a">
+  <title>🎟️ Ticket Scanner</title>
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/scanner-manifest.json">
+  
+  <!-- QR Scanner Library -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --accent-blue: #3b82f6;
+      --success-green: #22c55e;
+      --error-red: #ef4444;
+      --warning-yellow: #eab308;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 20px;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .header .event-name {
+      color: var(--accent-blue);
+      font-size: 1rem;
+    }
+
+    .header .scanner-name {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    /* PIN Screen */
+    .pin-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .pin-screen h2 {
+      font-size: 1.8rem;
+      margin-bottom: 10px;
+    }
+
+    .pin-screen p {
+      color: var(--text-secondary);
+      margin-bottom: 40px;
+    }
+
+    .pin-display {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 40px;
+    }
+
+    .pin-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--bg-secondary);
+      border: 2px solid var(--text-secondary);
+      transition: all 0.2s;
+    }
+
+    .pin-dot.filled {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+    }
+
+    .pin-dot.error {
+      background: var(--error-red);
+      border-color: var(--error-red);
+      animation: shake 0.5s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      max-width: 280px;
+    }
+
+    .key {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: none;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 1.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .key:active {
+      transform: scale(0.95);
+      background: var(--accent-blue);
+    }
+
+    .key.delete {
+      font-size: 1.2rem;
+    }
+
+    .key.empty {
+      visibility: hidden;
+    }
+
+    /* Scanner Screen */
+    .scanner-screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+    }
+
+    .scanner-screen.active {
+      display: flex;
+    }
+
+    #qr-reader {
+      width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--bg-secondary);
+    }
+
+    #qr-reader video {
+      border-radius: 16px;
+    }
+
+    .scan-overlay {
+      position: relative;
+      margin-top: -60px;
+      text-align: center;
+      z-index: 10;
+    }
+
+    .scan-hint {
+      background: rgba(15, 23, 42, 0.9);
+      padding: 12px 24px;
+      border-radius: 30px;
+      display: inline-block;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    /* Result Display */
+    .result-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      padding: 20px;
+    }
+
+    .result-overlay.show {
+      display: flex;
+    }
+
+    .result-card {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 24px;
+      padding: 40px 30px;
+      text-align: center;
+      animation: popIn 0.3s ease-out;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .result-card.valid {
+      background: linear-gradient(135deg, #166534 0%, #15803d 100%);
+    }
+
+    .result-card.invalid {
+      background: linear-gradient(135deg, #991b1b 0%, #b91c1c 100%);
+    }
+
+    .result-card.warning {
+      background: linear-gradient(135deg, #854d0e 0%, #a16207 100%);
+    }
+
+    .result-icon {
+      font-size: 5rem;
+      margin-bottom: 20px;
+    }
+
+    .result-status {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .result-message {
+      font-size: 1.1rem;
+      opacity: 0.9;
+      margin-bottom: 20px;
+    }
+
+    .result-details {
+      background: rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 25px;
+    }
+
+    .result-details p {
+      margin: 5px 0;
+      font-size: 0.95rem;
+    }
+
+    .result-details strong {
+      font-weight: 600;
+    }
+
+    .dismiss-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      padding: 15px 40px;
+      border-radius: 30px;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .dismiss-btn:active {
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: flex;
+      justify-content: space-around;
+      padding: 15px;
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      margin-top: 15px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .stat-value.green { color: var(--success-green); }
+    .stat-value.red { color: var(--error-red); }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    /* Logout Button */
+    .logout-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: var(--bg-secondary);
+      border: none;
+      padding: 10px 15px;
+      border-radius: 8px;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    /* Loading */
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Hide pin-screen when scanner is active */
+    .pin-screen.hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header (shown when authenticated) -->
+    <div class="header" id="header" style="display: none;">
+      <h1>🎟️ Ticket Scanner</h1>
+      <div class="event-name" id="eventName">Event Name</div>
+      <div class="scanner-name" id="scannerName">Main Gate</div>
+      <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- PIN Entry Screen -->
+    <div class="pin-screen" id="pinScreen">
+      <h2>🔐 Enter PIN</h2>
+      <p>Enter your 4-digit scanner PIN</p>
+      
+      <div class="pin-display" id="pinDisplay">
+        <div class="pin-dot"></div>
+        <div class="pin-dot"></div>
+        <div class="pin-dot"></div>
+        <div class="pin-dot"></div>
+      </div>
+
+      <div class="keypad">
+        <button class="key" onclick="addDigit('1')">1</button>
+        <button class="key" onclick="addDigit('2')">2</button>
+        <button class="key" onclick="addDigit('3')">3</button>
+        <button class="key" onclick="addDigit('4')">4</button>
+        <button class="key" onclick="addDigit('5')">5</button>
+        <button class="key" onclick="addDigit('6')">6</button>
+        <button class="key" onclick="addDigit('7')">7</button>
+        <button class="key" onclick="addDigit('8')">8</button>
+        <button class="key" onclick="addDigit('9')">9</button>
+        <button class="key empty"></button>
+        <button class="key" onclick="addDigit('0')">0</button>
+        <button class="key delete" onclick="deleteDigit()">⌫</button>
+      </div>
+    </div>
+
+    <!-- Scanner Screen -->
+    <div class="scanner-screen" id="scannerScreen">
+      <div id="qr-reader"></div>
+      <div class="scan-overlay">
+        <div class="scan-hint">📷 Point camera at QR code</div>
+      </div>
+      
+      <div class="stats-bar">
+        <div class="stat">
+          <div class="stat-value green" id="admittedCount">0</div>
+          <div class="stat-label">Admitted</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value red" id="rejectedCount">0</div>
+          <div class="stat-label">Rejected</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="totalScans">0</div>
+          <div class="stat-label">Total Scans</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Overlay -->
+  <div class="result-overlay" id="resultOverlay">
+    <div class="result-card" id="resultCard">
+      <div class="result-icon" id="resultIcon">✅</div>
+      <div class="result-status" id="resultStatus">ADMITTED</div>
+      <div class="result-message" id="resultMessage">Welcome! Enjoy the event.</div>
+      <div class="result-details" id="resultDetails">
+        <p><strong>Ticket:</strong> <span id="ticketType">General Admission</span></p>
+        <p><strong>Guest:</strong> <span id="guestName">John Smith</span></p>
+      </div>
+      <button class="dismiss-btn" onclick="dismissResult()">Scan Next</button>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let pin = '';
+    let eventId = '';
+    let eventName = '';
+    let scannerName = '';
+    let html5QrCode = null;
+    let isScanning = false;
+    let stats = { admitted: 0, rejected: 0, total: 0 };
+
+    // PIN Entry
+    function addDigit(digit) {
+      if (pin.length >= 4) return;
+      pin += digit;
+      updatePinDisplay();
+      vibrate(10);
+      
+      if (pin.length === 4) {
+        validatePin();
+      }
+    }
+
+    function deleteDigit() {
+      pin = pin.slice(0, -1);
+      updatePinDisplay();
+      vibrate(10);
+    }
+
+    function updatePinDisplay() {
+      const dots = document.querySelectorAll('.pin-dot');
+      dots.forEach((dot, i) => {
+        dot.classList.remove('filled', 'error');
+        if (i < pin.length) {
+          dot.classList.add('filled');
+        }
+      });
+    }
+
+    function showPinError() {
+      const dots = document.querySelectorAll('.pin-dot');
+      dots.forEach(dot => dot.classList.add('error'));
+      vibrate([100, 50, 100]);
+      setTimeout(() => {
+        pin = '';
+        updatePinDisplay();
+      }, 500);
+    }
+
+    // Validate PIN with server
+    async function validatePin() {
+      try {
+        const response = await fetch('/api/validate-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+
+        const data = await response.json();
+
+        if (data.valid) {
+          eventId = data.event_id;
+          eventName = data.event_name;
+          scannerName = data.scanner_name;
+          vibrate([50, 30, 50]);
+          startScanner();
+        } else {
+          showPinError();
+        }
+      } catch (err) {
+        console.error('PIN validation error:', err);
+        showPinError();
+      }
+    }
+
+    // Start QR Scanner
+    function startScanner() {
+      document.getElementById('pinScreen').classList.add('hidden');
+      document.getElementById('scannerScreen').classList.add('active');
+      document.getElementById('header').style.display = 'block';
+      document.getElementById('eventName').textContent = eventName;
+      document.getElementById('scannerName').textContent = scannerName;
+
+      html5QrCode = new Html5Qrcode("qr-reader");
+      
+      html5QrCode.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1.0
+        },
+        onScanSuccess,
+        onScanError
+      ).catch(err => {
+        console.error('Camera error:', err);
+        alert('Could not access camera. Please allow camera permissions.');
+      });
+    }
+
+    // Handle successful QR scan
+    async function onScanSuccess(decodedText, decodedResult) {
+      if (isScanning) return; // Prevent double-scans
+      isScanning = true;
+      
+      // Pause scanner while processing
+      html5QrCode.pause();
+      
+      try {
+        const response = await fetch('/api/scan-ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ticket_id: decodedText,
+            pin: pin,
+            event_id: eventId
+          })
+        });
+
+        const data = await response.json();
+        showResult(data);
+        updateStats(data.valid);
+        
+      } catch (err) {
+        console.error('Scan error:', err);
+        showResult({
+          valid: false,
+          status: 'error',
+          message: 'Connection error. Try again.'
+        });
+      }
+    }
+
+    function onScanError(error) {
+      // Ignore scan errors (just means no QR found in frame)
+    }
+
+    // Show scan result
+    function showResult(data) {
+      const overlay = document.getElementById('resultOverlay');
+      const card = document.getElementById('resultCard');
+      const icon = document.getElementById('resultIcon');
+      const status = document.getElementById('resultStatus');
+      const message = document.getElementById('resultMessage');
+      const details = document.getElementById('resultDetails');
+
+      // Clear previous classes
+      card.classList.remove('valid', 'invalid', 'warning');
+
+      if (data.valid) {
+        // VALID - Green
+        card.classList.add('valid');
+        icon.textContent = '✅';
+        status.textContent = 'ADMITTED';
+        message.textContent = data.message || 'Welcome!';
+        vibrate([100, 50, 100, 50, 100]); // Success pattern
+        
+        details.innerHTML = `
+          <p><strong>Ticket:</strong> ${data.ticket_type || 'General'}</p>
+          <p><strong>Guest:</strong> ${data.buyer_name || 'Guest'}</p>
+        `;
+      } else if (data.status === 'already_used') {
+        // ALREADY USED - Red
+        card.classList.add('invalid');
+        icon.textContent = '🚫';
+        status.textContent = 'ALREADY USED';
+        message.textContent = 'This ticket was already scanned';
+        vibrate([300, 100, 300]); // Error pattern
+        
+        const scannedTime = data.scanned_at ? new Date(data.scanned_at).toLocaleTimeString() : 'Earlier';
+        details.innerHTML = `
+          <p><strong>Ticket:</strong> ${data.ticket_type || 'Unknown'}</p>
+          <p><strong>Guest:</strong> ${data.buyer_name || 'Unknown'}</p>
+          <p><strong>Scanned:</strong> ${scannedTime}</p>
+          <p><strong>By:</strong> ${data.scanned_by || 'Unknown'}</p>
+        `;
+      } else if (data.status === 'wrong_event') {
+        // WRONG EVENT - Yellow/Warning
+        card.classList.add('warning');
+        icon.textContent = '⚠️';
+        status.textContent = 'WRONG EVENT';
+        message.textContent = 'This ticket is for a different event';
+        vibrate([200, 100, 200]);
+        
+        details.innerHTML = `<p>This ticket cannot be used here.</p>`;
+      } else {
+        // INVALID - Red
+        card.classList.add('invalid');
+        icon.textContent = '❌';
+        status.textContent = 'INVALID';
+        message.textContent = data.message || 'Ticket not recognized';
+        vibrate([300, 100, 300]);
+        
+        details.innerHTML = `<p>This QR code is not a valid ticket.</p>`;
+      }
+
+      overlay.classList.add('show');
+    }
+
+    function dismissResult() {
+      document.getElementById('resultOverlay').classList.remove('show');
+      isScanning = false;
+      
+      // Resume scanner
+      if (html5QrCode) {
+        html5QrCode.resume();
+      }
+    }
+
+    // Update stats display
+    function updateStats(wasValid) {
+      stats.total++;
+      if (wasValid) {
+        stats.admitted++;
+      } else {
+        stats.rejected++;
+      }
+      
+      document.getElementById('admittedCount').textContent = stats.admitted;
+      document.getElementById('rejectedCount').textContent = stats.rejected;
+      document.getElementById('totalScans').textContent = stats.total;
+    }
+
+    // Vibration helper
+    function vibrate(pattern) {
+      if ('vibrate' in navigator) {
+        navigator.vibrate(pattern);
+      }
+    }
+
+    // Logout
+    function logout() {
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          html5QrCode = null;
+        }).catch(err => console.error(err));
+      }
+      
+      pin = '';
+      eventId = '';
+      eventName = '';
+      stats = { admitted: 0, rejected: 0, total: 0 };
+      
+      document.getElementById('header').style.display = 'none';
+      document.getElementById('scannerScreen').classList.remove('active');
+      document.getElementById('pinScreen').classList.remove('hidden');
+      updatePinDisplay();
+    }
+
+    // Handle keyboard input (for testing on desktop)
+    document.addEventListener('keydown', (e) => {
+      if (document.getElementById('pinScreen').classList.contains('hidden')) return;
+      
+      if (e.key >= '0' && e.key <= '9') {
+        addDigit(e.key);
+      } else if (e.key === 'Backspace') {
+        deleteDigit();
+      }
+    });
+
+    // Dismiss result on any tap outside card
+    document.getElementById('resultOverlay').addEventListener('click', (e) => {
+      if (e.target.id === 'resultOverlay') {
+        dismissResult();
+      }
+    });
+  </script>
+</body>
+</html>
+
