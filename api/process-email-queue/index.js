@@ -261,7 +261,17 @@ export default async function handler(req, res) {
           
           // Build HTML block for this ticket (Header + QR Image)
           // Color-code: Parking = Orange (#f97316), Admissions = Blue (#2563eb)
-          const isParking = ticketType.toLowerCase().includes('parking');
+          const ticketTypeLower = ticketType.toLowerCase();
+          const ticketIdLower = (ticket.ticket_id || '').toLowerCase();
+          // Check both ticket_type AND ticket_id for parking keywords
+          const isParking = ticketTypeLower.includes('parking') || 
+                           ticketTypeLower.includes('park') ||
+                           ticketTypeLower.includes('garage') ||
+                           ticketTypeLower.includes('lot') ||
+                           ticketIdLower.includes('parking');
+          
+          console.log(`🎨 Ticket color check: type="${ticketType}", isParking=${isParking}`);
+          
           const accentColor = isParking ? '#f97316' : '#2563eb';
           const bgGradient = isParking 
             ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' 
