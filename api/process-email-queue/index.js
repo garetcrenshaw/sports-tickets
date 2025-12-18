@@ -260,26 +260,37 @@ export default async function handler(req, res) {
           }
           
           // Build HTML block for this ticket (Header + QR Image)
+          // Color-code: Parking = Orange (#f97316), Admissions = Blue (#2563eb)
+          const isParking = ticketType.toLowerCase().includes('parking');
+          const accentColor = isParking ? '#f97316' : '#2563eb';
+          const bgGradient = isParking 
+            ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' 
+            : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)';
+          const iconEmoji = isParking ? '🚗' : '🎟️';
+          
           return `
             <!-- Ticket ${index + 1}: ${ticketType} -->
-            <div style="margin-bottom: 30px; padding: 20px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <div style="margin-bottom: 30px; padding: 20px; background: ${bgGradient}; border: 2px solid ${accentColor}; border-radius: 16px;">
               <!-- Ticket Type Header -->
-              <h3 style="margin: 0 0 15px 0; color: #1e293b; font-size: 18px; font-weight: 600; border-bottom: 2px solid #2563eb; padding-bottom: 10px;">
-                ${ticketType}
-              </h3>
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding-bottom: 12px; border-bottom: 2px solid ${accentColor};">
+                <span style="font-size: 24px;">${iconEmoji}</span>
+                <h3 style="margin: 0; color: #1e293b; font-size: 18px; font-weight: 700;">
+                  ${ticketType}
+                </h3>
+              </div>
               <p style="margin: 0 0 15px 0; color: #64748b; font-size: 12px;">
                 Ticket ${index + 1} of ${tickets.length}
               </p>
               
               <!-- QR Code Image -->
-              <div style="text-align: center;">
+              <div style="text-align: center; background: white; padding: 15px; border-radius: 12px;">
                 ${publicUrl 
-                  ? `<img src="${publicUrl}" alt="Ticket QR Code" style="width:200px; height:200px; border: 1px solid #ddd; padding: 10px;" />`
+                  ? `<img src="${publicUrl}" alt="Ticket QR Code" style="width:200px; height:200px;" />`
                   : `<p style="color: #ef4444;">QR Code unavailable</p>`
                 }
               </div>
               
-              <p style="color: #94a3b8; font-size: 10px; margin: 15px 0 0; text-align: center; font-family: monospace;">
+              <p style="color: #64748b; font-size: 10px; margin: 15px 0 0; text-align: center; font-family: monospace;">
                 ID: ${ticket.ticket_id}
               </p>
             </div>

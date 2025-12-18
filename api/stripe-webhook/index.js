@@ -170,7 +170,35 @@ async function processCheckoutSession(session) {
     console.error('❌ Email queue error:', emailResult.error.message);
   } else {
     console.log(`✅ ${emailRecords.length} email jobs queued`);
+    
+    // IMMEDIATE EMAIL TRIGGER - Don't wait for cron!
+    // Fire and forget - we don't await this
+    triggerEmailWorker().catch(err => {
+      console.log('⚠️ Immediate email trigger failed (cron will retry):', err.message);
+    });
   }
 
   console.log('=== BACKGROUND PROCESSING COMPLETE ===');
+}
+
+// Trigger the email worker immediately (fire and forget)
+async function triggerEmailWorker() {
+  const workerUrl = process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}/api/process-email-queue`
+    : 'https://sports-tickets.vercel.app/api/process-email-queue';
+  
+  console.log('🚀 Triggering immediate email delivery...');
+  
+  const response = await fetch(workerUrl, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${process.env.CRON_SECRET}`
+    }
+  });
+  
+  if (response.ok) {
+    console.log('✅ Email worker triggered successfully');
+  } else {
+    console.log('⚠️ Email worker returned:', response.status);
+  }
 }
