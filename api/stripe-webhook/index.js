@@ -111,7 +111,19 @@ async function processCheckoutSession(session) {
   const ticketRecords = [];
   const emailRecords = [];
 
-  for (const item of lineItems.data) {
+  // Sort line items to process PARKING first, then ADMISSION
+  // This ensures parking QR codes are sent before admission QR codes
+  const sortedLineItems = [...lineItems.data].sort((a, b) => {
+    const aType = (a.description || a.price?.product?.name || '').toLowerCase();
+    const bType = (b.description || b.price?.product?.name || '').toLowerCase();
+    
+    // Parking comes first (returns -1 if a is parking)
+    if (aType.includes('parking') && !bType.includes('parking')) return -1;
+    if (!aType.includes('parking') && bType.includes('parking')) return 1;
+    return 0; // Keep original order for same type
+  });
+
+  for (const item of sortedLineItems) {
     const ticketType = item.description || item.price?.product?.name || 'General Admission';
     const quantity = item.quantity || 1;
 

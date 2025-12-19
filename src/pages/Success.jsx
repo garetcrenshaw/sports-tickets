@@ -278,7 +278,6 @@ export default function Success() {
           <li>Show the green Gameday Tickets QR at the arena entrance</li>
           <li>Show the orange "Gameday Parking – Valid All Day" QR when you roll into the lot</li>
           <li>Each QR code is unique and can only be scanned once</li>
-          <li>Doors open at 6:00 PM — arrive early, skip the rush</li>
         </ul>
       </div>
 
