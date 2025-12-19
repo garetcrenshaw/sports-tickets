@@ -23,22 +23,40 @@ export default async function handler(req, res) {
   try {
     const { name, email, eventId, admissionQuantity, parkingQuantity } = req.body || {};
 
-    console.log('CREATE-CHECKOUT: Processing order', { name, email, admissionQuantity, parkingQuantity });
+    console.log('CREATE-CHECKOUT: Processing order', { name, email, eventId, admissionQuantity, parkingQuantity });
+
+    // Map eventId to the correct Stripe Price IDs
+    const eventPricing = {
+      1: {
+        admission: process.env.GA_PRICE_ID,
+        parking: process.env.PARKING_PRICE_ID,
+      },
+      2: {
+        admission: null, // Sportsplex Showdown has no admission
+        parking: process.env.SPORTSPLEX_SHOWDOWN_PARKING_PRICE_ID,
+      },
+      3: {
+        admission: process.env.SPORTSPLEX_EVENT_ADMISSION_PRICE_ID,
+        parking: null, // Sportsplex Event has no parking
+      },
+    };
+
+    const pricing = eventPricing[eventId] || eventPricing[1]; // Default to Event 1
 
     const lineItems = [];
 
-    // Add admission tickets
-    if (admissionQuantity > 0) {
+    // Add admission tickets (only if this event has admission and quantity > 0)
+    if (admissionQuantity > 0 && pricing.admission) {
       lineItems.push({
-        price: process.env.GA_PRICE_ID,
+        price: pricing.admission,
         quantity: admissionQuantity,
       });
     }
 
-    // Add parking passes
-    if (parkingQuantity > 0) {
+    // Add parking passes (only if this event has parking and quantity > 0)
+    if (parkingQuantity > 0 && pricing.parking) {
       lineItems.push({
-        price: process.env.PARKING_PRICE_ID,
+        price: pricing.parking,
         quantity: parkingQuantity,
       });
     }

@@ -47,7 +47,7 @@ export default function Cancel() {
         </p>
 
         <Link
-          to="/tickets"
+          to="/events"
           style={{
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
@@ -61,7 +61,7 @@ export default function Cancel() {
           onMouseEnter={(e) => e.target.style.transform = 'translateY(-2px)'}
           onMouseLeave={(e) => e.target.style.transform = 'transform: none'}
         >
-          Try Again
+          Browse Events
         </Link>
       </div>
     </div>

@@ -1,0 +1,23 @@
+# Your Stripe Price IDs - SAVE THIS FILE!
+
+Created: December 18, 2025
+
+## Event 1: Gameday Empire Showcase (Full Bundle)
+GA_PRICE_ID=(your existing admission price ID - check .env.local)
+PARKING_PRICE_ID=(your existing parking price ID - check .env.local)
+
+## Event 2: Sportsplex Showdown (Parking Only)
+SPORTSPLEX_SHOWDOWN_PARKING_PRICE_ID=price_1SfsiJRzFa5vaG1DgAUFvTSB
+
+## Event 3: Sportsplex Event (Admission Only)  
+SPORTSPLEX_EVENT_ADMISSION_PRICE_ID=price_1SfsijRzFa5vaG1DU0iBJWL9
+
+---
+
+## Add to Vercel:
+vercel env add SPORTSPLEX_SHOWDOWN_PARKING_PRICE_ID production
+# Paste: price_1SfsiJRzFa5vaG1DgAUFvTSB
+
+vercel env add SPORTSPLEX_EVENT_ADMISSION_PRICE_ID production
+# Paste: price_1SfsijRzFa5vaG1DU0iBJWL9
+

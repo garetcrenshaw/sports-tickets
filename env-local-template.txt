@@ -21,8 +21,15 @@ RESEND_API_KEY=re_test_your_resend_api_key_here
 CRON_SECRET=your_random_32_char_secret_here
 
 # Stripe Price IDs
+# Event 1 - Original Event (Admission + Parking)
 GA_PRICE_ID=price_your_ga_price_id
 PARKING_PRICE_ID=price_your_parking_price_id
+
+# Event 2 - Sportsplex Showdown (Parking Only)
+SPORTSPLEX_SHOWDOWN_PARKING_PRICE_ID=price_your_sportsplex_showdown_parking_id
+
+# Event 3 - Sportsplex Event (Admission Only)
+SPORTSPLEX_EVENT_ADMISSION_PRICE_ID=price_your_sportsplex_event_admission_id
 
 # Validation Password
 VALIDATE_PASSWORD=gameday2024

@@ -183,22 +183,26 @@ async function processCheckoutSession(session) {
 
 // Trigger the email worker immediately (fire and forget)
 async function triggerEmailWorker() {
-  const workerUrl = process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}/api/process-email-queue`
-    : 'https://sports-tickets.vercel.app/api/process-email-queue';
+  // Use production URL directly for immediate trigger
+  const workerUrl = 'https://sports-tickets-3jl0surpr-garetcrenshaw-9092s-projects.vercel.app/api/process-email-queue';
   
-  console.log('🚀 Triggering immediate email delivery...');
+  console.log('🚀 Triggering immediate email delivery at:', workerUrl);
   
-  const response = await fetch(workerUrl, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${process.env.CRON_SECRET}`
+  try {
+    const response = await fetch(workerUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${process.env.CRON_SECRET}`
+      },
+      timeout: 2000 // Don't wait too long
+    });
+    
+    if (response.ok) {
+      console.log('✅ Email worker triggered successfully');
+    } else {
+      console.log('⚠️ Email worker returned:', response.status);
     }
-  });
-  
-  if (response.ok) {
-    console.log('✅ Email worker triggered successfully');
-  } else {
-    console.log('⚠️ Email worker returned:', response.status);
+  } catch (err) {
+    console.log('⚠️ Email trigger error (cron will retry):', err.message);
   }
 }
