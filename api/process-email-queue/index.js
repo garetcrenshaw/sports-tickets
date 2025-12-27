@@ -93,6 +93,15 @@ export default async function handler(req, res) {
     });
   }
 
+  // Validate RESEND_API_KEY before initializing
+  if (!process.env.RESEND_API_KEY) {
+    console.error('❌ RESEND_API_KEY not configured in environment');
+    return sendJSON(res, 500, { 
+      error: 'RESEND_API_KEY environment variable not set',
+      message: 'Email service is not configured'
+    });
+  }
+
   // Initialize clients
   const supabase = createClient(
     process.env.SUPABASE_URL,
