@@ -13,27 +13,55 @@ export const config = {
 let stripe;
 
 export default async function handler(req, res) {
+  // Log immediately to confirm function is being called
+  console.log('🚀 WEBHOOK HANDLER CALLED -', new Date().toISOString());
+  console.log('Request method:', req.method);
+  console.log('Request headers:', Object.keys(req.headers));
+  
   // Top-level error handler to catch any unhandled errors
   try {
-    return await handleWebhook(req, res);
+    const result = await handleWebhook(req, res);
+    console.log('✅ Webhook handler completed successfully');
+    return result;
   } catch (error) {
-    console.error('❌ Unhandled webhook error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message || 'An unexpected error occurred'
-    });
+    console.error('❌ CRITICAL: Unhandled webhook error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    
+    // Make sure we return a response even if there's an error
+    try {
+      return res.status(500).json({ 
+        error: 'Internal server error',
+        message: error.message || 'An unexpected error occurred',
+        type: error.name || 'UnknownError'
+      });
+    } catch (responseError) {
+      // If we can't even send a response, log it
+      console.error('❌ CRITICAL: Could not send error response:', responseError);
+    }
   }
 }
 
 async function handleWebhook(req, res) {
-  console.log('=== WEBHOOK v2.0 - FAST RESPONSE ===');
+  console.log('=== WEBHOOK HANDLER START ===');
+  console.log('Timestamp:', new Date().toISOString());
+  
+  // Safety check - ensure req and res exist
+  if (!req || !res) {
+    console.error('❌ CRITICAL: req or res is undefined');
+    throw new Error('Invalid request/response objects');
+  }
   
   // Quick env check with detailed logging
+  console.log('Checking environment variables...');
   const missingVars = [];
   if (!process.env.STRIPE_SECRET_KEY) missingVars.push('STRIPE_SECRET_KEY');
   if (!process.env.STRIPE_WEBHOOK_SECRET) missingVars.push('STRIPE_WEBHOOK_SECRET');
   if (!process.env.SUPABASE_URL) missingVars.push('SUPABASE_URL');
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missingVars.push('SUPABASE_SERVICE_ROLE_KEY');
+  
+  console.log('Environment check complete. Missing vars:', missingVars.length);
   
   if (missingVars.length > 0) {
     console.error('❌ Missing environment variables:', missingVars.join(', '));
