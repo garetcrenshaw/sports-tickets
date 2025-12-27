@@ -1755,20 +1755,82 @@ html {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Portal Search
+   Portal Events Header (matching main events page)
    ───────────────────────────────────────────────────────────────────────────── */
+
+.portal-events-header {
+  text-align: center;
+  padding: 40px 24px;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+.portal-events-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: transparent;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+  border-radius: 100px;
+  color: var(--accent-light);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+
+.portal-events-badge__dot {
+  width: 8px;
+  height: 8px;
+  background: var(--portal-primary, var(--accent));
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 12px var(--portal-primary, var(--accent-glow));
+}
+
+.portal-events-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  font-weight: 400;
+  color: white;
+  margin: 0 0 16px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.portal-events-subtitle {
+  font-size: 1.15rem;
+  color: var(--white-muted);
+  margin: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Portal Filters (matching main events page)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.portal-filters {
+  max-width: 1300px;
+  margin: 0 auto 56px;
+  padding: 0 24px;
+}
 
 .portal-search {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin: 24px auto;
-  max-width: 600px;
-  width: calc(100% - 48px);
+  gap: 18px;
+  padding: 18px 28px;
+  background: var(--black-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  margin-bottom: 24px;
+  transition: var(--transition-fast);
+}
+
+.portal-search:focus-within {
+  border-color: var(--portal-primary, var(--accent));
 }
 
 .portal-search svg {
@@ -1790,8 +1852,197 @@ html {
   color: var(--white-muted);
 }
 
+.portal-filter-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.portal-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.portal-filter-group label {
+  font-size: 0.85rem;
+  color: var(--white-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.portal-filter-group select {
+  padding: 14px 24px;
+  background: var(--black-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  color: white;
+  font-size: 1rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.portal-filter-group select:focus {
+  outline: none;
+  border-color: var(--portal-primary, var(--accent));
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
-   Portal Events List
+   Portal Events Grid (matching main events page card-based layout)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.portal-events-grid {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0 24px 100px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 28px;
+}
+
+.portal-event-card {
+  background: var(--black-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 28px;
+  padding: 32px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.portal-event-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--portal-primary, var(--accent)), var(--portal-accent, var(--secondary)));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.5s ease;
+}
+
+.portal-event-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--portal-primary, rgba(249, 115, 22, 0.25));
+  box-shadow: 
+    0 30px 60px rgba(0, 0, 0, 0.4),
+    0 0 40px var(--portal-primary, rgba(249, 115, 22, 0.08));
+}
+
+.portal-event-card:hover::before {
+  transform: scaleX(1);
+}
+
+.portal-event-card__category {
+  display: inline-block;
+  padding: 8px 18px;
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  border-radius: 100px;
+  color: var(--accent-light);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 20px;
+}
+
+.portal-event-card__name {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: white;
+  margin: 0 0 20px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.portal-event-card__details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.portal-event-card__date {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--white-muted);
+  font-size: 0.9rem;
+}
+
+.portal-event-card__date svg {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.portal-event-card__venue {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.9rem;
+  margin-bottom: 24px;
+}
+
+.portal-event-card__venue svg {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.portal-event-card__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.portal-event-card__cta {
+  color: var(--portal-primary, var(--accent));
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: transform 0.3s ease;
+}
+
+.portal-event-card:hover .portal-event-card__cta {
+  transform: translateX(8px);
+}
+
+/* Empty state */
+.portal-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 80px 24px;
+  color: var(--white-muted);
+}
+
+.portal-empty button {
+  margin-top: 20px;
+  padding: 14px 28px;
+  background: var(--black-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  color: white;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.portal-empty button:hover {
+  background: rgba(249, 115, 22, 0.1);
+  border-color: rgba(249, 115, 22, 0.3);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Portal Events List (old list-style layout - keeping for backwards compat)
    ───────────────────────────────────────────────────────────────────────────── */
 
 .portal-events {
@@ -1946,6 +2197,28 @@ html {
    Portal Responsive
    ───────────────────────────────────────────────────────────────────────────── */
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Portal Responsive
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .portal-events-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .portal-filter-row {
+    flex-direction: column;
+  }
+  
+  .portal-filter-group {
+    width: 100%;
+  }
+  
+  .portal-filter-group select {
+    flex: 1;
+  }
+}
+
 @media (max-width: 480px) {
   .portal-header {
     padding: 16px 20px;
@@ -1957,6 +2230,31 @@ html {
   
   .portal-header__name {
     font-size: 1.2rem;
+  }
+  
+  .portal-events-header {
+    padding: 32px 20px;
+  }
+  
+  .portal-events-title {
+    font-size: clamp(2rem, 10vw, 3rem);
+  }
+  
+  .portal-filters {
+    padding: 0 20px;
+  }
+  
+  .portal-search {
+    padding: 14px 20px;
+  }
+  
+  .portal-events-grid {
+    padding: 0 20px 60px;
+    gap: 20px;
+  }
+  
+  .portal-event-card {
+    padding: 24px;
   }
   
   .portal-search {
