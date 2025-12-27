@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { buffer } from 'micro';
 
 // CRITICAL: Disable body parsing for Stripe webhook signature verification
 export const config = {
@@ -7,25 +8,6 @@ export const config = {
     bodyParser: false,
   },
 };
-
-// Helper to read raw body buffer (Vercel-compatible)
-async function getRawBody(req) {
-  // In Vercel, when bodyParser is false, body might already be a Buffer
-  if (Buffer.isBuffer(req.body)) {
-    return req.body;
-  }
-  
-  // Otherwise, read from stream
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-    
-    // Set timeout to prevent hanging
-    setTimeout(() => reject(new Error('Body read timeout')), 5000);
-  });
-}
 
 // Stripe client will be initialized after env check
 let stripe;
@@ -76,9 +58,10 @@ async function handleWebhook(req, res) {
   try {
     let buf;
     try {
-      buf = await getRawBody(req);
+      buf = await buffer(req);
     } catch (bodyError) {
       console.error('❌ Failed to read request body:', bodyError.message);
+      console.error('Body error stack:', bodyError.stack);
       return res.status(400).json({ 
         error: 'Failed to read request body', 
         message: bodyError.message 
