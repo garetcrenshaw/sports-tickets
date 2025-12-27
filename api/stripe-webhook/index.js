@@ -1,6 +1,5 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
-import { buffer } from 'micro';
 
 // CRITICAL: Disable body parsing for Stripe webhook signature verification
 export const config = {
@@ -9,7 +8,27 @@ export const config = {
   },
 };
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Helper to read raw body buffer (Vercel-compatible)
+async function getRawBody(req) {
+  // In Vercel, when bodyParser is false, body might already be a Buffer
+  if (Buffer.isBuffer(req.body)) {
+    return req.body;
+  }
+  
+  // Otherwise, read from stream
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+    
+    // Set timeout to prevent hanging
+    setTimeout(() => reject(new Error('Body read timeout')), 5000);
+  });
+}
+
+// Stripe client will be initialized after env check
+let stripe;
 
 export default async function handler(req, res) {
   // Top-level error handler to catch any unhandled errors
@@ -43,6 +62,11 @@ async function handleWebhook(req, res) {
     });
   }
 
+  // Initialize Stripe client now that we know the key exists
+  if (!stripe) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -50,12 +74,30 @@ async function handleWebhook(req, res) {
   let stripeEvent;
   
   try {
-    const buf = await buffer(req);
+    let buf;
+    try {
+      buf = await getRawBody(req);
+    } catch (bodyError) {
+      console.error('❌ Failed to read request body:', bodyError.message);
+      return res.status(400).json({ 
+        error: 'Failed to read request body', 
+        message: bodyError.message 
+      });
+    }
+    
     const sig = req.headers['stripe-signature'];
     
-    if (!sig || !buf || buf.length === 0) {
-      return res.status(200).json({ error: 'Missing signature or body' });
+    if (!sig) {
+      console.error('❌ Missing stripe-signature header');
+      return res.status(400).json({ error: 'Missing stripe-signature header' });
     }
+    
+    if (!buf || buf.length === 0) {
+      console.error('❌ Empty request body');
+      return res.status(400).json({ error: 'Empty request body' });
+    }
+
+    console.log(`📦 Received webhook body: ${buf.length} bytes`);
 
     // Verify the event with Stripe
     stripeEvent = stripe.webhooks.constructEvent(
@@ -67,7 +109,8 @@ async function handleWebhook(req, res) {
     
   } catch (err) {
     console.error('❌ Signature verification failed:', err.message);
-    return res.status(200).json({ error: 'Signature verification failed' });
+    console.error('Error stack:', err.stack);
+    return res.status(400).json({ error: 'Signature verification failed', message: err.message });
   }
 
   // ============================================
