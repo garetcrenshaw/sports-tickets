@@ -12,13 +12,35 @@ export const config = {
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
+  // Top-level error handler to catch any unhandled errors
+  try {
+    return await handleWebhook(req, res);
+  } catch (error) {
+    console.error('❌ Unhandled webhook error:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message || 'An unexpected error occurred'
+    });
+  }
+}
+
+async function handleWebhook(req, res) {
   console.log('=== WEBHOOK v2.0 - FAST RESPONSE ===');
   
-  // Quick env check
-  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || 
-      !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error('Missing required environment variables');
-    return res.status(500).json({ error: 'Configuration error' });
+  // Quick env check with detailed logging
+  const missingVars = [];
+  if (!process.env.STRIPE_SECRET_KEY) missingVars.push('STRIPE_SECRET_KEY');
+  if (!process.env.STRIPE_WEBHOOK_SECRET) missingVars.push('STRIPE_WEBHOOK_SECRET');
+  if (!process.env.SUPABASE_URL) missingVars.push('SUPABASE_URL');
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missingVars.push('SUPABASE_SERVICE_ROLE_KEY');
+  
+  if (missingVars.length > 0) {
+    console.error('❌ Missing environment variables:', missingVars.join(', '));
+    return res.status(500).json({ 
+      error: 'Configuration error',
+      missing_vars: missingVars,
+      message: 'Missing required environment variables'
+    });
   }
 
   if (req.method !== 'POST') {
@@ -82,7 +104,13 @@ async function processCheckoutSession(session) {
   console.log('=== BACKGROUND PROCESSING START ===');
   console.log('Session ID:', session.id);
   
+  // Validate Supabase config before creating client
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Supabase configuration missing');
+  }
+  
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  console.log('✅ Supabase client created with URL:', process.env.SUPABASE_URL?.substring(0, 30) + '...');
 
   // Idempotency check
   const { data: existing } = await supabase
