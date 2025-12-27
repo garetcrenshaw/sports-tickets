@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Preview - Greyish Blue Theme</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      /* Greyish-blue background matching home-features section */
+      background: rgba(13, 17, 23, 0.98);
+      color: white;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    .portal-header {
+      /* Slightly darker header for contrast */
+      background: rgba(10, 14, 20, 0.95);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 20px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .portal-header__brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .portal-header__logo {
+      font-size: 2.5rem;
+    }
+
+    .portal-header__name {
+      font-size: 1.4rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .portal-header__season {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.6);
+      margin: 4px 0 0 0;
+    }
+
+    .portal-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 32px 24px;
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+      /* Subtle gradient overlay like home sections */
+      background: 
+        radial-gradient(ellipse at top, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at bottom left, rgba(249, 115, 22, 0.04) 0%, transparent 50%);
+    }
+
+    .portal-search {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      /* Elevated dark card with grey tones */
+      background: rgba(20, 25, 32, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      transition: all 0.3s ease;
+    }
+
+    .portal-search:focus-within {
+      border-color: #FF6B35;
+      background: rgba(25, 30, 38, 0.95);
+    }
+
+    .portal-search svg {
+      color: rgba(255, 255, 255, 0.6);
+      flex-shrink: 0;
+    }
+
+    .portal-search input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .portal-search input::placeholder {
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .portal-events {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .portal-event {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      /* Greyish-blue elevated card */
+      background: rgba(20, 25, 32, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .portal-event:hover {
+      /* Lighter grey on hover */
+      background: rgba(30, 36, 45, 0.95);
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .portal-event__date {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      min-width: 80px;
+      padding-right: 16px;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .portal-event__day {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 4px;
+    }
+
+    .portal-event__time {
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .portal-event__info {
+      flex: 1;
+    }
+
+    .portal-event__name {
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: white;
+    }
+
+    .portal-event__venue {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.9rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .portal-event__venue svg {
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .portal-event__buy {
+      background: #FF6B35;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .portal-event__buy:hover {
+      background: #FF5722;
+      transform: scale(1.05);
+    }
+
+    .section-example {
+      margin: 40px 0;
+      padding: 40px 24px;
+      background: rgba(13, 17, 23, 0.98);
+      text-align: center;
+    }
+
+    .section-example h2 {
+      font-size: 2rem;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .section-example p {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 1.1rem;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header with org branding -->
+  <header class="portal-header">
+    <div class="portal-header__brand">
+      <div class="portal-header__logo">⚾</div>
+      <div class="portal-header__info">
+        <h1 class="portal-header__name">Springfield Little League</h1>
+        <p class="portal-header__season">2024 Season</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="portal-main">
+    <!-- Search bar -->
+    <div class="portal-search">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <input type="text" placeholder="Search for a game..." />
+    </div>
+
+    <!-- Events list -->
+    <div class="portal-events">
+      <div class="portal-event">
+        <div class="portal-event__date">
+          <span class="portal-event__day">Saturday, December 28</span>
+          <span class="portal-event__time">7:30 PM</span>
+        </div>
+        <div class="portal-event__info">
+          <h3 class="portal-event__name">Gameday Empire Showcase</h3>
+          <p class="portal-event__venue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            Downtown Arena
+          </p>
+        </div>
+        <button class="portal-event__buy">Buy</button>
+      </div>
+
+      <div class="portal-event">
+        <div class="portal-event__date">
+          <span class="portal-event__day">Sunday, December 29</span>
+          <span class="portal-event__time">2:00 PM</span>
+        </div>
+        <div class="portal-event__info">
+          <h3 class="portal-event__name">Youth Championship Finals</h3>
+          <p class="portal-event__venue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            Memorial Stadium
+          </p>
+        </div>
+        <button class="portal-event__buy">Buy</button>
+      </div>
+
+      <div class="portal-event">
+        <div class="portal-event__date">
+          <span class="portal-event__day">Friday, January 3</span>
+          <span class="portal-event__time">6:00 PM</span>
+        </div>
+        <div class="portal-event__info">
+          <h3 class="portal-event__name">Spring Training Kickoff</h3>
+          <p class="portal-event__venue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            City Sports Complex
+          </p>
+        </div>
+        <button class="portal-event__buy">Buy</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Reference: home-features / home-cta section styling example -->
+  <div class="section-example">
+    <h2>Gameday Made Easy</h2>
+    <p>This greyish-blue background matches your home-features section. Subtle, professional, and easy on the eyes.</p>
+  </div>
+</body>
+</html>
+

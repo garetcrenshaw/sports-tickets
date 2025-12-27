@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parent Portal Demo - Springfield Little League</title>
+    <style>
+        /* Base Styles */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0a0a0a;
+            color: white;
+            min-height: 100vh;
+        }
+        
+        /* Portal Header */
+        .portal-header {
+            background: #111;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 20px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .portal-header__brand {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+        
+        .portal-header__logo {
+            font-size: 2.5rem;
+        }
+        
+        .portal-header__name {
+            font-family: Impact, Arial Black, sans-serif;
+            font-size: 1.4rem;
+            font-weight: 400;
+            color: white;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        
+        .portal-header__season {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 4px;
+        }
+        
+        /* Events Header */
+        .portal-events-header {
+            text-align: center;
+            padding: 40px 24px;
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+        
+        .portal-events-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 24px;
+            background: transparent;
+            border: 1px solid rgba(249, 115, 22, 0.3);
+            border-radius: 100px;
+            color: #fdba74;
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 28px;
+        }
+        
+        .portal-events-badge__dot {
+            width: 8px;
+            height: 8px;
+            background: #f97316;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.3); }
+        }
+        
+        .portal-events-title {
+            font-family: Impact, Arial Black, sans-serif;
+            font-size: clamp(2.5rem, 7vw, 5rem);
+            font-weight: 400;
+            color: white;
+            margin: 0 0 16px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        
+        .portal-events-subtitle {
+            font-size: 1.15rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        /* Filters */
+        .portal-filters {
+            max-width: 1300px;
+            margin: 0 auto 56px;
+            padding: 0 24px;
+        }
+        
+        .portal-search {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            padding: 18px 28px;
+            background: #1a1a1a;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            margin-bottom: 24px;
+            transition: 0.3s;
+        }
+        
+        .portal-search:focus-within {
+            border-color: #f97316;
+        }
+        
+        .portal-search input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+        
+        .portal-search input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .portal-filter-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .portal-filter-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        
+        .portal-filter-group label {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .portal-filter-group select {
+            padding: 14px 24px;
+            background: #1a1a1a;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        
+        .portal-filter-group select:focus {
+            outline: none;
+            border-color: #f97316;
+        }
+        
+        /* Events Grid */
+        .portal-events-grid {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 0 24px 100px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 28px;
+        }
+        
+        .portal-event-card {
+            background: #1a1a1a;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 28px;
+            padding: 32px;
+            cursor: pointer;
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .portal-event-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #f97316, #3b82f6);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.5s ease;
+        }
+        
+        .portal-event-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(249, 115, 22, 0.25);
+            box-shadow: 
+                0 30px 60px rgba(0, 0, 0, 0.4),
+                0 0 40px rgba(249, 115, 22, 0.08);
+        }
+        
+        .portal-event-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .portal-event-card__category {
+            display: inline-block;
+            padding: 8px 18px;
+            background: rgba(249, 115, 22, 0.15);
+            border: 1px solid rgba(249, 115, 22, 0.25);
+            border-radius: 100px;
+            color: #fdba74;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 20px;
+        }
+        
+        .portal-event-card__name {
+            font-family: Impact, Arial Black, sans-serif;
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: white;
+            margin: 0 0 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        
+        .portal-event-card__details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 16px;
+        }
+        
+        .portal-event-card__date {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+        }
+        
+        .portal-event-card__venue {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: rgba(255, 255, 255, 0.45);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+        
+        .portal-event-card__footer {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding-top: 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        
+        .portal-event-card__cta {
+            color: #f97316;
+            font-family: Impact, Arial Black, sans-serif;
+            font-size: 0.9rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            transition: transform 0.3s ease;
+        }
+        
+        .portal-event-card:hover .portal-event-card__cta {
+            transform: translateX(8px);
+        }
+        
+        /* Footer */
+        .portal-footer {
+            text-align: center;
+            padding: 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .portal-footer span {
+            color: #f97316;
+            font-weight: 500;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .portal-events-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .portal-filter-row {
+                flex-direction: column;
+            }
+            
+            .portal-events-title {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Portal Header -->
+    <header class="portal-header">
+        <div class="portal-header__brand">
+            <span class="portal-header__logo">⚾</span>
+            <div class="portal-header__info">
+                <h1 class="portal-header__name">Springfield Little League</h1>
+                <p class="portal-header__season">Spring 2025 Season</p>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main>
+        <!-- Events Header -->
+        <div class="portal-events-header">
+            <div class="portal-events-badge">
+                <span class="portal-events-badge__dot"></span>
+                Browse Events
+            </div>
+            <h1 class="portal-events-title">Find Your Event</h1>
+            <p class="portal-events-subtitle">Search by name, filter by date or category</p>
+        </div>
+        
+        <!-- Filters -->
+        <div class="portal-filters">
+            <div class="portal-search">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input type="text" placeholder="Search by event name or venue...">
+            </div>
+            
+            <div class="portal-filter-row">
+                <div class="portal-filter-group">
+                    <label>Category</label>
+                    <select>
+                        <option>All Events</option>
+                        <option>Basketball</option>
+                        <option>Sports</option>
+                    </select>
+                </div>
+                
+                <div class="portal-filter-group">
+                    <label>Month</label>
+                    <select>
+                        <option>All Months</option>
+                        <option>December 2024</option>
+                        <option>January 2025</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Events Grid -->
+        <div class="portal-events-grid">
+            <!-- Event Card 1 -->
+            <div class="portal-event-card">
+                <div class="portal-event-card__category">BASKETBALL</div>
+                <h3 class="portal-event-card__name">Gameday Empire Showcase</h3>
+                <div class="portal-event-card__details">
+                    <span class="portal-event-card__date">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        Saturday, December 28
+                    </span>
+                </div>
+                <div class="portal-event-card__venue">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    Downtown Arena, Los Angeles, CA
+                </div>
+                <div class="portal-event-card__footer">
+                    <span class="portal-event-card__cta">Get Tickets →</span>
+                </div>
+            </div>
+            
+            <!-- Event Card 2 -->
+            <div class="portal-event-card">
+                <div class="portal-event-card__category">SPORTS</div>
+                <h3 class="portal-event-card__name">Sportsplex Showdown</h3>
+                <div class="portal-event-card__details">
+                    <span class="portal-event-card__date">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        Sunday, January 5
+                    </span>
+                </div>
+                <div class="portal-event-card__venue">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    Sportsplex Center, Los Angeles, CA
+                </div>
+                <div class="portal-event-card__footer">
+                    <span class="portal-event-card__cta">Get Tickets →</span>
+                </div>
+            </div>
+            
+            <!-- Event Card 3 -->
+            <div class="portal-event-card">
+                <div class="portal-event-card__category">SPORTS</div>
+                <h3 class="portal-event-card__name">Sportsplex Event</h3>
+                <div class="portal-event-card__details">
+                    <span class="portal-event-card__date">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        Saturday, January 11
+                    </span>
+                </div>
+                <div class="portal-event-card__venue">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    Sportsplex Center, Los Angeles, CA
+                </div>
+                <div class="portal-event-card__footer">
+                    <span class="portal-event-card__cta">Get Tickets →</span>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="portal-footer">
+        <p>Powered by <span>Gameday Tickets</span></p>
+    </footer>
+</body>
+</html>
+

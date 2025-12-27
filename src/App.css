@@ -967,7 +967,8 @@ html {
 
 .events-page {
   min-height: 100vh;
-  background: var(--black);
+  /* Greyish-blue background matching home sections and portal */
+  background: rgba(13, 17, 23, 0.98);
   position: relative;
   font-family: var(--font-body);
 }
@@ -1234,6 +1235,22 @@ html {
   color: rgba(255, 255, 255, 0.35);
 }
 
+.event-card__pricing {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.event-card__price {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
 .event-card__footer {
   display: flex;
   justify-content: flex-end;
@@ -1286,13 +1303,15 @@ html {
 
 .buy-page {
   min-height: 100vh;
-  background: var(--black);
+  /* Greyish-blue background matching portal and events page */
+  background: rgba(13, 17, 23, 0.98);
   position: relative;
   font-family: var(--font-body);
 }
 
 .buy-page--light {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  /* Keep same greyish-blue, no gradient needed */
+  background: rgba(13, 17, 23, 0.98);
 }
 
 .buy-page__content {
@@ -1697,12 +1716,13 @@ html {
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PARENT PORTAL - Clean, Mobile-First Buying Experience
-   No distractions, just find your event and buy
+   Uses greyish-blue backgrounds matching home-features/home-cta sections
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .parent-portal {
   min-height: 100vh;
-  background: #0a0a0a;
+  /* Greyish-blue background like home-features section */
+  background: rgba(13, 17, 23, 0.98);
   font-family: var(--font-body);
   display: flex;
   flex-direction: column;
@@ -1713,7 +1733,8 @@ html {
    ───────────────────────────────────────────────────────────────────────────── */
 
 .portal-header {
-  background: #111;
+  /* Slightly darker header for contrast */
+  background: rgba(10, 14, 20, 0.95);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 20px 24px;
   position: sticky;
@@ -1820,17 +1841,21 @@ html {
 .portal-search {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 18px 28px;
-  background: var(--black-elevated);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  margin-bottom: 24px;
+  gap: 12px;
+  /* Elevated dark card with grey tones */
+  background: rgba(20, 25, 32, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 24px auto;
+  max-width: 600px;
+  width: calc(100% - 48px);
   transition: var(--transition-fast);
 }
 
 .portal-search:focus-within {
   border-color: var(--portal-primary, var(--accent));
+  background: rgba(25, 30, 38, 0.95);
 }
 
 .portal-search svg {
@@ -2084,18 +2109,21 @@ html {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  /* Greyish-blue elevated card */
+  background: rgba(20, 25, 32, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 20px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 }
 
 .portal-event:hover {
-  background: #1a1a1a;
-  border-color: rgba(255, 255, 255, 0.12);
+  /* Lighter grey on hover */
+  background: rgba(30, 36, 45, 0.95);
+  border-color: rgba(255, 255, 255, 0.15);
   transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .portal-event__date {
@@ -2148,6 +2176,16 @@ html {
 
 .portal-event__venue svg {
   flex-shrink: 0;
+}
+
+.portal-event__pricing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 400;
 }
 
 .portal-event__buy {
@@ -2298,7 +2336,8 @@ html {
 
 .portal {
   min-height: 100vh;
-  background: #0a0a0a;
+  /* Greyish-blue background matching home-features section */
+  background: rgba(13, 17, 23, 0.98);
   font-family: var(--font-body);
   display: flex;
   flex-direction: column;
@@ -2307,6 +2346,10 @@ html {
 .portal-main {
   flex: 1;
   display: flex;
+  /* Subtle gradient overlay like home sections */
+  background: 
+    radial-gradient(ellipse at top, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom left, rgba(249, 115, 22, 0.04) 0%, transparent 50%);
   flex-direction: column;
 }
 
@@ -2348,8 +2391,9 @@ html {
 }
 
 .portal-buy__event {
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Greyish-blue card */
+  background: rgba(20, 25, 32, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 24px;
   margin-bottom: 24px;
@@ -2381,8 +2425,9 @@ html {
 }
 
 .portal-buy__form {
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Greyish-blue form card */
+  background: rgba(20, 25, 32, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 24px;
 }
@@ -2426,8 +2471,9 @@ html {
 }
 
 .portal-buy__select {
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Greyish input */
+  background: rgba(25, 30, 38, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   color: white;
   padding: 10px 16px;
@@ -2439,8 +2485,9 @@ html {
 
 .portal-buy__input {
   width: 100%;
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* Greyish input */
+  background: rgba(25, 30, 38, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   color: white;
   padding: 14px 16px;
@@ -2466,7 +2513,8 @@ html {
 }
 
 .portal-buy__summary {
-  background: #0a0a0a;
+  /* Darker grey for summary contrast */
+  background: rgba(15, 18, 25, 0.9);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;

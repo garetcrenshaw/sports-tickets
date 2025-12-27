@@ -610,6 +610,10 @@ function EventsPage() {
                   </svg>
                   {event.venue}, {event.city}
                 </div>
+                <div className="event-card__pricing">
+                  {event.hasAdmission && <span className="event-card__price">General Admission – ${event.price}</span>}
+                  {event.hasParking && <span className="event-card__price">Parking Pass – ${event.parkingPrice}</span>}
+                </div>
                 <div className="event-card__footer">
                   <span className="event-card__cta">Get Tickets →</span>
                 </div>
@@ -930,7 +934,7 @@ function PortalLayout() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PORTAL EVENTS PAGE - Event listing for the organization
-// Matches main events page UX with filters and categories
+// Shows org info at top, simple event list below
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PortalEvents() {
@@ -938,123 +942,63 @@ function PortalEvents() {
   const { orgSlug } = useParams()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [monthFilter, setMonthFilter] = useState('all')
 
   // Filter events (in production, filter by org)
-  const categories = ['all', ...new Set(EVENTS_DATA.map(e => e.category))]
-  const months = getMonthOptions()
-
   const filteredEvents = EVENTS_DATA.filter(event => {
     const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           event.venue.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = categoryFilter === 'all' || event.category === categoryFilter
-    const matchesMonth = monthFilter === 'all' || event.date.toLowerCase().includes(monthFilter.split(' ')[0].toLowerCase())
-    return matchesSearch && matchesCategory && matchesMonth
+    return matchesSearch
   })
 
   return (
     <>
-      {/* Header Section */}
-      <div className="portal-events-header">
-        <div className="portal-events-badge">
-          <span className="portal-events-badge__dot" />
-          Browse Events
-        </div>
-        <h1 className="portal-events-title">Find Your Event</h1>
-        <p className="portal-events-subtitle">Search by name, filter by date or category</p>
+      {/* Search */}
+      <div className="portal-search">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search for a game..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
-      {/* Search and Filters - Matching main events page */}
-      <div className="portal-filters">
-        <div className="portal-search">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/>
-            <path d="M21 21l-4.35-4.35"/>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search by event name or venue..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
-        <div className="portal-filter-row">
-          <div className="portal-filter-group">
-            <label>Category</label>
-            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>
-                  {cat === 'all' ? 'All Events' : cat}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="portal-filter-group">
-            <label>Month</label>
-            <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
-              {months.map(month => (
-                <option key={month} value={month}>
-                  {month === 'all' ? 'All Months' : month}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Events Grid - Card-based layout like main site */}
-      <div className="portal-events-grid">
+      {/* Events List */}
+      <div className="portal-events">
         {filteredEvents.length === 0 ? (
           <div className="portal-empty">
-            <p>No events found matching your criteria.</p>
-            <button 
-              onClick={() => { 
-                setSearchQuery(''); 
-                setCategoryFilter('all'); 
-                setMonthFilter('all'); 
-              }}
-              style={{ background: org.primaryColor }}
-            >
-              Clear Filters
-            </button>
+            <p>No events found.</p>
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')}>Clear Search</button>
+            )}
           </div>
         ) : (
           filteredEvents.map(event => (
-            <div 
-              key={event.id} 
-              className="portal-event-card" 
-              onClick={() => navigate(`/org/${orgSlug}/event/${event.id}`)}
-            >
-              <div className="portal-event-card__category" style={{ background: org.accentColor }}>
-                {event.category}
+            <div key={event.id} className="portal-event" onClick={() => navigate(`/org/${orgSlug}/event/${event.id}`)}>
+              <div className="portal-event__date">
+                <span className="portal-event__day">{event.date.split(',')[0]}</span>
+                <span className="portal-event__time">{event.time}</span>
               </div>
-              <h3 className="portal-event-card__name">{event.name}</h3>
-              <div className="portal-event-card__details">
-                <span className="portal-event-card__date">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
+              <div className="portal-event__info">
+                <h3 className="portal-event__name">{event.name}</h3>
+                <p className="portal-event__venue">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
                   </svg>
-                  {event.date}
-                </span>
+                  {event.venue}
+                </p>
+                <div className="portal-event__pricing">
+                  {event.hasAdmission && <span>General Admission – ${event.price}</span>}
+                  {event.hasParking && <span>Parking Pass – ${event.parkingPrice}</span>}
+                </div>
               </div>
-              <div className="portal-event-card__venue">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                  <circle cx="12" cy="10" r="3"/>
-                </svg>
-                {event.venue}, {event.city}
-              </div>
-              <div className="portal-event-card__footer">
-                <span className="portal-event-card__cta" style={{ color: org.primaryColor }}>
-                  Get Tickets →
-                </span>
-              </div>
+              <button className="portal-event__buy" style={{ background: org.primaryColor }}>
+                Buy
+              </button>
             </div>
           ))
         )}
