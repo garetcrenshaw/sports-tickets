@@ -221,15 +221,20 @@ async function processCheckoutSession(session) {
   ]);
 
   if (ticketResult.error) {
-    console.error('❌ Ticket insert error:', ticketResult.error.message);
+    console.error('❌ Ticket insert error:', ticketResult.error);
+    console.error('Full error:', JSON.stringify(ticketResult.error, null, 2));
+    throw new Error(`Failed to insert tickets: ${ticketResult.error.message}`);
   } else {
-    console.log(`✅ ${ticketRecords.length} tickets inserted`);
+    console.log(`✅ ${ticketRecords.length} tickets inserted successfully`);
   }
 
   if (emailResult.error) {
-    console.error('❌ Email queue error:', emailResult.error.message);
+    console.error('❌ Email queue insert error:', emailResult.error);
+    console.error('Full error:', JSON.stringify(emailResult.error, null, 2));
+    throw new Error(`Failed to insert email queue jobs: ${emailResult.error.message}`);
   } else {
-    console.log(`✅ ${emailRecords.length} email jobs queued`);
+    console.log(`✅ ${emailRecords.length} email jobs queued successfully`);
+    console.log('Email queue record IDs:', emailResult.data?.map(r => r.id).join(', ') || 'N/A');
     
     // IMMEDIATE EMAIL TRIGGER - Don't wait for cron!
     // Fire and forget - we don't await this

@@ -389,13 +389,22 @@ export default async function handler(req, res) {
           `
         });
 
-        console.log('📧 Resend response:', JSON.stringify(emailResult));
+        console.log('📧 Resend response:', JSON.stringify(emailResult, null, 2));
         
+        // Check for errors in Resend response
         if (emailResult.error) {
+          console.error('❌ Resend API error:', emailResult.error);
           throw new Error(`Resend error: ${emailResult.error.message || JSON.stringify(emailResult.error)}`);
         }
         
-        console.log(`✅ Email sent successfully! Resend ID: ${emailResult.data?.id || emailResult.id || 'unknown'}`);
+        // Resend returns { data: { id: '...' } } on success
+        const resendEmailId = emailResult.data?.id || emailResult.id;
+        if (!resendEmailId) {
+          console.error('⚠️ Resend response missing email ID:', emailResult);
+          throw new Error('Resend API returned success but no email ID');
+        }
+        
+        console.log(`✅ Email sent successfully! Resend ID: ${resendEmailId}`);
 
         // CRITICAL: Bulk update ALL jobs for this recipient as completed
         const { error: updateError } = await supabase
