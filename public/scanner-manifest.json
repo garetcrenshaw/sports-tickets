@@ -1,18 +1,19 @@
 {
-  "name": "Ticket Scanner",
+  "name": "Gameday Scanner",
   "short_name": "Scanner",
-  "description": "Scan and validate event tickets",
-  "start_url": "/scan.html",
+  "description": "Scan and validate event tickets for Gameday Tickets",
+  "start_url": "/scan",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "theme_color": "#f97316",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎟️</text></svg>",
-      "sizes": "512x512",
+      "src": "/logo-icon.svg",
+      "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }

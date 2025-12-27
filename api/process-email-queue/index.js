@@ -335,11 +335,11 @@ export default async function handler(req, res) {
           html: `
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
               <!-- Header -->
-              <div style="background: linear-gradient(135deg, #0f172a 0%, #1e40af 100%); padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
-                  🎟️ ${tickets.length === 1 ? 'Your Ticket is Ready!' : `Your ${tickets.length} Tickets are Ready!`}
+              <div style="background-color: #0a0a0a; background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); padding: 40px 30px; text-align: center; border-bottom: 3px solid #f97316;">
+                <h1 style="color: #FFFFFF; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
+                  ${tickets.length === 1 ? 'Your Ticket is Ready!' : `Your ${tickets.length} Tickets are Ready!`}
                 </h1>
-                <p style="color: #93c5fd; margin: 10px 0 0; font-size: 14px;">
+                <p style="color: #f97316; margin: 12px 0 0; font-size: 16px; font-weight: 500;">
                   ${ticketSummary}
                 </p>
               </div>

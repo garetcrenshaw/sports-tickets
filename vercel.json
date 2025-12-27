@@ -16,7 +16,11 @@
       "destination": "/scan.html"
     },
     {
-      "source": "/((?!api|scan).*)",
+      "source": "/scan.html",
+      "destination": "/scan.html"
+    },
+    {
+      "source": "/((?!api|scan|.*\\.html$).*)",
       "destination": "/index.html"
     }
   ]

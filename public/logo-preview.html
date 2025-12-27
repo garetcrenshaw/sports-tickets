@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gameday Tickets - Logo Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      gap: 60px;
+    }
+    h1 { color: #1a1a2e; font-size: 24px; margin-bottom: 10px; }
+    h2 { color: #525252; font-size: 16px; font-weight: 500; margin-bottom: 20px; }
+    
+    .preview-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+      max-width: 800px;
+    }
+    
+    .preview-dark {
+      background: #0a0a0a;
+      padding: 40px;
+      border-radius: 16px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .preview-light {
+      background: #f5f5f5;
+      padding: 40px;
+      border-radius: 16px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .logo-full { width: 320px; height: auto; }
+    .logo-icon { width: 80px; height: auto; }
+    
+    .sizes {
+      display: flex;
+      gap: 30px;
+      align-items: flex-end;
+      padding: 30px;
+      background: #0a0a0a;
+      border-radius: 16px;
+    }
+    
+    .size-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .size-label {
+      color: #737373;
+      font-size: 12px;
+    }
+    
+    .features {
+      background: #fefce8;
+      border: 2px solid #eab308;
+      border-radius: 12px;
+      padding: 20px 30px;
+      max-width: 600px;
+    }
+    
+    .features h3 {
+      color: #854d0e;
+      margin-bottom: 15px;
+    }
+    
+    .features ul {
+      color: #713f12;
+      padding-left: 20px;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎟️ Gameday Tickets Logo</h1>
+  <h2>Classic Ticket Design</h2>
+  
+  <div class="preview-section">
+    <h3>Full Logo (Dark Background)</h3>
+    <div class="preview-dark">
+      <img src="logo.svg" alt="Gameday Tickets Logo" class="logo-full">
+    </div>
+  </div>
+  
+  <div class="preview-section">
+    <h3>Full Logo (Light Background)</h3>
+    <div class="preview-light">
+      <img src="logo.svg" alt="Gameday Tickets Logo" class="logo-full">
+    </div>
+  </div>
+  
+  <div class="preview-section">
+    <h3>Icon Versions (Various Sizes)</h3>
+    <div class="sizes">
+      <div class="size-item">
+        <img src="logo-icon.svg" alt="Icon 32px" style="width: 32px;">
+        <span class="size-label">32px</span>
+      </div>
+      <div class="size-item">
+        <img src="logo-icon.svg" alt="Icon 48px" style="width: 48px;">
+        <span class="size-label">48px</span>
+      </div>
+      <div class="size-item">
+        <img src="logo-icon.svg" alt="Icon 64px" style="width: 64px;">
+        <span class="size-label">64px</span>
+      </div>
+      <div class="size-item">
+        <img src="logo-icon.svg" alt="Icon 80px" style="width: 80px;">
+        <span class="size-label">80px</span>
+      </div>
+      <div class="size-item">
+        <img src="logo-icon.svg" alt="Icon 120px" style="width: 120px;">
+        <span class="size-label">120px</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="features">
+    <h3>🎫 Classic Ticket Features Included:</h3>
+    <ul>
+      <li><strong>Stub section</strong> - "ADMIT ONE" like real event tickets</li>
+      <li><strong>Perforated tear line</strong> - The dotted line you'd tear at the gate</li>
+      <li><strong>Semi-circle notches</strong> - Where the perforation meets the edge</li>
+      <li><strong>Serial number</strong> - "NO. 001" for authenticity</li>
+      <li><strong>Double border</strong> - Classic ticket framing</li>
+      <li><strong>Subtle baseball stitching</strong> - Very subtle nod to the sport</li>
+      <li><strong>Your brand colors</strong> - Orange (#f97316) + Dark (#0a0a0a)</li>
+    </ul>
+  </div>
+</body>
+</html>
+

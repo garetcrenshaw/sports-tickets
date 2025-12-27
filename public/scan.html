@@ -27,6 +27,7 @@
       --text-primary: #f8fafc;
       --text-secondary: #94a3b8;
       --accent-blue: #3b82f6;
+      --accent-orange: #f97316;
       --success-green: #22c55e;
       --error-red: #ef4444;
       --warning-yellow: #eab308;
@@ -55,6 +56,7 @@
     .header {
       text-align: center;
       padding: 20px 0;
+      position: relative;
     }
 
     .header h1 {
@@ -64,23 +66,106 @@
     }
 
     .header .event-name {
-      color: var(--accent-blue);
+      color: var(--accent-orange);
       font-size: 1rem;
+      font-weight: 600;
     }
 
-    .header .scanner-name {
+    .header .scanner-info {
       color: var(--text-secondary);
       font-size: 0.85rem;
+      margin-top: 5px;
     }
 
-    /* PIN Screen */
-    .pin-screen {
+    /* Staff Name Screen */
+    .name-screen {
       flex: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       padding: 40px 20px;
+    }
+
+    .name-screen.hidden {
+      display: none;
+    }
+
+    .name-screen h2 {
+      font-size: 1.8rem;
+      margin-bottom: 10px;
+    }
+
+    .name-screen p {
+      color: var(--text-secondary);
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .name-input-container {
+      width: 100%;
+      max-width: 300px;
+    }
+
+    .name-input {
+      width: 100%;
+      padding: 18px 20px;
+      font-size: 1.2rem;
+      border: 2px solid var(--bg-secondary);
+      border-radius: 12px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      text-align: center;
+      margin-bottom: 20px;
+      transition: border-color 0.2s;
+    }
+
+    .name-input:focus {
+      outline: none;
+      border-color: var(--accent-orange);
+    }
+
+    .name-input::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .continue-btn {
+      width: 100%;
+      padding: 18px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent-orange), #ea580c);
+      color: white;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .continue-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(249, 115, 22, 0.4);
+    }
+
+    .continue-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* PIN Screen */
+    .pin-screen {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .pin-screen.active {
+      display: flex;
     }
 
     .pin-screen h2 {
@@ -91,6 +176,19 @@
     .pin-screen p {
       color: var(--text-secondary);
       margin-bottom: 40px;
+    }
+
+    .staff-badge {
+      background: var(--bg-secondary);
+      padding: 8px 16px;
+      border-radius: 20px;
+      margin-bottom: 30px;
+      font-size: 0.9rem;
+    }
+
+    .staff-badge span {
+      color: var(--accent-orange);
+      font-weight: 600;
     }
 
     .pin-display {
@@ -109,8 +207,8 @@
     }
 
     .pin-dot.filled {
-      background: var(--accent-blue);
-      border-color: var(--accent-blue);
+      background: var(--accent-orange);
+      border-color: var(--accent-orange);
     }
 
     .pin-dot.error {
@@ -148,7 +246,7 @@
 
     .key:active {
       transform: scale(0.95);
-      background: var(--accent-blue);
+      background: var(--accent-orange);
     }
 
     .key.delete {
@@ -157,6 +255,14 @@
 
     .key.empty {
       visibility: hidden;
+    }
+
+    .back-link {
+      margin-top: 30px;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: underline;
     }
 
     /* Scanner Screen */
@@ -290,39 +396,11 @@
       background: rgba(255,255,255,0.3);
     }
 
-    /* Stats Bar */
-    .stats-bar {
-      display: flex;
-      justify-content: space-around;
-      padding: 15px;
-      background: var(--bg-secondary);
-      border-radius: 12px;
-      margin-top: 15px;
-    }
-
-    .stat {
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 1.5rem;
-      font-weight: 700;
-    }
-
-    .stat-value.green { color: var(--success-green); }
-    .stat-value.red { color: var(--error-red); }
-
-    .stat-label {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-    }
-
     /* Logout Button */
     .logout-btn {
       position: absolute;
-      top: 20px;
-      right: 20px;
+      top: 0;
+      right: 0;
       background: var(--bg-secondary);
       border: none;
       padding: 10px 15px;
@@ -346,11 +424,6 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-
-    /* Hide pin-screen when scanner is active */
-    .pin-screen.hidden {
-      display: none;
-    }
   </style>
 </head>
 <body>
@@ -359,14 +432,38 @@
     <div class="header" id="header" style="display: none;">
       <h1>🎟️ Ticket Scanner</h1>
       <div class="event-name" id="eventName">Event Name</div>
-      <div class="scanner-name" id="scannerName">Main Gate</div>
+      <div class="scanner-info">Scanning as: <strong id="scannerStaffName">Staff Name</strong></div>
       <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- Staff Name Entry Screen -->
+    <div class="name-screen" id="nameScreen">
+      <h2>👋 Welcome</h2>
+      <p>Enter your name to begin scanning tickets</p>
+      
+      <div class="name-input-container">
+        <input 
+          type="text" 
+          class="name-input" 
+          id="staffNameInput" 
+          placeholder="Your Name"
+          autocomplete="off"
+          autocapitalize="words"
+        >
+        <button class="continue-btn" id="continueBtn" onclick="goToPinScreen()" disabled>
+          Continue
+        </button>
+      </div>
     </div>
 
     <!-- PIN Entry Screen -->
     <div class="pin-screen" id="pinScreen">
       <h2>🔐 Enter PIN</h2>
-      <p>Enter your 4-digit scanner PIN</p>
+      <p>Enter your 4-digit event PIN</p>
+      
+      <div class="staff-badge">
+        Scanning as: <span id="staffBadgeName">Staff</span>
+      </div>
       
       <div class="pin-display" id="pinDisplay">
         <div class="pin-dot"></div>
@@ -389,6 +486,8 @@
         <button class="key" onclick="addDigit('0')">0</button>
         <button class="key delete" onclick="deleteDigit()">⌫</button>
       </div>
+
+      <div class="back-link" onclick="goBackToName()">← Change name</div>
     </div>
 
     <!-- Scanner Screen -->
@@ -396,21 +495,6 @@
       <div id="qr-reader"></div>
       <div class="scan-overlay">
         <div class="scan-hint">📷 Point camera at QR code</div>
-      </div>
-      
-      <div class="stats-bar">
-        <div class="stat">
-          <div class="stat-value green" id="admittedCount">0</div>
-          <div class="stat-label">Admitted</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value red" id="rejectedCount">0</div>
-          <div class="stat-label">Rejected</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value" id="totalScans">0</div>
-          <div class="stat-label">Total Scans</div>
-        </div>
       </div>
     </div>
   </div>
@@ -431,13 +515,46 @@
 
   <script>
     // State
+    let staffName = '';
     let pin = '';
     let eventId = '';
     let eventName = '';
-    let scannerName = '';
     let html5QrCode = null;
     let isScanning = false;
-    let stats = { admitted: 0, rejected: 0, total: 0 };
+
+    // Staff Name Input Handler
+    const staffNameInput = document.getElementById('staffNameInput');
+    const continueBtn = document.getElementById('continueBtn');
+
+    staffNameInput.addEventListener('input', () => {
+      const name = staffNameInput.value.trim();
+      continueBtn.disabled = name.length < 2;
+    });
+
+    staffNameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && staffNameInput.value.trim().length >= 2) {
+        goToPinScreen();
+      }
+    });
+
+    // Go to PIN screen
+    function goToPinScreen() {
+      staffName = staffNameInput.value.trim();
+      if (staffName.length < 2) return;
+      
+      document.getElementById('nameScreen').classList.add('hidden');
+      document.getElementById('pinScreen').classList.add('active');
+      document.getElementById('staffBadgeName').textContent = staffName;
+    }
+
+    // Go back to name screen
+    function goBackToName() {
+      pin = '';
+      updatePinDisplay();
+      document.getElementById('pinScreen').classList.remove('active');
+      document.getElementById('nameScreen').classList.remove('hidden');
+      staffNameInput.focus();
+    }
 
     // PIN Entry
     function addDigit(digit) {
@@ -483,7 +600,7 @@
         const response = await fetch('/api/validate-pin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin })
+          body: JSON.stringify({ pin, staff_name: staffName })
         });
 
         const data = await response.json();
@@ -491,7 +608,6 @@
         if (data.valid) {
           eventId = data.event_id;
           eventName = data.event_name;
-          scannerName = data.scanner_name;
           vibrate([50, 30, 50]);
           startScanner();
         } else {
@@ -505,11 +621,11 @@
 
     // Start QR Scanner
     function startScanner() {
-      document.getElementById('pinScreen').classList.add('hidden');
+      document.getElementById('pinScreen').classList.remove('active');
       document.getElementById('scannerScreen').classList.add('active');
       document.getElementById('header').style.display = 'block';
       document.getElementById('eventName').textContent = eventName;
-      document.getElementById('scannerName').textContent = scannerName;
+      document.getElementById('scannerStaffName').textContent = staffName;
 
       html5QrCode = new Html5Qrcode("qr-reader");
       
@@ -543,13 +659,13 @@
           body: JSON.stringify({
             ticket_id: decodedText,
             pin: pin,
-            event_id: eventId
+            event_id: eventId,
+            staff_name: staffName
           })
         });
 
         const data = await response.json();
         showResult(data);
-        updateStats(data.valid);
         
       } catch (err) {
         console.error('Scan error:', err);
@@ -637,20 +753,6 @@
       }
     }
 
-    // Update stats display
-    function updateStats(wasValid) {
-      stats.total++;
-      if (wasValid) {
-        stats.admitted++;
-      } else {
-        stats.rejected++;
-      }
-      
-      document.getElementById('admittedCount').textContent = stats.admitted;
-      document.getElementById('rejectedCount').textContent = stats.rejected;
-      document.getElementById('totalScans').textContent = stats.total;
-    }
-
     // Vibration helper
     function vibrate(pattern) {
       if ('vibrate' in navigator) {
@@ -669,17 +771,18 @@
       pin = '';
       eventId = '';
       eventName = '';
-      stats = { admitted: 0, rejected: 0, total: 0 };
       
       document.getElementById('header').style.display = 'none';
       document.getElementById('scannerScreen').classList.remove('active');
-      document.getElementById('pinScreen').classList.remove('hidden');
+      document.getElementById('pinScreen').classList.remove('active');
+      document.getElementById('nameScreen').classList.remove('hidden');
       updatePinDisplay();
+      staffNameInput.focus();
     }
 
     // Handle keyboard input (for testing on desktop)
     document.addEventListener('keydown', (e) => {
-      if (document.getElementById('pinScreen').classList.contains('hidden')) return;
+      if (!document.getElementById('pinScreen').classList.contains('active')) return;
       
       if (e.key >= '0' && e.key <= '9') {
         addDigit(e.key);
@@ -694,7 +797,11 @@
         dismissResult();
       }
     });
+
+    // Auto-focus name input on load
+    window.addEventListener('load', () => {
+      staffNameInput.focus();
+    });
   </script>
 </body>
 </html>
-

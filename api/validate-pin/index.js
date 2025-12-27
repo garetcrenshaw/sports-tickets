@@ -2,10 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * POST /api/validate-pin
- * Validates a scanner PIN and returns event info
+ * Validates a scanner PIN against the events table and returns event info
  * 
- * Request body: { pin: "1234" }
- * Response: { valid: true, event_id: "1", event_name: "Game Day", scanner_name: "Main Gate" }
+ * Request body: { pin: "1234", staff_name: "John" }
+ * Response: { valid: true, event_id: "1", event_name: "Gameday Empire Showcase" }
  */
 export default async function handler(req, res) {
   // CORS headers for scanner app
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { pin } = req.body;
+  const { pin, staff_name } = req.body;
 
   if (!pin || pin.length !== 4) {
     return res.status(400).json({ 
@@ -37,35 +37,43 @@ export default async function handler(req, res) {
   );
 
   try {
-    // Look up the PIN
-    const { data: pinData, error } = await supabase
-      .from('scanner_pins')
-      .select('*')
-      .eq('pin', pin)
-      .eq('is_active', true)
+    // Look up the PIN in the events table
+    const { data: eventData, error } = await supabase
+      .from('events')
+      .select('id, event_name, event_slug, venue_name, event_status')
+      .eq('scanner_pin', pin)
+      .eq('event_status', 'active')
       .single();
 
-    if (error || !pinData) {
-      console.log(`❌ Invalid PIN attempt: ${pin}`);
+    if (error || !eventData) {
+      console.log(`❌ Invalid PIN attempt: ${pin} by ${staff_name || 'unknown'}`);
       return res.status(401).json({ 
         valid: false, 
         error: 'Invalid PIN' 
       });
     }
 
-    // Update last_used_at timestamp
-    await supabase
-      .from('scanner_pins')
-      .update({ last_used_at: new Date().toISOString() })
-      .eq('id', pinData.id);
+    // Log the successful login
+    console.log(`✅ PIN validated: ${pin} for "${eventData.event_name}" by ${staff_name || 'unknown'}`);
 
-    console.log(`✅ PIN validated: ${pin} for event ${pinData.event_name}`);
+    // Optional: Log scanner sessions for analytics
+    try {
+      await supabase.from('scanner_sessions').insert({
+        event_id: eventData.id,
+        staff_name: staff_name || 'Unknown',
+        pin_used: pin,
+        started_at: new Date().toISOString()
+      });
+    } catch (logErr) {
+      // Don't fail if logging fails - table might not exist yet
+      console.log('Scanner session logging skipped (table may not exist)');
+    }
 
     return res.status(200).json({
       valid: true,
-      event_id: pinData.event_id,
-      event_name: pinData.event_name,
-      scanner_name: pinData.scanner_name || 'Scanner'
+      event_id: eventData.id,
+      event_name: eventData.event_name,
+      venue_name: eventData.venue_name
     });
 
   } catch (err) {
@@ -76,4 +84,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Ticket body -->
+  <rect x="5" y="15" width="90" height="70" rx="4" fill="url(#iconGradient)"/>
+  
+  <!-- Stub section -->
+  <rect x="5" y="15" width="26" height="70" rx="4" fill="#0a0a0a"/>
+  <rect x="27" y="15" width="4" height="70" fill="#0a0a0a"/>
+  
+  <!-- Perforated line - small dashes -->
+  <line x1="31" y1="15" x2="31" y2="85" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="2 4"/>
+  
+  <!-- Small notches -->
+  <rect x="28" y="12" width="6" height="6" rx="1" fill="#0a0a0a"/>
+  <rect x="28" y="82" width="6" height="6" rx="1" fill="#0a0a0a"/>
+  
+  <!-- Stub text -->
+  <text x="17" y="45" text-anchor="middle" fill="#f97316" font-family="'Outfit', system-ui, sans-serif" font-size="6" font-weight="600">ADMIT</text>
+  <text x="17" y="58" text-anchor="middle" fill="#ffffff" font-family="'Outfit', system-ui, sans-serif" font-size="10" font-weight="700">ONE</text>
+  
+  <!-- Main area - just G -->
+  <text x="64" y="62" text-anchor="middle" fill="#ffffff" font-family="'Outfit', system-ui, sans-serif" font-size="36" font-weight="800" font-style="italic">G</text>
+  
+  <!-- Subtle border -->
+  <rect x="38" y="22" width="52" height="56" rx="3" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="1"/>
+</svg>

@@ -104,8 +104,18 @@ async function processCheckoutSession(session) {
 
   const customerEmail = session.customer_details?.email || session.customer_email || 'unknown@example.com';
   const buyerName = session.customer_details?.name || session.metadata?.buyerName || 'Guest';
+  // Capture billing address details (zip code for analytics)
+  const billingAddress = session.customer_details?.address || {};
+  const billingZip = billingAddress.postal_code || null;
+  const billingCity = billingAddress.city || null;
+  const billingState = billingAddress.state || null;
+  
+  console.log(`📍 Customer location: ${billingCity || 'N/A'}, ${billingState || 'N/A'} ${billingZip || 'N/A'}`);
+  
   // Note: metadata uses camelCase (eventId), not snake_case (event_id)
-  const eventId = session.metadata?.eventId || session.metadata?.event_id || 'default';
+  // IMPORTANT: Convert to integer for proper matching with events table
+  const eventIdRaw = session.metadata?.eventId || session.metadata?.event_id || '1';
+  const eventId = parseInt(eventIdRaw, 10) || 1;
 
   // Build all ticket and email records at once (NO QR generation here!)
   const ticketRecords = [];
@@ -127,6 +137,13 @@ async function processCheckoutSession(session) {
     const ticketType = item.description || item.price?.product?.name || 'General Admission';
     const quantity = item.quantity || 1;
 
+    // SKIP SERVICE FEE ITEMS - These should NOT become tickets or emails
+    const ticketTypeLower = ticketType.toLowerCase();
+    if (ticketTypeLower.includes('service fee') || ticketTypeLower.includes('platform fee')) {
+      console.log(`⏭️ Skipping fee item: ${ticketType}`);
+      continue;
+    }
+
     for (let i = 0; i < quantity; i++) {
       const ticketIndex = i + 1;
       const uniqueTicketId = `${session.id}-${ticketType.replace(/\s+/g, '_')}-${ticketIndex}`;
@@ -140,7 +157,10 @@ async function processCheckoutSession(session) {
         buyer_name: buyerName,
         buyer_email: customerEmail,
         status: 'active',
-        qr_url: '' // Empty - will be populated when email is sent
+        qr_url: '', // Empty - will be populated when email is sent
+        billing_zip: billingZip,
+        billing_city: billingCity,
+        billing_state: billingState
       });
 
       // Email queue record - NO qr_code_data, will be generated before sending
@@ -196,7 +216,7 @@ async function processCheckoutSession(session) {
 // Trigger the email worker immediately (fire and forget)
 async function triggerEmailWorker() {
   // Use production URL directly for immediate trigger
-  const workerUrl = 'https://sports-tickets-3jl0surpr-garetcrenshaw-9092s-projects.vercel.app/api/process-email-queue';
+  const workerUrl = 'https://gamedaytickets.io/api/process-email-queue';
   
   console.log('🚀 Triggering immediate email delivery at:', workerUrl);
   

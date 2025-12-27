@@ -21,9 +21,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { name, email, eventId, admissionQuantity, parkingQuantity } = req.body || {};
+    const { 
+      name, 
+      email, 
+      eventId, 
+      admissionQuantity, 
+      parkingQuantity,
+      feeModel,
+      serviceFeePerTicket 
+    } = req.body || {};
 
-    console.log('CREATE-CHECKOUT: Processing order', { name, email, eventId, admissionQuantity, parkingQuantity });
+    console.log('CREATE-CHECKOUT: Processing order', { 
+      name, email, eventId, admissionQuantity, parkingQuantity, feeModel, serviceFeePerTicket 
+    });
 
     // Map eventId to the correct Stripe Price IDs
     const eventPricing = {
@@ -61,33 +71,57 @@ export default async function handler(req, res) {
       });
     }
 
+    // Add service fee for pass_through model
+    const totalTickets = (admissionQuantity || 0) + (parkingQuantity || 0);
+    if (feeModel === 'pass_through' && serviceFeePerTicket > 0 && totalTickets > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Service Fee',
+            description: 'Platform service fee',
+          },
+          unit_amount: Math.round(serviceFeePerTicket * 100), // Convert to cents
+        },
+        quantity: totalTickets,
+      });
+    }
+
     // Validate that at least one item is being purchased
     if (lineItems.length === 0) {
       res.status(400).json({ error: 'At least one admission ticket or parking pass must be selected' });
       return;
     }
 
-    // HARDCODED PRODUCTION URLS - GUARANTEED TO WORK
-    const successUrl = 'https://sports-tickets.vercel.app/success?session_id={CHECKOUT_SESSION_ID}';
-    const cancelUrl = 'https://sports-tickets.vercel.app/cancel';
+    // PRODUCTION URLS - Using custom domain
+    const successUrl = 'https://gamedaytickets.io/success?session_id={CHECKOUT_SESSION_ID}';
+    const cancelUrl = 'https://gamedaytickets.io/cancel';
 
     console.log('CREATE-CHECKOUT: Success URL:', successUrl);
     console.log('CREATE-CHECKOUT: Cancel URL:', cancelUrl);
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      // No payment_method_types = Stripe auto-enables Apple Pay, Google Pay, Link, cards, etc.
       mode: 'payment',
       customer_email: email,
+      // Pre-fill customer name for faster checkout
+      customer_creation: 'if_required',
       metadata: {
         buyerName: name,
         buyerEmail: email,
         eventId: eventId?.toString(),
         admissionQuantity: admissionQuantity?.toString(),
         parkingQuantity: parkingQuantity?.toString(),
+        feeModel: feeModel || 'baked_in',
+        serviceFeePerTicket: serviceFeePerTicket?.toString() || '0',
+        totalServiceFee: (serviceFeePerTicket * totalTickets)?.toString() || '0',
       },
       line_items: lineItems,
       success_url: successUrl,
       cancel_url: cancelUrl,
+      // UI customization
+      locale: 'auto',
+      submit_type: 'pay', // Shows "Pay" button instead of "Subscribe"
     });
 
     console.log('CREATE-CHECKOUT: Session created', session.id);

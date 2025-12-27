@@ -1,127 +1,111 @@
-import { Resend } from '@resend/resend';
+import { Resend } from '@resend/resend'
 
 export default async function handler(req, res) {
-  // Only allow POST
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { name, email, phone, description, preferredContact } = req.body;
-
-  // Validate required fields
-  if (!name || !email || !phone || !description) {
-    return res.status(400).json({ 
-      success: false,
-      error: 'Missing required fields' 
-    });
-  }
-
-  // Check for Resend API key
-  if (!process.env.RESEND_API_KEY) {
-    console.error('Missing RESEND_API_KEY environment variable');
-    return res.status(500).json({ 
-      success: false,
-      error: 'Email service not configured' 
-    });
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    
-    // Send email to garetcrenshaw@gmail.com
-    const result = await resend.emails.send({
-      from: 'tickets@gamedaytickets.io',
+    const { name, email, phone, description, preferredContact } = req.body
+
+    if (!name || !email || !phone || !description) {
+      return res.status(400).json({ error: 'All fields are required' })
+    }
+
+    // Check if Resend API key is configured
+    if (!process.env.RESEND_API_KEY) {
+      console.error('RESEND_API_KEY not configured')
+      // Still return success - we don't want to block the user
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Inquiry received (email service not configured)',
+        data: { name, email, phone, description, preferredContact }
+      })
+    }
+
+    const resend = new Resend(process.env.RESEND_API_KEY)
+
+    // Send notification email to you
+    const notificationResult = await resend.emails.send({
+      from: 'GameDay Tickets <tickets@gamedaytickets.io>',
       to: 'garetcrenshaw@gmail.com',
-      subject: `🎟️ New Gameday Tickets Inquiry from ${name}`,
+      subject: `🎟️ New Business Inquiry from ${name}`,
       html: `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 0; background: #0a0a0a;">
-          <!-- Header -->
-          <div style="background: linear-gradient(135deg, #f97316, #ea580c); padding: 32px; text-align: center;">
-            <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700;">
-              New Business Inquiry
-            </h1>
-            <p style="margin: 8px 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">
-              Someone wants to host their event with Gameday Tickets
-            </p>
-          </div>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #f97316; margin-bottom: 24px;">New Business Inquiry</h1>
           
-          <!-- Content -->
-          <div style="padding: 32px; background: #1a1a1a; color: #ffffff;">
-            <h2 style="margin: 0 0 24px; font-size: 20px; color: #f97316; border-bottom: 1px solid #333; padding-bottom: 12px;">
-              Contact Information
-            </h2>
-            
-            <table style="width: 100%; border-collapse: collapse;">
-              <tr>
-                <td style="padding: 12px 0; color: #888; width: 140px; vertical-align: top;">Full Name:</td>
-                <td style="padding: 12px 0; color: #fff; font-weight: 500;">${name}</td>
-              </tr>
-              <tr>
-                <td style="padding: 12px 0; color: #888; vertical-align: top;">Email:</td>
-                <td style="padding: 12px 0;">
-                  <a href="mailto:${email}" style="color: #f97316; text-decoration: none;">${email}</a>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 12px 0; color: #888; vertical-align: top;">Phone:</td>
-                <td style="padding: 12px 0;">
-                  <a href="tel:${phone}" style="color: #f97316; text-decoration: none;">${phone}</a>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 12px 0; color: #888; vertical-align: top;">Preferred Contact:</td>
-                <td style="padding: 12px 0; color: #fff;">
-                  <span style="background: ${preferredContact === 'email' ? '#3b82f6' : '#22c55e'}; padding: 4px 12px; border-radius: 20px; font-size: 14px;">
-                    ${preferredContact === 'email' ? '📧 Email' : '📞 Phone'}
-                  </span>
-                </td>
-              </tr>
-            </table>
-            
-            <h2 style="margin: 32px 0 16px; font-size: 20px; color: #f97316; border-bottom: 1px solid #333; padding-bottom: 12px;">
-              Event Details
-            </h2>
-            
-            <div style="background: #0a0a0a; border: 1px solid #333; border-radius: 12px; padding: 20px;">
-              <p style="margin: 0; color: #ccc; line-height: 1.7; white-space: pre-wrap;">${description}</p>
-            </div>
+          <div style="background: #f8f9fa; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
+            <h2 style="margin: 0 0 16px 0; color: #1f2937;">Contact Information</h2>
+            <p style="margin: 8px 0;"><strong>Name:</strong> ${name}</p>
+            <p style="margin: 8px 0;"><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+            <p style="margin: 8px 0;"><strong>Phone:</strong> <a href="tel:${phone}">${phone}</a></p>
+            <p style="margin: 8px 0;"><strong>Preferred Contact:</strong> ${preferredContact}</p>
           </div>
-          
-          <!-- Footer -->
-          <div style="padding: 24px 32px; background: #0a0a0a; border-top: 1px solid #333; text-align: center;">
-            <p style="margin: 0; color: #666; font-size: 14px;">
-              This inquiry was submitted on ${new Date().toLocaleString('en-US', { 
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </p>
-            <p style="margin: 12px 0 0; color: #444; font-size: 12px;">
-              Gameday Tickets • Business Inquiries
-            </p>
+
+          <div style="background: #fff3e0; padding: 24px; border-radius: 12px; border-left: 4px solid #f97316;">
+            <h2 style="margin: 0 0 16px 0; color: #1f2937;">Event Details</h2>
+            <p style="margin: 0; white-space: pre-wrap; color: #374151;">${description}</p>
+          </div>
+
+          <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280;">
+            <p style="margin: 0;">Received via Gameday Tickets Contact Form</p>
+            <p style="margin: 8px 0 0 0; font-size: 12px;">${new Date().toLocaleString()}</p>
           </div>
         </div>
       `
-    });
+    })
 
-    console.log('✅ Contact inquiry email sent:', result);
-    
-    return res.json({ 
-      success: true, 
-      message: 'Inquiry submitted successfully',
-      emailId: result.id
-    });
-  } catch (err) {
-    console.error('❌ Contact inquiry email error:', err);
-    return res.status(500).json({ 
-      success: false, 
-      error: 'Failed to send inquiry',
-      details: err.message
-    });
+    console.log('Notification email sent:', notificationResult)
+
+    // Send confirmation to inquirer
+    try {
+      await resend.emails.send({
+        from: 'GameDay Tickets <tickets@gamedaytickets.io>',
+        to: email,
+        subject: 'We received your inquiry - Gameday Tickets',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h1 style="color: #f97316; margin-bottom: 24px;">Thanks for reaching out, ${name.split(' ')[0]}!</h1>
+            
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              We've received your inquiry and our team will review it shortly. 
+              We'll be in touch with you soon.
+            </p>
+
+            <div style="background: #f8f9fa; padding: 24px; border-radius: 12px; margin: 24px 0;">
+              <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 16px;">Your Message:</h2>
+              <p style="margin: 0; white-space: pre-wrap; color: #6b7280; font-style: italic;">"${description}"</p>
+            </div>
+
+            <p style="font-size: 16px; color: #374151; line-height: 1.6;">
+              In the meantime, feel free to reply to this email if you have any additional details to share.
+            </p>
+
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280;">
+              <p style="margin: 0; font-weight: 600;">Gameday Tickets</p>
+              <p style="margin: 8px 0 0 0; font-size: 12px;">The simplest way to buy, send, and scan event tickets.</p>
+            </div>
+          </div>
+        `
+      })
+    } catch (confirmError) {
+      // Confirmation email failed but notification succeeded - that's okay
+      console.log('Confirmation email to inquirer failed (expected on free tier):', confirmError.message)
+    }
+
+    return res.status(200).json({ success: true, message: 'Inquiry sent successfully' })
+
+  } catch (error) {
+    console.error('Contact inquiry error:', error)
+    return res.status(500).json({ error: 'Failed to send inquiry', details: error.message })
   }
 }
-
-
