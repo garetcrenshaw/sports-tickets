@@ -1,6 +1,9 @@
 backend/.env
 .env
 .env.local
+.env.production
+.env.vercel
+.env*.local
 node_modules/
 dist/
 .DS_Store
@@ -9,4 +12,3 @@ dist/
 # Local Netlify folder
 .netlify
 .vercel
-.env*.local
