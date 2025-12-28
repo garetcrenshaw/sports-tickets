@@ -23,15 +23,25 @@
 ### Step 1: Create Sentry Projects
 
 1. Go to [sentry.io](https://sentry.io) and sign up/login
-2. Create **two projects**:
-   - **Frontend Project:**
-     - Platform: **React**
-     - Project name: `gameday-tickets-frontend`
-   - **Backend Project:**
-     - Platform: **Node.js**
-     - Project name: `gameday-tickets-backend`
+2. Click "Create Project" or "Add Project"
+3. Create **two projects**:
 
-3. Copy the DSNs (Data Source Names) from each project
+   **Project 1 - Frontend:**
+   - **Platform:** Select **"React"** from the list
+   - **Project name:** `gameday-tickets-frontend` (or any name you prefer)
+   - Click "Create Project"
+   - **Copy the DSN** - it looks like: `https://[key]@[org].ingest.sentry.io/[project-id]`
+   - You can skip the setup wizard for now (we've already configured it)
+
+   **Project 2 - Backend:**
+   - Click "Create Project" again
+   - **Platform:** Select **"Node.js"** from the list
+   - **Project name:** `gameday-tickets-backend` (or any name you prefer)
+   - Click "Create Project"
+   - **Copy the DSN** - it looks like: `https://[key]@[org].ingest.sentry.io/[project-id]`
+   - You can skip the setup wizard for now (we've already configured it)
+
+4. **Important:** Make sure you have both DSNs copied - you'll need them in the next step!
 
 ### Step 2: Add Environment Variables to Vercel
 
