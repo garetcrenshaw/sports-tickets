@@ -1,4 +1,4 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -6,43 +6,30 @@ const supabase = createClient(
 );
 
 // Vercel serverless function
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // Handle preflight CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    res.writeHead(200);
-    res.end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.writeHead(405);
-    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
-    return;
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
     const { ticketId, password } = req.body || {};
 
     if (!ticketId) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/json');
-      res.writeHead(400);
-      res.end(JSON.stringify({ error: 'ticketId is required' }));
-      return;
+      return res.status(400).json({ error: 'ticketId is required' });
     }
 
     const requiredPassword = process.env.VALIDATE_PASSWORD || 'gameday2024';
     if (!password || password !== requiredPassword) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/json');
-      res.writeHead(401);
-      res.end(JSON.stringify({ error: 'Invalid validation password' }));
-      return;
+      return res.status(401).json({ error: 'Invalid validation password' });
     }
 
     // Try tickets table first
@@ -67,28 +54,20 @@ module.exports = async function handler(req, res) {
     }
 
     if (!ticket.data) {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/json');
-      res.writeHead(404);
-      res.end(JSON.stringify({ error: 'Ticket not found' }));
-      return;
+      return res.status(404).json({ error: 'Ticket not found' });
     }
 
     const ticketData = ticket.data;
 
     if (ticketData.status === 'validated') {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/json');
-      res.writeHead(200);
-      res.end(JSON.stringify({
+      return res.status(200).json({
         valid: false,
         ticket: {
           ...ticketData,
           ticket_type: ticketType
         },
         message: 'Ticket already validated'
-      }));
-      return;
+      });
     }
 
     // Update the ticket status
@@ -105,29 +84,19 @@ module.exports = async function handler(req, res) {
 
     if (updateError) {
       console.error('Ticket update error:', updateError);
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Content-Type', 'application/json');
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: 'Failed to validate ticket' }));
-      return;
+      return res.status(500).json({ error: 'Failed to validate ticket' });
     }
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.writeHead(200);
-    res.end(JSON.stringify({
+    return res.status(200).json({
       valid: true,
       ticket: {
         ...updatedTicket,
         ticket_type: ticketType
       }
-    }));
+    });
 
   } catch (error) {
     console.error('Validate ticket error:', error);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Content-Type', 'application/json');
-    res.writeHead(500);
-    res.end(JSON.stringify({ error: 'Internal server error' }));
+    return res.status(500).json({ error: 'Internal server error' });
   }
-};
+}

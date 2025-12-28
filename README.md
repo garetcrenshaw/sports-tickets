@@ -305,9 +305,51 @@ Bundle both price IDs into the same checkout to mirror Ticketmaster’s best pra
 | --- | --- |
 | Checkout returns 400 | Ensure at least one ticket or parking pass is selected. |
 | Webhook never fires | Stripe CLI not forwarding (check Terminal 3). |
-| “Bucket not found” | Already solved – webhook auto-creates bucket. |
+| "Bucket not found" | Already solved – webhook auto-creates bucket. |
 | `PGRST204 column not found` | Auto-resolved – webhook retries with fallback payload and logs `Used fallback insert...`. |
 | No email | Verify `RESEND_API_KEY` and check Resend dashboard. |
+
+---
+
+## 🚀 Deployment Best Practices (Vercel Cache Management)
+
+### Preventing Build Cache Issues
+
+1. **Delete files completely:** When removing API routes, ensure they're fully deleted from git history, not just `.gitignore`d.
+
+2. **Force fresh deployments:** If cache issues persist:
+   ```bash
+   # Option 1: Via Vercel CLI
+   vercel --force --prod
+   
+   # Option 2: Via dashboard
+   # Uncheck "Use existing Build Cache" when redeploying
+   ```
+
+3. **Cache-busting strategies:**
+   - Bump version in `package.json` to force dependency reinstall
+   - Add/modify `vercel.json` buildCommand
+   - Create a dummy commit touching build files
+
+4. **Verify clean builds:**
+   - Check build logs for "Restored build cache" messages
+   - Monitor function logs for module load errors
+   - Test endpoints after deployment
+
+### Lesson Learned (Dec 27, 2025)
+
+A deleted file (`api/send-ticket.js`) remained in Vercel's build cache, causing module load failures. The cache key `H5G91KfNb6thD1RkQoyVYpTDtrsQ` persisted across multiple deployments. The issue resolved after multiple deployments cycled the cache naturally.
+
+**Key indicators of cache issues:**
+- 500 errors with NO logs visible
+- Error traces mentioning deleted files
+- "Restored build cache from previous deployment" in build logs
+
+**Prevention checklist:**
+- [ ] File deleted from repo (not just ignored)
+- [ ] No references in imports or configs
+- [ ] Clean build verified after deployment
+- [ ] Endpoint tested returns expected responses
 
 ---
 
