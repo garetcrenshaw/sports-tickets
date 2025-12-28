@@ -110,18 +110,18 @@ export default async function handler(req, res) {
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
-    console.log('🔄 Worker starting - fetching jobs to process...');
+    console.log('🔄 Worker starting - fetching pending jobs to process...');
     
-    // SIMPLE APPROACH: Fetch all non-failed jobs, then filter in JavaScript
-    // This avoids complex Supabase query syntax issues
-    console.log('Fetching all non-failed jobs from email_queue...');
+    // FIXED: Query pending jobs directly (not all jobs then filter)
+    // This ensures we always find pending jobs even if there are many completed ones
+    console.log('Fetching pending jobs from email_queue...');
     
-    const { data: allJobs, error: fetchError } = await supabase
+    const { data: pendingJobs, error: fetchError } = await supabase
       .from('email_queue')
       .select('*')
-      .neq('status', 'failed')
+      .eq('status', 'pending')  // Only fetch pending jobs
       .order('created_at', { ascending: true })
-      .limit(100);
+      .limit(50);  // Process 50 at a time
 
     if (fetchError) {
       console.error('❌ Database fetch failed:', fetchError.message);
@@ -132,38 +132,18 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`📊 Total rows fetched: ${allJobs?.length || 0}`);
+    console.log(`📧 Pending jobs found: ${pendingJobs?.length || 0}`);
     
-    if (!allJobs || allJobs.length === 0) {
-      console.log('⚠️ email_queue table is empty or all jobs have failed');
+    if (!pendingJobs || pendingJobs.length === 0) {
+      console.log('✅ No pending jobs to process');
       return sendJSON(res, 200, { 
         processed: 0,
-        message: 'Queue is empty'
+        message: 'No pending jobs'
       });
     }
 
-    // Log what we got from the database
-    console.log('First row columns:', Object.keys(allJobs[0]));
-    console.log('First row sample:', JSON.stringify(allJobs[0], null, 2));
-
-    // Filter to find jobs that need processing:
-    // 1. Status is 'pending' (never sent)
-    // 2. OR qr_url is empty/null (needs QR code generated)
-    const pendingJobs = allJobs.filter(job => {
-      const needsProcessing = job.status === 'pending';
-      const needsQR = !job.qr_url || job.qr_url === '' || job.qr_url === null;
-      return needsProcessing || needsQR;
-    });
-
-    console.log(`📧 Jobs needing processing: ${pendingJobs.length} (out of ${allJobs.length} total)`);
-
-    if (pendingJobs.length === 0) {
-      console.log('✅ All jobs are completed with QR codes');
-      return sendJSON(res, 200, { 
-        processed: 0,
-        message: 'All jobs completed'
-      });
-    }
+    // Log first job for debugging
+    console.log('First pending job:', JSON.stringify(pendingJobs[0], null, 2));
 
     console.log(`Processing ${pendingJobs.length} job(s), grouping by recipient...`);
 
