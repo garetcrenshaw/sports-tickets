@@ -1,4 +1,8 @@
 import Stripe from 'stripe';
+import { initSentryServer, captureException } from '../lib/sentry.js';
+
+// Initialize Sentry for error tracking
+initSentryServer();
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -131,6 +135,20 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('CREATE-CHECKOUT: Error', error);
+    
+    // Capture in Sentry
+    captureException(error, {
+      tags: {
+        component: 'create-checkout',
+        critical: true,
+      },
+      extra: {
+        eventId: req.body?.eventId,
+        admissionQuantity: req.body?.admissionQuantity,
+        parkingQuantity: req.body?.parkingQuantity,
+      },
+    });
+    
     res.status(500).json({ error: error.message });
   }
 }

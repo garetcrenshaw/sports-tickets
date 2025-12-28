@@ -1,5 +1,9 @@
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import { initSentryServer, captureException, captureMessage } from '../lib/sentry.js';
+
+// Initialize Sentry for error tracking
+initSentryServer();
 
 // CRITICAL: Disable body parsing for Stripe webhook signature verification
 export const config = {
@@ -59,6 +63,18 @@ export default async function handler(req, res) {
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     
+    // Capture in Sentry with critical tag
+    captureException(error, {
+      tags: {
+        component: 'stripe-webhook',
+        critical: true,
+      },
+      extra: {
+        method: req.method,
+        headers: Object.keys(req.headers),
+      },
+    });
+    
     // Make sure we return a response even if there's an error
     try {
       return res.status(500).json({ 
@@ -69,6 +85,13 @@ export default async function handler(req, res) {
     } catch (responseError) {
       // If we can't even send a response, log it
       console.error('❌ CRITICAL: Could not send error response:', responseError);
+      captureException(responseError, {
+        tags: {
+          component: 'stripe-webhook',
+          critical: true,
+          stage: 'error-response',
+        },
+      });
     }
   }
 }
@@ -175,6 +198,21 @@ async function handleWebhook(req, res) {
       return res.status(200).json({ received: true, event_id: stripeEvent.id, processed: true });
     } catch (err) {
       console.error('❌ Processing error:', err.message);
+      
+      // Capture in Sentry - this is critical for fulfillment
+      captureException(err, {
+        tags: {
+          component: 'stripe-webhook',
+          critical: true,
+          stage: 'checkout-processing',
+        },
+        extra: {
+          session_id: session.id,
+          payment_status: session.payment_status,
+          customer_email: session.customer_details?.email,
+        },
+      });
+      
       // Still return 200 so Stripe doesn't retry
       return res.status(200).json({ received: true, error: err.message });
     }

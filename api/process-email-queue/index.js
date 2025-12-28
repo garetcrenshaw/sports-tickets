@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from '@resend/resend';
 import QRCode from 'qrcode';
+import { initSentryServer, captureException, captureMessage } from '../lib/sentry.js';
+
+// Initialize Sentry for error tracking
+initSentryServer();
 
 // Vercel serverless function config
 export const config = {
@@ -409,6 +413,20 @@ export default async function handler(req, res) {
       } catch (emailError) {
         console.error(`❌ Email send failed for ${recipientEmail}: ${emailError.message}`);
 
+        // Capture in Sentry - email delivery failures are critical
+        captureException(emailError, {
+          tags: {
+            component: 'email-queue-worker',
+            critical: true,
+            stage: 'email-send',
+          },
+          extra: {
+            recipient_email: recipientEmail,
+            ticket_count: tickets.length,
+            ticket_ids: tickets.map(t => t.ticket_id),
+          },
+        });
+
         // Increment retry count for all jobs in this group
         for (const job of tickets) {
           const newRetryCount = job.retry_count + 1;
@@ -462,6 +480,15 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('❌ Worker error:', error.message);
     console.error('Stack trace:', error.stack);
+    
+    // Capture in Sentry - worker failures are critical
+    captureException(error, {
+      tags: {
+        component: 'email-queue-worker',
+        critical: true,
+        stage: 'worker-execution',
+      },
+    });
     
     return sendJSON(res, 500, {
       error: 'Worker execution failed',
