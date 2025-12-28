@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "concurrently \"vite --port 3002\" \"node dev-server.cjs\" \"stripe listen --forward-to localhost:3000/api/stripe-webhook\"",
     "build": "vite build",
-    "deploy": "npm run build && vercel --prod"
+    "deploy": "npm run build && vercel --prod",
+    "vercel-build": "npm run build"
   },
   "dependencies": {
     "@resend/resend": "npm:resend@^3.3.0",
