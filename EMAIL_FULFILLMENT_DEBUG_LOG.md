@@ -90,19 +90,138 @@ Vercel cron job (`/api/process-email-queue`) triggered:
 
 ---
 
-## Phase 3: Verification - IN PROGRESS
+## Phase 2.4: Additional Bug Fix - Email Worker Query
 
-### 3.1 Email Delivery Check
+**Problem Discovered:**
+Worker was fetching oldest 100 jobs, then filtering for pending. If 100+ completed jobs existed, new pending jobs were never found!
 
-**Waiting for:**
-- Cron job to process remaining 2 pending email jobs
-- Confirmation that email arrives at garetcrenshaw@gmail.com
-- QR codes render correctly in email
+**Fix Applied:**
+```javascript
+// OLD (BROKEN):
+const { data: allJobs } = await supabase
+  .from('email_queue')
+  .select('*')
+  .neq('status', 'failed')
+  .order('created_at', { ascending: true })
+  .limit(100);
+const pendingJobs = allJobs.filter(job => job.status === 'pending');
 
-### 3.2 New Purchase Test
+// NEW (FIXED):
+const { data: pendingJobs } = await supabase
+  .from('email_queue')
+  .select('*')
+  .eq('status', 'pending')  // Query pending directly!
+  .order('created_at', { ascending: true })
+  .limit(50);
+```
 
-**Next Step:**
-Create a fresh checkout and verify the complete flow works end-to-end now that webhook URL is fixed.
+**Result:** Parking pass email sent successfully at 05:46:33 UTC
+
+---
+
+## Phase 3: Verification - COMPLETED ✅
+
+### 3.1 Email Delivery Check - SUCCESS
+
+**Session:** `cs_test_b1zPkmtrOYHLjbvda200qJqGfWR43D811Wfq7SgOOwsWsRAh8R3SdZan84`
+
+| Ticket Type | Status | Sent At |
+|-------------|--------|---------|
+| General Admission Ticket #1 | ✅ completed | 05:36:22 UTC |
+| General Admission Ticket #2 | ✅ completed | 05:40:22 UTC |
+| Parking Pass | ✅ completed | 05:46:33 UTC |
+
+**All 3 emails sent successfully to garetcrenshaw@gmail.com**
+
+---
+
+## Summary of Fixes Applied
+
+### Fix 1: Stripe Webhook URL (ROOT CAUSE)
+- **OLD:** `https://sports-tickets.vercel.app/api/stripe-webhook`
+- **NEW:** `https://www.gamedaytickets.io/api/stripe-webhook`
+- **Commit:** Updated via Stripe API
+
+### Fix 2: Email Worker Query Bug
+- **Problem:** Worker only checked oldest 100 jobs
+- **Fix:** Query `status='pending'` directly
+- **Commit:** `8bdf56e`
+
+---
+
+## Phase 4: End-to-End Verification Test
+
+### Fresh Checkout Session Created
+
+**Checkout URL:**
+```
+https://checkout.stripe.com/c/pay/cs_test_a1mtXcKEDC7mXQu1UgFIjzB2A7GSSs0X4pMAtZMBz7HotPGo4xrTC6EbSY
+```
+
+**Test Details:**
+- Customer: Garet Crenshaw
+- Email: garetcrenshaw@gmail.com
+- Event: Gameday Empire Showcase (Event 1)
+- Tickets: 1 General Admission
+- Parking: None
+
+### Steps to Complete Test
+
+1. ✅ Checkout session created
+2. ⏳ Complete payment with test card (4242 4242 4242 4242)
+3. ⏳ Verify Stripe webhook received
+4. ⏳ Verify ticket created in database
+5. ⏳ Verify email queue job created
+6. ⏳ Verify email delivered to garetcrenshaw@gmail.com
+
+---
+
+## 🚀 READY FOR MANUAL VERIFICATION
+
+**To complete the end-to-end test:**
+
+1. Open this URL in your browser:
+   ```
+   https://checkout.stripe.com/c/pay/cs_test_a1mtXcKEDC7mXQu1UgFIjzB2A7GSSs0X4pMAtZMBz7HotPGo4xrTC6EbSY
+   ```
+
+2. Complete payment with test card:
+   - Card: 4242 4242 4242 4242
+   - Expiry: Any future date
+   - CVC: Any 3 digits
+   - ZIP: Any 5 digits
+
+3. After payment, you should:
+   - Be redirected to success page
+   - Receive email at garetcrenshaw@gmail.com within 1-2 minutes
+   - Email should contain QR code for your ticket
+
+4. Report back:
+   - ✅ Email received? YES/NO
+   - ✅ QR code visible in email? YES/NO
+   - ✅ Success page loaded? YES/NO
+
+---
+
+## Resolution Summary
+
+### Root Causes Fixed
+
+1. **Stripe Webhook URL Misconfiguration** (CRITICAL)
+   - Webhook was pointing to `sports-tickets.vercel.app` instead of `gamedaytickets.io`
+   - All payments succeeded but fulfillment never triggered
+   - Fixed via Stripe API
+
+2. **Email Worker Query Bug** (MODERATE)
+   - Worker fetched oldest 100 jobs, filtered for pending
+   - If 100+ completed jobs existed, new pending jobs were missed
+   - Fixed by querying `status='pending'` directly
+
+### Verification
+
+- ✅ 3 test emails sent successfully after manual recovery
+- ✅ Email worker fix deployed
+- ⏳ Awaiting fresh purchase to verify complete end-to-end flow
 
 ---
 
