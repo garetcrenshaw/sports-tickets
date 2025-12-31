@@ -23,7 +23,14 @@ export default async function handler(req, res) {
   try {
     switch (action) {
       case 'exception':
-        // Test exception capture
+        // Test exception capture with critical tag to trigger alert
+        captureException(new Error('Test exception for Sentry monitoring'), {
+          tags: {
+            component: 'test-sentry',
+            critical: true,  // This will trigger the "Critical Errors" alert
+            test: true,
+          },
+        });
         throw new Error('Test exception for Sentry monitoring');
         
       case 'message':
