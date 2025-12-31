@@ -174,13 +174,12 @@ export default async function handler(req, res) {
       // Payment method configuration - Stripe will auto-enable Apple Pay/Google Pay/Link
       // No payment_method_types specified = Stripe uses smart defaults
       
-      // Note: consent_collection requires agreeing to Stripe ToS in dashboard
-      // If you want to enable marketing consent, visit:
-      // https://dashboard.stripe.com/settings/checkout
-      // Then uncomment the consent_collection block below
-      // consent_collection: {
-      //   promotions: 'auto', // Let users opt-in to marketing emails
-      // },
+      // Marketing consent collection
+      // REQUIRES: Agree to Stripe ToS at https://dashboard.stripe.com/settings/checkout
+      // Once enabled, consent data will be available in webhook at session.consent
+      consent_collection: {
+        promotions: 'auto', // Let users opt-in to marketing emails
+      },
       
       // Improve line item descriptions for clarity
       payment_intent_data: {

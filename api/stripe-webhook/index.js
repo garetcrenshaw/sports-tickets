@@ -263,7 +263,15 @@ async function processCheckoutSession(session) {
   const billingCity = billingAddress.city || null;
   const billingState = billingAddress.state || null;
   
+  // Capture marketing consent (if enabled in Stripe Dashboard)
+  // Consent data structure: { promotions: 'opt_in' | 'opt_out' | null }
+  const marketingConsent = session.consent?.promotions || null;
+  const marketingOptIn = marketingConsent === 'opt_in';
+  
   console.log(`📍 Customer location: ${billingCity || 'N/A'}, ${billingState || 'N/A'} ${billingZip || 'N/A'}`);
+  if (marketingConsent !== null) {
+    console.log(`📧 Marketing consent: ${marketingConsent} (opt-in: ${marketingOptIn})`);
+  }
   
   // Note: metadata uses camelCase (eventId), not snake_case (event_id)
   // IMPORTANT: Convert to integer for proper matching with events table
@@ -313,7 +321,8 @@ async function processCheckoutSession(session) {
         qr_url: '', // Empty - will be populated when email is sent
         billing_zip: billingZip,
         billing_city: billingCity,
-        billing_state: billingState
+        billing_state: billingState,
+        marketing_consent: marketingOptIn // true if opted in, false if opted out, null if not collected
       });
 
       // Email queue record - NO qr_code_data, will be generated before sending
