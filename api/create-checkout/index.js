@@ -47,7 +47,8 @@ export default async function handler(req, res) {
       admissionQuantity, 
       parkingQuantity,
       feeModel,
-      serviceFeePerTicket 
+      serviceFeePerTicket,
+      portalSlug 
     } = req.body || {};
 
     console.log('CREATE-CHECKOUT: Processing order', { 
@@ -118,11 +119,24 @@ export default async function handler(req, res) {
 
     // URL configuration - Use environment variable for flexibility
     const baseUrl = process.env.SITE_URL || 'https://gamedaytickets.io';
-    const successUrl = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${baseUrl}/cancel`;
+    
+    // Handle portal-specific redirects
+    let successUrl, cancelUrl;
+    if (portalSlug) {
+      // Portal redirects - back to org's branded pages
+      successUrl = `${baseUrl}/org/${portalSlug}/success?session_id={CHECKOUT_SESSION_ID}`;
+      cancelUrl = `${baseUrl}/org/${portalSlug}/cancel`;
+    } else {
+      // Regular redirects - main site
+      successUrl = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
+      cancelUrl = `${baseUrl}/cancel`;
+    }
 
     console.log('CREATE-CHECKOUT: Success URL:', successUrl);
     console.log('CREATE-CHECKOUT: Cancel URL:', cancelUrl);
+    if (portalSlug) {
+      console.log('CREATE-CHECKOUT: Portal mode for:', portalSlug);
+    }
 
     const session = await stripe.checkout.sessions.create({
       // No payment_method_types = Stripe auto-enables Apple Pay, Google Pay, Link, cards, etc.
@@ -139,6 +153,7 @@ export default async function handler(req, res) {
         feeModel: feeModel || 'baked_in',
         serviceFeePerTicket: serviceFeePerTicket?.toString() || '0',
         totalServiceFee: (serviceFeePerTicket * totalTickets)?.toString() || '0',
+        portalSlug: portalSlug || '',
       },
       line_items: lineItems,
       success_url: successUrl,

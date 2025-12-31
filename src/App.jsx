@@ -1090,25 +1090,27 @@ function PortalBuyPage() {
     setMessage('')
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
-      const response = await fetch(`${API_URL}/api/create-checkout`, {
+      const response = await fetch('/api/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          name,
+          email,
           eventId: event.id,
-          eventName: event.name,
           admissionQuantity,
           parkingQuantity,
-          admissionPrice: event.price,
-          parkingPrice: event.parkingPrice,
-          customerName: name,
-          customerEmail: email,
           feeModel: event.feeModel,
-          serviceFee: event.serviceFee || SERVICE_FEE_DISPLAY,
+          serviceFeePerTicket: event.serviceFee || SERVICE_FEE_DISPLAY,
           // Pass portal context for redirect back
           portalSlug: orgSlug
         })
       })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || 'Checkout failed. Please try again.')
+      }
+
       const data = await response.json()
       if (data.url) {
         window.location.href = data.url
@@ -1116,7 +1118,8 @@ function PortalBuyPage() {
         setMessage('Error creating checkout session.')
       }
     } catch (err) {
-      setMessage('Error connecting to payment server.')
+      console.error('Checkout error:', err)
+      setMessage(err.message || 'Error connecting to payment server.')
     } finally {
       setLoading(false)
     }
