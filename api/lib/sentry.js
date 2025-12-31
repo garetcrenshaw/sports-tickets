@@ -90,11 +90,17 @@ export function captureException(error, context = {}) {
   initSentryServer();
   
   // Extract tags and extra separately - Sentry needs tags at top level
-  const { tags, extra, ...rest } = context;
+  const tags = context.tags || {};
+  const extra = context.extra || {};
+  
+  // Get any other properties that aren't tags or extra
+  const otherProps = { ...context };
+  delete otherProps.tags;
+  delete otherProps.extra;
   
   Sentry.captureException(error, {
-    tags: tags || {},
-    extra: extra || rest || {},
+    tags: tags,
+    extra: { ...otherProps, ...extra },
   });
 }
 
@@ -105,12 +111,18 @@ export function captureMessage(message, level = 'info', context = {}) {
   initSentryServer();
   
   // Extract tags and extra separately
-  const { tags, extra, ...rest } = context;
+  const tags = context.tags || {};
+  const extra = context.extra || {};
+  
+  // Get any other properties that aren't tags or extra
+  const otherProps = { ...context };
+  delete otherProps.tags;
+  delete otherProps.extra;
   
   Sentry.captureMessage(message, {
     level,
-    tags: tags || {},
-    extra: extra || rest || {},
+    tags: tags,
+    extra: { ...otherProps, ...extra },
   });
 }
 
