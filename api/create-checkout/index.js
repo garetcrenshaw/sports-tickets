@@ -175,11 +175,12 @@ export default async function handler(req, res) {
       // No payment_method_types specified = Stripe uses smart defaults
       
       // Marketing consent collection
-      // REQUIRES: Agree to Stripe ToS at https://dashboard.stripe.com/settings/checkout
+      // REQUIRES: Agree to Stripe ToS at https://dashboard.stripe.com/settings/checkout (LIVE MODE ONLY)
+      // TODO: Uncomment when ready to go live and enable in Stripe Dashboard
       // Once enabled, consent data will be available in webhook at session.consent
-      consent_collection: {
-        promotions: 'auto', // Let users opt-in to marketing emails
-      },
+      // consent_collection: {
+      //   promotions: 'auto', // Let users opt-in to marketing emails
+      // },
       
       // Improve line item descriptions for clarity
       payment_intent_data: {
