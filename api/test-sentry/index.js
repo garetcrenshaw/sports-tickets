@@ -73,10 +73,14 @@ export default async function handler(req, res) {
     }
   } catch (error) {
     // This will be captured by Sentry
+    // Check if this is the exception case (which should have critical tag)
+    const isCritical = req.query?.action === 'exception';
+    
     captureException(error, {
       tags: {
         component: 'test-sentry',
         test: true,
+        ...(isCritical && { critical: true }), // Add critical tag for exception action
       },
     });
     
