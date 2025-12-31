@@ -88,8 +88,13 @@ export function wrapHandler(handler) {
  */
 export function captureException(error, context = {}) {
   initSentryServer();
+  
+  // Extract tags and extra separately - Sentry needs tags at top level
+  const { tags, extra, ...rest } = context;
+  
   Sentry.captureException(error, {
-    extra: context,
+    tags: tags || {},
+    extra: extra || rest || {},
   });
 }
 
@@ -98,9 +103,14 @@ export function captureException(error, context = {}) {
  */
 export function captureMessage(message, level = 'info', context = {}) {
   initSentryServer();
+  
+  // Extract tags and extra separately
+  const { tags, extra, ...rest } = context;
+  
   Sentry.captureMessage(message, {
     level,
-    extra: context,
+    tags: tags || {},
+    extra: extra || rest || {},
   });
 }
 
