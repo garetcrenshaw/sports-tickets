@@ -346,6 +346,12 @@ Check your Sentry dashboard to confirm events are being received.
 
 ## Changelog
 
+**2025-12-30:**
+- ✅ Critical Errors alert tested and verified working
+- ✅ Email notifications confirmed receiving alerts
+- ✅ Tags properly configured and visible in Sentry
+- ✅ Fixed tag extraction bug in `captureException` function
+
 **2025-12-28:**
 - ✅ Initial Sentry integration (frontend + backend)
 - ✅ Vercel Analytics enabled
@@ -355,6 +361,6 @@ Check your Sentry dashboard to confirm events are being received.
 
 ---
 
-**Last Updated:** December 28, 2025  
+**Last Updated:** December 30, 2025  
 **Maintained By:** Development Team
 

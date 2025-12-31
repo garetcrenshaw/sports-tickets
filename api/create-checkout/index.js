@@ -4,6 +4,21 @@ import { initSentryServer, captureException } from '../lib/sentry.js';
 // Initialize Sentry for error tracking
 initSentryServer();
 
+/**
+ * STREAMLINED CHECKOUT CONFIGURATION
+ * 
+ * This checkout is optimized for digital tickets to reduce friction:
+ * - No phone number required (digital tickets don't need it)
+ * - Billing address only collected if payment method requires it
+ * - Clear, concise product descriptions
+ * - Auto-detects locale for better UX
+ * - Supports Apple Pay, Google Pay, and Link for express checkout
+ * - Marketing consent is optional (opt-in)
+ * 
+ * To further customize appearance (colors, logo, etc.):
+ * Go to Stripe Dashboard → Settings → Branding
+ */
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export default async function handler(req, res) {
@@ -64,6 +79,8 @@ export default async function handler(req, res) {
       lineItems.push({
         price: pricing.admission,
         quantity: admissionQuantity,
+        // Note: Product name/description comes from Stripe Price configuration
+        // Update in Stripe Dashboard for better checkout display
       });
     }
 
@@ -72,24 +89,26 @@ export default async function handler(req, res) {
       lineItems.push({
         price: pricing.parking,
         quantity: parkingQuantity,
+        // Note: Product name/description comes from Stripe Price configuration
+        // Update in Stripe Dashboard for better checkout display
       });
     }
 
-    // Add service fee for pass_through model
-    const totalTickets = (admissionQuantity || 0) + (parkingQuantity || 0);
-    if (feeModel === 'pass_through' && serviceFeePerTicket > 0 && totalTickets > 0) {
-      lineItems.push({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: 'Service Fee',
-            description: 'Platform service fee',
+      // Add service fee for pass_through model
+      const totalTickets = (admissionQuantity || 0) + (parkingQuantity || 0);
+      if (feeModel === 'pass_through' && serviceFeePerTicket > 0 && totalTickets > 0) {
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: 'Service Fee',
+              description: 'Processing and platform fee',
+            },
+            unit_amount: Math.round(serviceFeePerTicket * 100), // Convert to cents
           },
-          unit_amount: Math.round(serviceFeePerTicket * 100), // Convert to cents
-        },
-        quantity: totalTickets,
-      });
-    }
+          quantity: totalTickets,
+        });
+      }
 
     // Validate that at least one item is being purchased
     if (lineItems.length === 0) {
@@ -97,9 +116,10 @@ export default async function handler(req, res) {
       return;
     }
 
-    // PRODUCTION URLS - Using custom domain
-    const successUrl = 'https://gamedaytickets.io/success?session_id={CHECKOUT_SESSION_ID}';
-    const cancelUrl = 'https://gamedaytickets.io/cancel';
+    // URL configuration - Use environment variable for flexibility
+    const baseUrl = process.env.SITE_URL || 'https://gamedaytickets.io';
+    const successUrl = `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${baseUrl}/cancel`;
 
     console.log('CREATE-CHECKOUT: Success URL:', successUrl);
     console.log('CREATE-CHECKOUT: Cancel URL:', cancelUrl);
@@ -123,9 +143,31 @@ export default async function handler(req, res) {
       line_items: lineItems,
       success_url: successUrl,
       cancel_url: cancelUrl,
-      // UI customization
+      // UI customization for better UX
       locale: 'auto',
       submit_type: 'pay', // Shows "Pay" button instead of "Subscribe"
+      
+      // Streamline checkout - remove unnecessary fields for digital tickets
+      billing_address_collection: 'auto', // Only collect if required by payment method (most cards don't need it)
+      phone_number_collection: {
+        enabled: false, // Don't require phone for digital tickets
+      },
+      
+      // Allow promotion codes if needed
+      allow_promotion_codes: false, // Set to true if you want to allow discount codes
+      
+      // Payment method configuration - Stripe will auto-enable Apple Pay/Google Pay/Link
+      // No payment_method_types specified = Stripe uses smart defaults
+      
+      // Consent collection (optional - for marketing)
+      consent_collection: {
+        promotions: 'auto', // Let users opt-in to marketing emails
+      },
+      
+      // Improve line item descriptions for clarity
+      payment_intent_data: {
+        description: `Event tickets - ${name}`,
+      },
     });
 
     console.log('CREATE-CHECKOUT: Session created', session.id);

@@ -6,6 +6,10 @@ import Cancel from './pages/Cancel'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import EventDashboard from './pages/EventDashboard'
+import DatePicker from './components/DatePicker'
+import TypographyGuide from './pages/TypographyGuide'
+import { getOrganization } from './config/organizations'
+import { filterPastEvents, parseEventDate } from './utils/eventFilters'
 import './App.css'
 import './dashboard.css'
 
@@ -192,14 +196,6 @@ function HomePage() {
             The simplest way to buy, send, and scan event tickets.
             Digital passes delivered instantly to your inbox.
           </p>
-          <div className="home-hero__cta">
-            <Link to="/events" className="home-cta-btn-glow">
-              Get Tickets
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
-              </svg>
-            </Link>
-          </div>
         </div>
         
       </section>
@@ -485,36 +481,51 @@ function ContactPage() {
   )
 }
 
-// Generate months for the next year
-function getMonthOptions() {
-  const months = ['all']
-  const now = new Date()
-  for (let i = 0; i < 12; i++) {
-    const date = new Date(now.getFullYear(), now.getMonth() + i, 1)
-    const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' })
-    months.push(monthName)
-  }
-  return months
-}
-
 // Events Browser Page
 function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [monthFilter, setMonthFilter] = useState('all')
+  const [selectedDate, setSelectedDate] = useState(null) // { month, year, day } or null
+  const [showDatePicker, setShowDatePicker] = useState(false)
   const navigate = useNavigate()
 
   const categories = ['all', ...new Set(EVENTS_DATA.map(e => e.category))]
-  const months = getMonthOptions()
 
-  const filteredEvents = EVENTS_DATA.filter(event => {
+  // Filter events: search + category + date + hide past events (doors closed)
+  const filteredEvents = filterPastEvents(EVENTS_DATA).filter(event => {
     const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           event.venue.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = categoryFilter === 'all' || event.category === categoryFilter
-    // Check if event date contains the selected month
-    const matchesMonth = monthFilter === 'all' || event.date.toLowerCase().includes(monthFilter.split(' ')[0].toLowerCase())
-    return matchesSearch && matchesCategory && matchesMonth
+    
+    // Check if event date matches selected date
+    let matchesDate = true
+    if (selectedDate) {
+      // Parse event date to compare
+      const eventDateObj = parseEventDate(event.date, event.time)
+      if (eventDateObj) {
+        matchesDate = eventDateObj.getMonth() === selectedDate.month &&
+                     eventDateObj.getFullYear() === selectedDate.year &&
+                     eventDateObj.getDate() === selectedDate.day
+      } else {
+        matchesDate = false
+      }
+    }
+    
+    return matchesSearch && matchesCategory && matchesDate
   })
+
+  const handleDateSelect = (dateObj) => {
+    if (dateObj) {
+      setSelectedDate({
+        month: dateObj.month,
+        year: dateObj.year,
+        day: dateObj.day
+      })
+    } else {
+      setSelectedDate(null)
+    }
+    setShowDatePicker(false)
+  }
 
   return (
     <div className="events-page">
@@ -555,8 +566,12 @@ function EventsPage() {
 
           <div className="events-filter-row">
             <div className="events-filter-group">
-              <label>Category</label>
-              <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+              <label htmlFor="category-filter">Category</label>
+              <select 
+                id="category-filter"
+                value={categoryFilter} 
+                onChange={(e) => setCategoryFilter(e.target.value)}
+              >
                 {categories.map(cat => (
                   <option key={cat} value={cat}>
                     {cat === 'all' ? 'All Events' : cat}
@@ -565,15 +580,51 @@ function EventsPage() {
               </select>
             </div>
 
-            <div className="events-filter-group">
-              <label>Month</label>
-              <select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
-                {months.map(month => (
-                  <option key={month} value={month}>
-                    {month === 'all' ? 'All Months' : month}
-                  </option>
-                ))}
-              </select>
+            <div className="events-filter-group events-filter-group--date">
+              <label>Date</label>
+              <button 
+                className="events-date-trigger"
+                onClick={() => setShowDatePicker(!showDatePicker)}
+                type="button"
+              >
+                {selectedDate 
+                  ? new Date(selectedDate.year, selectedDate.month, selectedDate.day).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    })
+                  : 'Select Date'}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </button>
+              
+              {selectedDate && (
+                <button 
+                  className="events-date-clear"
+                  onClick={() => {
+                    setSelectedDate(null)
+                    setShowDatePicker(false)
+                  }}
+                  type="button"
+                  aria-label="Clear date filter"
+                >
+                  ×
+                </button>
+              )}
+              
+              {showDatePicker && (
+                <div className="events-date-picker-wrapper">
+                  <DatePicker
+                    selectedDate={selectedDate}
+                    onDateSelect={handleDateSelect}
+                    onClose={() => setShowDatePicker(false)}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -583,7 +634,12 @@ function EventsPage() {
           {filteredEvents.length === 0 ? (
             <div className="events-empty">
               <p>No events found matching your criteria.</p>
-              <button onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setMonthFilter('all'); }}>
+              <button onClick={() => { 
+                setSearchQuery(''); 
+                setCategoryFilter('all'); 
+                setSelectedDate(null);
+                setShowDatePicker(false);
+              }}>
                 Clear Filters
               </button>
             </div>
@@ -738,9 +794,10 @@ function EventPage() {
 
             {event.hasAdmission && (
               <div className="buy-option buy-option--light">
-                <h3>General Admission – ${event.price} each</h3>
+                <h3>Admission Tickets</h3>
+                <p className="buy-option__price">${event.price} each</p>
                 <div className="buy-option__control">
-                <label>Tickets</label>
+                <label>Quantity</label>
                 <select
                     className="buy-option__select"
                   value={admissionQuantity}
@@ -756,9 +813,10 @@ function EventPage() {
 
             {event.hasParking && (
               <div className="buy-option buy-option--light">
-                <h3>Parking Pass – ${event.parkingPrice} each</h3>
+                <h3>Parking Passes</h3>
+                <p className="buy-option__price">${event.parkingPrice} each</p>
                 <div className="buy-option__control">
-                <label>Parking</label>
+                <label>Quantity</label>
                 <select
                     className="buy-option__select"
                   value={parkingQuantity}
@@ -780,15 +838,15 @@ function EventPage() {
               <span>Order Summary</span>
             </div>
 
-            {event.hasAdmission && (
+            {event.hasAdmission && admissionQuantity > 0 && (
               <div className="buy-summary__row">
-              <span>General Admission × {admissionQuantity}</span>
+              <span>Admission Tickets ({admissionQuantity})</span>
               <span>${admissionSubtotal.toFixed(2)}</span>
             </div>
             )}
-            {event.hasParking && (
+            {event.hasParking && parkingQuantity > 0 && (
               <div className="buy-summary__row">
-              <span>Parking Pass × {parkingQuantity}</span>
+              <span>Parking Passes ({parkingQuantity})</span>
               <span>${parkingSubtotal.toFixed(2)}</span>
               </div>
             )}
@@ -796,7 +854,7 @@ function EventPage() {
             {/* Show service fee for pass_through model */}
             {event.feeModel === 'pass_through' && serviceFee > 0 && (
               <div className="buy-summary__row buy-summary__row--fee">
-                <span>Service Fee × {totalTickets}</span>
+                <span>Service Fee ({totalTickets} tickets)</span>
                 <span>${serviceFee.toFixed(2)}</span>
               </div>
             )}
@@ -818,7 +876,7 @@ function EventPage() {
               onClick={handleCheckout}
               disabled={!canCheckout || loading}
             >
-              {loading ? 'Routing to Stripe…' : 'Complete Purchase'}
+              {loading ? 'Processing…' : 'Complete Purchase'}
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
@@ -844,41 +902,6 @@ function EventPage() {
 const OrgContext = createContext(null)
 const useOrg = () => useContext(OrgContext)
 
-// Mock organization data - in production this comes from API
-// Each org gets full white-label branding control
-const ORGANIZATIONS = {
-  'springfield-little-league': {
-    id: 'springfield-little-league',
-    name: 'Springfield Little League',
-    logo: '⚾',
-    season: 'Spring 2025 Season',
-    primaryColor: '#f97316',
-    secondaryColor: '#ea580c',
-    backgroundColor: '#0a0a0a',
-    accentColor: '#ff6b35'
-  },
-  'downtown-youth-basketball': {
-    id: 'downtown-youth-basketball',
-    name: 'Downtown Youth Basketball',
-    logo: '🏀',
-    season: '2024-25 Season',
-    primaryColor: '#3b82f6',
-    secondaryColor: '#2563eb',
-    backgroundColor: '#0a0a0a',
-    accentColor: '#60a5fa'
-  },
-  'gameday-empire': {
-    id: 'gameday-empire',
-    name: 'Gameday Empire',
-    logo: '🏆',
-    season: 'Current Events',
-    primaryColor: '#f97316',
-    secondaryColor: '#ea580c',
-    backgroundColor: '#0a0a0a',
-    accentColor: '#ff6b35'
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // PORTAL LAYOUT - Wraps all portal pages with org branding
 // ─────────────────────────────────────────────────────────────────────────────
@@ -887,17 +910,8 @@ function PortalLayout() {
   const { orgSlug } = useParams()
   const navigate = useNavigate()
   
-  // Get org data or generate from slug
-  const org = ORGANIZATIONS[orgSlug] || {
-    id: orgSlug,
-    name: orgSlug?.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || 'Events',
-    logo: '🎟️',
-    season: 'Upcoming Events',
-    primaryColor: '#f97316',
-    secondaryColor: '#ea580c',
-    backgroundColor: '#0a0a0a',
-    accentColor: '#ff6b35'
-  }
+  // Get org data from config file (easily editable)
+  const org = getOrganization(orgSlug)
 
   return (
     <OrgContext.Provider value={org}>
@@ -944,7 +958,8 @@ function PortalEvents() {
   const [searchQuery, setSearchQuery] = useState('')
 
   // Filter events (in production, filter by org)
-  const filteredEvents = EVENTS_DATA.filter(event => {
+  // Filter events: search + hide past events (doors closed)
+  const filteredEvents = filterPastEvents(EVENTS_DATA).filter(event => {
     const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           event.venue.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesSearch
@@ -1118,8 +1133,8 @@ function PortalBuyPage() {
         {event.hasAdmission && (
           <div className="portal-buy__item">
             <div className="portal-buy__item-info">
-              <span className="portal-buy__item-name">General Admission</span>
-              <span className="portal-buy__item-price">${event.price.toFixed(2)}</span>
+              <span className="portal-buy__item-name">Admission Tickets</span>
+              <span className="portal-buy__item-price">${event.price.toFixed(2)} each</span>
             </div>
             <select 
               value={admissionQuantity} 
@@ -1136,8 +1151,8 @@ function PortalBuyPage() {
         {event.hasParking && (
           <div className="portal-buy__item">
             <div className="portal-buy__item-info">
-              <span className="portal-buy__item-name">Parking Pass</span>
-              <span className="portal-buy__item-price">${event.parkingPrice.toFixed(2)}</span>
+              <span className="portal-buy__item-name">Parking Passes</span>
+              <span className="portal-buy__item-price">${event.parkingPrice.toFixed(2)} each</span>
             </div>
             <select 
               value={parkingQuantity} 
@@ -1281,6 +1296,7 @@ export default function App() {
         <Route path="/success" element={<Success />} />
         <Route path="/cancel" element={<Cancel />} />
         <Route path="/validate" element={<Validate />} />
+        <Route path="/typography-guide" element={<TypographyGuide />} />
         
         {/* ─────────────────────────────────────────────────────────────────────
             B2C PORTAL ROUTES - White-label experience for parents
