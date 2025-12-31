@@ -919,16 +919,15 @@ function PortalLayout() {
         '--portal-primary': org.primaryColor, 
         '--portal-secondary': org.secondaryColor,
         '--portal-bg': org.backgroundColor,
-        '--portal-accent': org.accentColor
+        '--portal-accent': org.accentColor,
+        '--portal-font': org.fontFamily || 'var(--font-body)'
       }}>
         {/* Organization Header - Consistent across all portal pages */}
         <header className="portal-header">
           <div className="portal-header__brand" onClick={() => navigate(`/org/${orgSlug}`)}>
             <span className="portal-header__logo">{org.logo}</span>
-            <div className="portal-header__info">
-              <h1 className="portal-header__name">{org.name}</h1>
-              <p className="portal-header__season">{org.season}</p>
-            </div>
+            <h1 className="portal-header__name">{org.name}</h1>
+            <p className="portal-header__season">{org.season}</p>
           </div>
         </header>
 
@@ -941,6 +940,36 @@ function PortalLayout() {
         <footer className="portal-footer">
           <p>Powered by <span>Gameday Tickets</span></p>
         </footer>
+        
+        {/* Mobile Bottom Banner - Always visible with continuous scroll */}
+        <div className="portal-mobile-banner">
+          <div className="portal-mobile-banner__track">
+            <div className="portal-mobile-banner__content">
+              <span className="portal-mobile-banner__logo">{org.logo}</span>
+              <span className="portal-mobile-banner__name">{org.name}</span>
+            </div>
+            <div className="portal-mobile-banner__content" aria-hidden="true">
+              <span className="portal-mobile-banner__logo">{org.logo}</span>
+              <span className="portal-mobile-banner__name">{org.name}</span>
+            </div>
+            <div className="portal-mobile-banner__content" aria-hidden="true">
+              <span className="portal-mobile-banner__logo">{org.logo}</span>
+              <span className="portal-mobile-banner__name">{org.name}</span>
+            </div>
+            <div className="portal-mobile-banner__content" aria-hidden="true">
+              <span className="portal-mobile-banner__logo">{org.logo}</span>
+              <span className="portal-mobile-banner__name">{org.name}</span>
+            </div>
+            <div className="portal-mobile-banner__content" aria-hidden="true">
+              <span className="portal-mobile-banner__logo">{org.logo}</span>
+              <span className="portal-mobile-banner__name">{org.name}</span>
+            </div>
+            <div className="portal-mobile-banner__content" aria-hidden="true">
+              <span className="portal-mobile-banner__logo">{org.logo}</span>
+              <span className="portal-mobile-banner__name">{org.name}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </OrgContext.Provider>
   )
@@ -995,7 +1024,7 @@ function PortalEvents() {
             <div key={event.id} className="portal-event" onClick={() => navigate(`/org/${orgSlug}/event/${event.id}`)}>
               <div className="portal-event__date">
                 <span className="portal-event__day">{event.date.split(',')[0]}</span>
-                <span className="portal-event__time">{event.time}</span>
+                <span className="portal-event__date-text">{event.date.split(',').slice(1).join(',').trim()}</span>
               </div>
               <div className="portal-event__info">
                 <h3 className="portal-event__name">{event.name}</h3>
@@ -1114,7 +1143,7 @@ function PortalBuyPage() {
               <line x1="8" y1="2" x2="8" y2="6"/>
               <line x1="3" y1="10" x2="21" y2="10"/>
             </svg>
-            {event.date} at {event.time}
+            {event.date}
           </span>
           <span className="portal-buy__venue">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1126,7 +1155,27 @@ function PortalBuyPage() {
         </div>
       </div>
 
-      {/* Ticket Selection */}
+      {/* Your Information - First */}
+      <div className="portal-buy__form">
+        <h3 className="portal-buy__section-title">Your Information</h3>
+        <input
+          type="text"
+          placeholder="Full Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="portal-buy__input"
+        />
+        <input
+          type="email"
+          placeholder="Email Address"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="portal-buy__input"
+        />
+        <p className="portal-buy__email-note">Your tickets will be sent here</p>
+      </div>
+
+      {/* Ticket Selection - Second */}
       <div className="portal-buy__form">
         <h3 className="portal-buy__section-title">Select Tickets</h3>
         
@@ -1165,23 +1214,6 @@ function PortalBuyPage() {
             </select>
           </div>
         )}
-
-        <h3 className="portal-buy__section-title">Your Information</h3>
-        <input
-          type="text"
-          placeholder="Full Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="portal-buy__input"
-        />
-        <input
-          type="email"
-          placeholder="Email Address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="portal-buy__input"
-        />
-        <p className="portal-buy__email-note">Your tickets will be sent here</p>
 
         {/* Order Summary */}
         <div className="portal-buy__summary">
