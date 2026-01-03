@@ -9,7 +9,7 @@ import EventDashboard from './pages/EventDashboard'
 import DatePicker from './components/DatePicker'
 import TypographyGuide from './pages/TypographyGuide'
 import Tickets from './pages/Tickets'
-import { getOrganization } from './config/organizations'
+import { getOrganization, ORGANIZATIONS } from './config/organizations'
 import { filterPastEvents, parseEventDate } from './utils/eventFilters'
 import './App.css'
 import './dashboard.css'
@@ -107,6 +107,9 @@ function HamburgerMenu() {
             </Link>
             <Link to="/contact" onClick={() => setIsOpen(false)}>
               Contact
+            </Link>
+            <Link to="/login" onClick={() => setIsOpen(false)}>
+              Dashboard Login
             </Link>
           </div>
         </>
@@ -667,51 +670,24 @@ function ContactPage() {
   )
 }
 
-// Events Browser Page
+// Events Browser Page - Shows Tournament Organizers
 function EventsPage() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [selectedDate, setSelectedDate] = useState(null) // { month, year, day } or null
-  const [showDatePicker, setShowDatePicker] = useState(false)
   const navigate = useNavigate()
 
-  const categories = ['all', ...new Set(EVENTS_DATA.map(e => e.category))]
-
-  // Filter events: search + category + date + hide past events (doors closed)
-  const filteredEvents = filterPastEvents(EVENTS_DATA).filter(event => {
-    const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          event.venue.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = categoryFilter === 'all' || event.category === categoryFilter
-    
-    // Check if event date matches selected date
-    let matchesDate = true
-    if (selectedDate) {
-      // Parse event date to compare
-      const eventDateObj = parseEventDate(event.date, event.time)
-      if (eventDateObj) {
-        matchesDate = eventDateObj.getMonth() === selectedDate.month &&
-                     eventDateObj.getFullYear() === selectedDate.year &&
-                     eventDateObj.getDate() === selectedDate.day
-      } else {
-        matchesDate = false
-      }
-    }
-    
-    return matchesSearch && matchesCategory && matchesDate
+  // Get all organizations (tournament organizers)
+  // Filter out organizations that don't have events yet
+  const organizations = Object.values(ORGANIZATIONS).filter(org => {
+    // Only show organizations that have events (for now, just SoCal Cup)
+    // You can add logic here to check if org has events
+    return org.id === 'socal-cup' // For now, only show SoCal Cup
   })
 
-  const handleDateSelect = (dateObj) => {
-    if (dateObj) {
-      setSelectedDate({
-        month: dateObj.month,
-        year: dateObj.year,
-        day: dateObj.day
-      })
-    } else {
-      setSelectedDate(null)
-    }
-    setShowDatePicker(false)
-  }
+  // Filter organizations by search query
+  const filteredOrganizations = organizations.filter(org => {
+    const matchesSearch = org.name.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesSearch
+  })
 
   return (
     <div className="events-page">
@@ -729,13 +705,13 @@ function EventsPage() {
         <div className="events-header">
           <div className="events-badge">
             <span className="events-badge__dot" />
-            Browse Events
+            Tournament Organizers
           </div>
-          <h1 className="events-title">Find Your Event</h1>
-          <p className="events-subtitle">Search by name, filter by date or category</p>
+          <h1 className="events-title">Find Your League</h1>
+          <p className="events-subtitle">Select a tournament organizer to view their events</p>
         </div>
 
-        {/* Search and Filters */}
+        {/* Search */}
         <div className="events-filters">
           <div className="events-search">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -744,120 +720,57 @@ function EventsPage() {
             </svg>
             <input
               type="text"
-              placeholder="Search by event name or venue..."
+              placeholder="Search by organizer name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-
-          <div className="events-filter-row">
-            <div className="events-filter-group">
-              <label htmlFor="category-filter">Category</label>
-              <select 
-                id="category-filter"
-                value={categoryFilter} 
-                onChange={(e) => setCategoryFilter(e.target.value)}
-              >
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>
-                    {cat === 'all' ? 'All Events' : cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="events-filter-group events-filter-group--date">
-              <label>Date</label>
-              <button 
-                className="events-date-trigger"
-                onClick={() => setShowDatePicker(!showDatePicker)}
-                type="button"
-              >
-                {selectedDate 
-                  ? new Date(selectedDate.year, selectedDate.month, selectedDate.day).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric', 
-                      year: 'numeric' 
-                    })
-                  : 'Select Date'}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                  <line x1="16" y1="2" x2="16" y2="6"/>
-                  <line x1="8" y1="2" x2="8" y2="6"/>
-                  <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-              </button>
-              
-              {selectedDate && (
-                <button 
-                  className="events-date-clear"
-                  onClick={() => {
-                    setSelectedDate(null)
-                    setShowDatePicker(false)
-                  }}
-                  type="button"
-                  aria-label="Clear date filter"
-                >
-                  ×
-                </button>
-              )}
-              
-              {showDatePicker && (
-                <div className="events-date-picker-wrapper">
-                  <DatePicker
-                    selectedDate={selectedDate}
-                    onDateSelect={handleDateSelect}
-                    onClose={() => setShowDatePicker(false)}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
-        {/* Events Grid */}
+        {/* Organizations Grid */}
         <div className="events-grid">
-          {filteredEvents.length === 0 ? (
+          {filteredOrganizations.length === 0 ? (
             <div className="events-empty">
-              <p>No events found matching your criteria.</p>
-              <button onClick={() => { 
-                setSearchQuery(''); 
-                setCategoryFilter('all'); 
-                setSelectedDate(null);
-                setShowDatePicker(false);
-              }}>
-                Clear Filters
+              <p>No tournament organizers found.</p>
+              <button onClick={() => setSearchQuery('')}>
+                Clear Search
               </button>
             </div>
           ) : (
-            filteredEvents.map(event => (
-              <div key={event.id} className="event-card" onClick={() => navigate(`/buy/${event.id}`)}>
-                <div className="event-card__category event-card__category--orange">{event.category}</div>
-                <h3 className="event-card__name">{event.name}</h3>
-                <div className="event-card__details">
-                  <span className="event-card__date">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                      <line x1="16" y1="2" x2="16" y2="6"/>
-                      <line x1="8" y1="2" x2="8" y2="6"/>
-                      <line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    {event.date}
-                  </span>
-                </div>
-                <div className="event-card__venue">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                    <circle cx="12" cy="10" r="3"/>
-                  </svg>
-                  {event.venue}, {event.city}
-                </div>
-                <div className="event-card__pricing">
-                  {event.hasAdmission && <span className="event-card__price">General Admission – ${event.price}</span>}
-                  {event.hasParking && <span className="event-card__price">Parking Pass – ${event.parkingPrice}</span>}
+            filteredOrganizations.map(org => (
+              <div 
+                key={org.id} 
+                className="event-card" 
+                onClick={() => navigate(`/org/${org.id}`)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div className="event-card__category event-card__category--orange">{org.season}</div>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '12px', 
+                  marginBottom: '12px' 
+                }}>
+                  {org.logo && (
+                    org.logo.startsWith('/') || org.logo.startsWith('http') ? (
+                      <img 
+                        src={org.logo} 
+                        alt={org.name}
+                        style={{ 
+                          width: '48px', 
+                          height: '48px', 
+                          objectFit: 'contain',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '48px' }}>{org.logo}</span>
+                    )
+                  )}
+                  <h3 className="event-card__name" style={{ margin: 0, flex: 1 }}>{org.name}</h3>
                 </div>
                 <div className="event-card__footer">
-                  <span className="event-card__cta">Get Tickets →</span>
+                  <span className="event-card__cta">View Events →</span>
                 </div>
               </div>
             ))
