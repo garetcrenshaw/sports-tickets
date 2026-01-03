@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { createClient } from '@supabase/supabase-js';
 import { initSentryServer, captureException } from '../lib/sentry.js';
 
 // Initialize Sentry for error tracking
@@ -12,14 +13,23 @@ initSentryServer();
  * - Billing address only collected if payment method requires it
  * - Clear, concise product descriptions
  * - Auto-detects locale for better UX
- * - Supports Apple Pay, Google Pay, and Link for express checkout
+ * - Simplified payment: Apple Pay (when available) and card only
+ * - Removed Link, Klarna, Amazon Pay, Affirm, Cash App Pay for cleaner UX
  * - Marketing consent is optional (opt-in)
+ * 
+ * UPDATED: Now fetches Stripe Price IDs from events table for multi-event support
  * 
  * To further customize appearance (colors, logo, etc.):
  * Go to Stripe Dashboard → Settings → Branding
  */
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+// Initialize Supabase client for database lookups
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export default async function handler(req, res) {
   console.log('CREATE-CHECKOUT: Request received', req.method);
@@ -43,35 +53,66 @@ export default async function handler(req, res) {
     const { 
       name, 
       email, 
+      phone,
       eventId, 
       admissionQuantity, 
       parkingQuantity,
-      feeModel,
-      serviceFeePerTicket,
       portalSlug 
     } = req.body || {};
 
-    console.log('CREATE-CHECKOUT: Processing order', { 
-      name, email, eventId, admissionQuantity, parkingQuantity, feeModel, serviceFeePerTicket 
+    console.log('CREATE-CHECKOUT: Processing order (all-in pricing)', { 
+      name, email, eventId, admissionQuantity, parkingQuantity 
     });
 
-    // Map eventId to the correct Stripe Price IDs
-    const eventPricing = {
-      1: {
-        admission: process.env.GA_PRICE_ID,
-        parking: process.env.PARKING_PRICE_ID,
-      },
-      2: {
-        admission: null, // Sportsplex Showdown has no admission
-        parking: process.env.SPORTSPLEX_SHOWDOWN_PARKING_PRICE_ID,
-      },
-      3: {
-        admission: process.env.SPORTSPLEX_EVENT_ADMISSION_PRICE_ID,
-        parking: null, // Sportsplex Event has no parking
-      },
-    };
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DYNAMIC EVENT PRICING - Fetches Stripe Price IDs from database
+    // This allows adding unlimited events without code changes
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // Fetch event pricing from Supabase
+    const { data: eventData, error: eventError } = await supabase
+      .from('events')
+      .select('id, event_name, has_admission, has_parking, stripe_admission_price_id, stripe_parking_price_id, admission_price, parking_price')
+      .eq('id', eventId)
+      .single();
 
-    const pricing = eventPricing[eventId] || eventPricing[1]; // Default to Event 1
+    if (eventError) {
+      console.error('CREATE-CHECKOUT: Database error fetching event:', eventError);
+    }
+
+    // Fallback to legacy hardcoded pricing for events 1-3 if database lookup fails
+    // This ensures backward compatibility during migration
+    let pricing;
+    
+    if (eventData && (eventData.stripe_admission_price_id || eventData.stripe_parking_price_id)) {
+      // Use database pricing (preferred for new events)
+      console.log('CREATE-CHECKOUT: Using database pricing for event:', eventData.event_name);
+      pricing = {
+        admission: eventData.has_admission ? eventData.stripe_admission_price_id : null,
+        parking: eventData.has_parking ? eventData.stripe_parking_price_id : null,
+        admissionPrice: eventData.admission_price,
+        parkingPrice: eventData.parking_price,
+        eventName: eventData.event_name
+      };
+    } else {
+      // Legacy fallback for events 1-3 (can be removed once migrated)
+      console.log('CREATE-CHECKOUT: Using legacy pricing for event ID:', eventId);
+      const legacyPricing = {
+        1: {
+          admission: process.env.GA_PRICE_ID,
+          parking: process.env.PARKING_PRICE_ID,
+        },
+        2: {
+          admission: null,
+          parking: process.env.SPORTSPLEX_SHOWDOWN_PARKING_PRICE_ID,
+        },
+        3: {
+          admission: process.env.SPORTSPLEX_EVENT_ADMISSION_PRICE_ID,
+          parking: null,
+        },
+      };
+      pricing = legacyPricing[eventId] || legacyPricing[1];
+    }
 
     const lineItems = [];
 
@@ -80,8 +121,6 @@ export default async function handler(req, res) {
       lineItems.push({
         price: pricing.admission,
         quantity: admissionQuantity,
-        // Note: Product name/description comes from Stripe Price configuration
-        // Update in Stripe Dashboard for better checkout display
       });
     }
 
@@ -90,26 +129,11 @@ export default async function handler(req, res) {
       lineItems.push({
         price: pricing.parking,
         quantity: parkingQuantity,
-        // Note: Product name/description comes from Stripe Price configuration
-        // Update in Stripe Dashboard for better checkout display
       });
     }
 
-      // Add service fee for pass_through model
-      const totalTickets = (admissionQuantity || 0) + (parkingQuantity || 0);
-      if (feeModel === 'pass_through' && serviceFeePerTicket > 0 && totalTickets > 0) {
-        lineItems.push({
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Service Fee',
-              description: 'Processing and platform fee',
-            },
-            unit_amount: Math.round(serviceFeePerTicket * 100), // Convert to cents
-          },
-          quantity: totalTickets,
-        });
-      }
+    // NOTE: Service fees removed - All-in pricing model (California compliant)
+    // The all-in price in Stripe already includes platform fee + processing
 
     // Validate that at least one item is being purchased
     if (lineItems.length === 0) {
@@ -139,20 +163,18 @@ export default async function handler(req, res) {
     }
 
     const session = await stripe.checkout.sessions.create({
-      // No payment_method_types = Stripe auto-enables Apple Pay, Google Pay, Link, cards, etc.
       mode: 'payment',
       customer_email: email,
       // Pre-fill customer name for faster checkout
       customer_creation: 'if_required',
       metadata: {
         buyerName: name,
-        buyerEmail: email,
+        buyerEmail: email || '',
+        buyerPhone: phone || '', // Phone for SMS ticket delivery
         eventId: eventId?.toString(),
         admissionQuantity: admissionQuantity?.toString(),
         parkingQuantity: parkingQuantity?.toString(),
-        feeModel: feeModel || 'baked_in',
-        serviceFeePerTicket: serviceFeePerTicket?.toString() || '0',
-        totalServiceFee: (serviceFeePerTicket * totalTickets)?.toString() || '0',
+        feeModel: 'all_in', // California compliant all-in pricing
         portalSlug: portalSlug || '',
       },
       line_items: lineItems,
@@ -171,8 +193,20 @@ export default async function handler(req, res) {
       // Allow promotion codes if needed
       allow_promotion_codes: false, // Set to true if you want to allow discount codes
       
-      // Payment method configuration - Stripe will auto-enable Apple Pay/Google Pay/Link
-      // No payment_method_types specified = Stripe uses smart defaults
+      // SIMPLIFIED PAYMENT METHODS - Only Apple Pay and Card
+      // This explicitly removes: Link, Klarna, Amazon Pay, Affirm, Cash App Pay
+      // Apple Pay will appear at the top on supported devices (iOS, macOS Safari)
+      // Card option will be available for all customers (including older customers)
+      // NOTE: You may also need to disable unwanted methods in Stripe Dashboard:
+      // Settings → Payment methods → Turn off Link, Klarna, Affirm, Cash App Pay
+      payment_method_types: ['card'], // Apple Pay appears automatically with 'card' on supported devices
+      
+      // Payment method options
+      payment_method_options: {
+        card: {
+          request_three_d_secure: 'automatic',
+        },
+      },
       
       // Marketing consent collection
       // REQUIRES: Agree to Stripe ToS at https://dashboard.stripe.com/settings/checkout (LIVE MODE ONLY)

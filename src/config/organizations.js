@@ -42,6 +42,17 @@ export const ORGANIZATIONS = {
     backgroundColor: '#0a0a0a',
     accentColor: '#ff6b35',
     fontFamily: null
+  },
+  'socal-cup': {
+    id: 'socal-cup',
+    name: 'SoCal Cup',
+    logo: '/socal-cup-logo.png', // PNG logo file in public folder
+    season: '2026 Season',
+    primaryColor: '#32cd32', // Lime green from logo
+    secondaryColor: '#228b22', // Darker green
+    backgroundColor: '#0a0a0a',
+    accentColor: '#90ee90', // Light green accent
+    fontFamily: 'Rubik' // For rotating bottom text
   }
 }
 

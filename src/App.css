@@ -1410,8 +1410,13 @@ html {
 
 .input-stack--light input:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--portal-primary, var(--accent));
   background: rgba(249, 115, 22, 0.06);
+}
+
+.portal .input-stack--light input:focus {
+  border-color: var(--portal-primary);
+  background: color-mix(in srgb, var(--portal-primary) 6%, transparent);
 }
 
 .input-stack--light input:not(:placeholder-shown) {
@@ -1434,6 +1439,10 @@ html {
 
 .buy-option--light:hover {
   border-color: rgba(249, 115, 22, 0.2);
+}
+
+.portal .buy-option--light:hover {
+  border-color: color-mix(in srgb, var(--portal-primary) 20%, transparent);
 }
 
 .buy-option--light h3 {
@@ -1481,7 +1490,7 @@ html {
 
 .buy-option__select:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--portal-primary, var(--accent));
 }
 
 .buy-error--light {
@@ -1508,7 +1517,7 @@ html {
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--portal-primary, var(--accent));
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -1785,6 +1794,14 @@ html {
 .portal-header__logo {
   font-size: 2.2rem;
   line-height: 1;
+}
+
+.portal-header__logo--image {
+  width: 64px;
+  height: auto;
+  max-height: 80px;
+  object-fit: contain;
+  display: block;
 }
 
 .portal-header__name {
@@ -2321,6 +2338,13 @@ html {
   flex-shrink: 0;
 }
 
+.portal-mobile-banner__logo--image {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+}
+
 .portal-mobile-banner__name {
   font-family: var(--font-display);
   font-size: clamp(0.9rem, 3vw, 1.1rem);
@@ -2633,6 +2657,12 @@ html {
   font-family: var(--font-body);
   cursor: pointer;
   min-width: 70px;
+  transition: border-color 0.2s ease;
+}
+
+.portal-buy__select:focus {
+  outline: none;
+  border-color: var(--portal-primary, var(--accent));
 }
 
 .portal-buy__input {

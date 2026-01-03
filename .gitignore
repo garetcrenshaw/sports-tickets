@@ -12,3 +12,8 @@ dist/
 # Local Netlify folder
 .netlify
 .vercel
+
+# Credentials files (should not be committed)
+TWILIO_CREDENTIALS.md
+*_CREDENTIALS.md
+*_SECRETS.md

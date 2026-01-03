@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import EventDashboard from './pages/EventDashboard'
 import DatePicker from './components/DatePicker'
 import TypographyGuide from './pages/TypographyGuide'
+import Tickets from './pages/Tickets'
 import { getOrganization } from './config/organizations'
 import { filterPastEvents, parseEventDate } from './utils/eventFilters'
 import './App.css'
@@ -114,59 +115,244 @@ function HamburgerMenu() {
   )
 }
 
-// Platform fee configuration
-const PLATFORM_FEE_PERCENT = 0.015  // 1.5%
-const PLATFORM_FEE_FLAT = 0.50      // $0.50 per ticket
-const SERVICE_FEE_DISPLAY = 1.50    // $1.50 flat fee shown to buyer (simplified)
+// ═══════════════════════════════════════════════════════════════════════════
+// ALL-IN PRICING MODEL (California Compliant)
+// ═══════════════════════════════════════════════════════════════════════════
+// Pricing: $18 admission + $19 parking (tax included, all-in pricing)
+// Customer sees: $18 admission, $19 parking (no tax breakdown shown)
+// - Business receives: $30.49 net total ($15.69 parking + $14.80 admission)
+// - Platform receives: $2.00 net total ($1.00 from each purchase)
+// - Tax is included in price but not shown separately to customer
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Events data - Real events only
+// Events data - SoCal Cup Events Only
+// Note: Other events (Gameday Empire, Sportsplex) are separate and should be managed separately
 const EVENTS_DATA = [
+  // SoCal Cup Events - 2026 Season (All-In Pricing: $18 admission + $19 parking, tax included)
+  // Business gets $30.49 net total, Platform gets $2.00 net total ($1.00 from each)
   {
-    id: 1,
-    name: 'Gameday Empire Showcase',
-    date: 'Saturday, December 28',
-    time: '7:30 PM',
-    venue: 'Downtown Arena',
-    city: 'Los Angeles, CA',
-    category: 'Basketball',
-    price: 15,
-    parkingPrice: 15,
+    id: 4,
+    name: 'SoCal Cup: 12-18 Friendly',
+    date: 'Friday, January 10',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18, // Admission price (tax included, no tax breakdown shown)
+    parkingPrice: 19, // Parking price (tax included, no tax breakdown shown)
     hasAdmission: true,
     hasParking: true,
-    // Fee model: 'pass_through' = buyer pays fee separately, 'baked_in' = fee included in price
-    feeModel: 'pass_through',
-    serviceFee: SERVICE_FEE_DISPLAY  // $1.50 per ticket shown to buyer
+    feeModel: 'all_in' // California compliant - no separate fees
   },
   {
-    id: 2,
-    name: 'Sportsplex Showdown',
-    date: 'Sunday, January 5',
-    time: '6:00 PM',
-    venue: 'Sportsplex Center',
-    city: 'Los Angeles, CA',
-    category: 'Sports',
-    price: 0,
-    parkingPrice: 15,
-    hasAdmission: false,
-    hasParking: true,
-    // Fee model: baked_in = venue's price includes platform fee
-    feeModel: 'baked_in',
-    serviceFee: 0  // No visible fee to buyer
-  },
-  {
-    id: 3,
-    name: 'Sportsplex Event',
-    date: 'Saturday, January 11',
-    time: '4:00 PM',
-    venue: 'Sportsplex Center',
-    city: 'Los Angeles, CA',
-    category: 'Sports',
-    price: 15,
-    parkingPrice: 0,
+    id: 5,
+    name: 'SoCal Cup: 14/13 Tourney 2',
+    date: 'Saturday, February 21',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
     hasAdmission: true,
-    hasParking: false,
-    feeModel: 'baked_in',
-    serviceFee: 0
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 6,
+    name: 'SoCal Cup: 12 Tourney 2',
+    date: 'Sunday, February 22',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 7,
+    name: 'SoCal Cup: 14/13 Tourney 3',
+    date: 'Saturday, March 21',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 8,
+    name: 'SoCal Cup: 12 Tourney 3',
+    date: 'Sunday, March 22',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 9,
+    name: 'SoCal Cup: 14/13 Tourney 4',
+    date: 'Saturday, April 11',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 10,
+    name: 'SoCal Cup: 12 Tourney 4',
+    date: 'Sunday, April 12',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 11,
+    name: 'SoCal Cup: 14/13 Tourney 5',
+    date: 'Saturday, April 25',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 12,
+    name: 'SoCal Cup: 12 Tourney 5',
+    date: 'Sunday, April 26',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 13,
+    name: 'SoCal Cup: 14/13 Championship',
+    date: 'Saturday, May 16',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 14,
+    name: 'SoCal Cup: 12 Championship',
+    date: 'Sunday, May 17',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 15,
+    name: 'SoCal Cup: 15-18 Friendly',
+    date: 'Saturday, May 23',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 16,
+    name: 'SoCal Cup: 16/15 Tourney 3',
+    date: 'Saturday, May 30',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 17,
+    name: 'SoCal Cup: 18/17 Tourney 3',
+    date: 'Sunday, May 31',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 18,
+    name: 'SoCal Cup: 16/15 Spring Championship',
+    date: 'Saturday, June 6',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
+  },
+  {
+    id: 19,
+    name: 'SoCal Cup: 18/17 Spring Championship',
+    date: 'Sunday, June 7',
+    time: 'TBD',
+    venue: 'AIM Sportsplex',
+    city: 'Seal Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 19,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in'
   }
 ]
 
@@ -697,10 +883,8 @@ function EventPage() {
   const parkingSubtotal = parkingQuantity * event.parkingPrice
   const subtotal = admissionSubtotal + parkingSubtotal
   
-  // Calculate service fee (only for pass_through model)
-  const totalTickets = admissionQuantity + parkingQuantity
-  const serviceFee = event.feeModel === 'pass_through' ? totalTickets * (event.serviceFee || SERVICE_FEE_DISPLAY) : 0
-  const orderTotal = subtotal + serviceFee
+  // All-in pricing: total = subtotal (no separate fees shown)
+  const orderTotal = subtotal
   const canCheckout = subtotal > 0
 
   const admissionOptions = useMemo(() => Array.from({ length: 11 }, (_, i) => i), [])
@@ -732,8 +916,7 @@ function EventPage() {
           eventId: event.id,
           admissionQuantity,
           parkingQuantity,
-          feeModel: event.feeModel,
-          serviceFeePerTicket: event.serviceFee || 0,
+          feeModel: event.feeModel || 'all_in',
         })
       })
 
@@ -851,23 +1034,15 @@ function EventPage() {
               </div>
             )}
             
-            {/* Show service fee for pass_through model */}
-            {event.feeModel === 'pass_through' && serviceFee > 0 && (
-              <div className="buy-summary__row buy-summary__row--fee">
-                <span>Service Fee ({totalTickets} tickets)</span>
-                <span>${serviceFee.toFixed(2)}</span>
-              </div>
-            )}
-
             <div className="buy-summary__total">
               <span>Total</span>
               <span className="buy-summary__amount">${orderTotal.toFixed(2)}</span>
             </div>
             
-            {/* Show fee notice for baked_in model */}
-            {event.feeModel === 'baked_in' && subtotal > 0 && (
+            {/* All-in pricing notice (California compliant) */}
+            {subtotal > 0 && (
               <div className="buy-summary__note">
-                No additional fees
+                ✓ All-in pricing • No hidden fees
               </div>
             )}
 
@@ -925,7 +1100,11 @@ function PortalLayout() {
         {/* Organization Header - Consistent across all portal pages */}
         <header className="portal-header">
           <div className="portal-header__brand" onClick={() => navigate(`/org/${orgSlug}`)}>
-            <span className="portal-header__logo">{org.logo}</span>
+            {org.logo && (org.logo.startsWith('/') || org.logo.startsWith('http')) ? (
+              <img src={org.logo} alt={org.name} className="portal-header__logo portal-header__logo--image" />
+            ) : (
+              <span className="portal-header__logo">{org.logo}</span>
+            )}
             <h1 className="portal-header__name">{org.name}</h1>
             <p className="portal-header__season">{org.season}</p>
           </div>
@@ -945,28 +1124,52 @@ function PortalLayout() {
         <div className="portal-mobile-banner">
           <div className="portal-mobile-banner__track">
             <div className="portal-mobile-banner__content">
-              <span className="portal-mobile-banner__logo">{org.logo}</span>
-              <span className="portal-mobile-banner__name">{org.name}</span>
+              {org.logo && (org.logo.startsWith('/') || org.logo.startsWith('http')) ? (
+                <img src={org.logo} alt={org.name} className="portal-mobile-banner__logo portal-mobile-banner__logo--image" />
+              ) : (
+                <span className="portal-mobile-banner__logo">{org.logo}</span>
+              )}
+              <span className="portal-mobile-banner__name" style={{ fontFamily: org.fontFamily || 'inherit' }}>{org.name}</span>
             </div>
             <div className="portal-mobile-banner__content" aria-hidden="true">
-              <span className="portal-mobile-banner__logo">{org.logo}</span>
-              <span className="portal-mobile-banner__name">{org.name}</span>
+              {org.logo && (org.logo.startsWith('/') || org.logo.startsWith('http')) ? (
+                <img src={org.logo} alt={org.name} className="portal-mobile-banner__logo portal-mobile-banner__logo--image" />
+              ) : (
+                <span className="portal-mobile-banner__logo">{org.logo}</span>
+              )}
+              <span className="portal-mobile-banner__name" style={{ fontFamily: org.fontFamily || 'inherit' }}>{org.name}</span>
             </div>
             <div className="portal-mobile-banner__content" aria-hidden="true">
-              <span className="portal-mobile-banner__logo">{org.logo}</span>
-              <span className="portal-mobile-banner__name">{org.name}</span>
+              {org.logo && (org.logo.startsWith('/') || org.logo.startsWith('http')) ? (
+                <img src={org.logo} alt={org.name} className="portal-mobile-banner__logo portal-mobile-banner__logo--image" />
+              ) : (
+                <span className="portal-mobile-banner__logo">{org.logo}</span>
+              )}
+              <span className="portal-mobile-banner__name" style={{ fontFamily: org.fontFamily || 'inherit' }}>{org.name}</span>
             </div>
             <div className="portal-mobile-banner__content" aria-hidden="true">
-              <span className="portal-mobile-banner__logo">{org.logo}</span>
-              <span className="portal-mobile-banner__name">{org.name}</span>
+              {org.logo && (org.logo.startsWith('/') || org.logo.startsWith('http')) ? (
+                <img src={org.logo} alt={org.name} className="portal-mobile-banner__logo portal-mobile-banner__logo--image" />
+              ) : (
+                <span className="portal-mobile-banner__logo">{org.logo}</span>
+              )}
+              <span className="portal-mobile-banner__name" style={{ fontFamily: org.fontFamily || 'inherit' }}>{org.name}</span>
             </div>
             <div className="portal-mobile-banner__content" aria-hidden="true">
-              <span className="portal-mobile-banner__logo">{org.logo}</span>
-              <span className="portal-mobile-banner__name">{org.name}</span>
+              {org.logo && (org.logo.startsWith('/') || org.logo.startsWith('http')) ? (
+                <img src={org.logo} alt={org.name} className="portal-mobile-banner__logo portal-mobile-banner__logo--image" />
+              ) : (
+                <span className="portal-mobile-banner__logo">{org.logo}</span>
+              )}
+              <span className="portal-mobile-banner__name" style={{ fontFamily: org.fontFamily || 'inherit' }}>{org.name}</span>
             </div>
             <div className="portal-mobile-banner__content" aria-hidden="true">
-              <span className="portal-mobile-banner__logo">{org.logo}</span>
-              <span className="portal-mobile-banner__name">{org.name}</span>
+              {org.logo && (org.logo.startsWith('/') || org.logo.startsWith('http')) ? (
+                <img src={org.logo} alt={org.name} className="portal-mobile-banner__logo portal-mobile-banner__logo--image" />
+              ) : (
+                <span className="portal-mobile-banner__logo">{org.logo}</span>
+              )}
+              <span className="portal-mobile-banner__name" style={{ fontFamily: org.fontFamily || 'inherit' }}>{org.name}</span>
             </div>
           </div>
         </div>
@@ -1063,6 +1266,7 @@ function PortalBuyPage() {
   
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [admissionQuantity, setAdmissionQuantity] = useState(0)
   const [parkingQuantity, setParkingQuantity] = useState(0)
   const [message, setMessage] = useState('')
@@ -1071,14 +1275,13 @@ function PortalBuyPage() {
   const admissionSubtotal = admissionQuantity * event.price
   const parkingSubtotal = parkingQuantity * event.parkingPrice
   const subtotal = admissionSubtotal + parkingSubtotal
-  const totalTickets = admissionQuantity + parkingQuantity
-  const serviceFee = event.feeModel === 'pass_through' ? totalTickets * (event.serviceFee || SERVICE_FEE_DISPLAY) : 0
-  const orderTotal = subtotal + serviceFee
+  // All-in pricing: total = subtotal (no separate fees)
+  const orderTotal = subtotal
   const canCheckout = subtotal > 0
 
   const handleCheckout = async () => {
-    if (!name || !email) {
-      setMessage('Please enter your name and email.')
+    if (!name || !phone) {
+      setMessage('Please enter your name and phone number.')
       return
     }
     if (admissionQuantity === 0 && parkingQuantity === 0) {
@@ -1096,11 +1299,11 @@ function PortalBuyPage() {
         body: JSON.stringify({
           name,
           email,
+          phone, // Phone number for SMS ticket delivery
           eventId: event.id,
           admissionQuantity,
           parkingQuantity,
-          feeModel: event.feeModel,
-          serviceFeePerTicket: event.serviceFee || SERVICE_FEE_DISPLAY,
+          feeModel: event.feeModel || 'all_in',
           // Pass portal context for redirect back
           portalSlug: orgSlug
         })
@@ -1169,13 +1372,20 @@ function PortalBuyPage() {
           className="portal-buy__input"
         />
         <input
+          type="tel"
+          placeholder="Phone Number (for ticket delivery)"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="portal-buy__input"
+        />
+        <input
           type="email"
-          placeholder="Email Address"
+          placeholder="Email Address (optional)"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="portal-buy__input"
         />
-        <p className="portal-buy__email-note">Your tickets will be sent here</p>
+        <p className="portal-buy__email-note">📱 Your tickets will be texted to your phone</p>
       </div>
 
       {/* Ticket Selection - Second */}
@@ -1218,22 +1428,17 @@ function PortalBuyPage() {
           </div>
         )}
 
-        {/* Order Summary */}
+        {/* Order Summary - All-in pricing (California compliant) */}
         <div className="portal-buy__summary">
-          <div className="portal-buy__summary-row">
-            <span>Subtotal</span>
-            <span>${subtotal.toFixed(2)}</span>
-          </div>
-          {serviceFee > 0 && (
-            <div className="portal-buy__summary-row portal-buy__summary-row--fee">
-              <span>Service Fee</span>
-              <span>${serviceFee.toFixed(2)}</span>
-            </div>
-          )}
           <div className="portal-buy__summary-row portal-buy__summary-row--total">
             <span>Total</span>
             <span>${orderTotal.toFixed(2)}</span>
           </div>
+          {subtotal > 0 && (
+            <div className="portal-buy__summary-note">
+              ✓ All-in pricing • No hidden fees
+            </div>
+          )}
         </div>
 
         {message && <p className="portal-buy__message">{message}</p>}
@@ -1331,6 +1536,7 @@ export default function App() {
         <Route path="/success" element={<Success />} />
         <Route path="/cancel" element={<Cancel />} />
         <Route path="/validate" element={<Validate />} />
+        <Route path="/tickets" element={<Tickets />} />
         <Route path="/typography-guide" element={<TypographyGuide />} />
         
         {/* ─────────────────────────────────────────────────────────────────────

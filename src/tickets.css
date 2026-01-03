@@ -1,0 +1,377 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TICKETS VIEWING PAGE - Mobile-First Swipeable Ticket Cards
+   Accessed via SMS link: /tickets?order=SESSION_ID
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tickets-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Loading State
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tickets-page--loading {
+  justify-content: center;
+}
+
+.tickets-loader {
+  text-align: center;
+}
+
+.tickets-loader__spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--event-primary, #32cd32);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.tickets-loader p {
+  color: #a3a3a3;
+  font-size: 14px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Error State
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tickets-page--error {
+  justify-content: center;
+}
+
+.tickets-error {
+  text-align: center;
+  padding: 24px;
+}
+
+.tickets-error__icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.tickets-error h2 {
+  font-size: 24px;
+  margin: 0 0 12px;
+}
+
+.tickets-error p {
+  color: #a3a3a3;
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tickets-error__help {
+  margin-top: 24px !important;
+  font-size: 12px !important;
+  opacity: 0.7;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Header
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tickets-header {
+  text-align: center;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.tickets-header__logo {
+  width: 64px;
+  height: auto;
+  max-height: 64px;
+  object-fit: contain;
+  margin-bottom: 12px;
+}
+
+.tickets-header__title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: #fff;
+}
+
+.tickets-header__subtitle {
+  font-size: 14px;
+  color: #a3a3a3;
+  margin: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Ticket Counter
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tickets-counter {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.tickets-counter__current {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--event-primary, #32cd32);
+}
+
+.tickets-counter__separator {
+  font-size: 20px;
+  color: #525252;
+}
+
+.tickets-counter__total {
+  font-size: 20px;
+  font-weight: 600;
+  color: #737373;
+}
+
+.tickets-counter__label {
+  font-size: 14px;
+  color: #525252;
+  margin-left: 4px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Ticket Card Container
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tickets-card-container {
+  width: 100%;
+  max-width: 340px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  touch-action: pan-y;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Ticket Card
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tickets-card {
+  width: 100%;
+  background: #fff;
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Admission ticket styling */
+.tickets-card--admission {
+  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+}
+
+.tickets-card--admission .tickets-card__badge {
+  background: linear-gradient(135deg, var(--event-primary, #32cd32), var(--event-secondary, #228b22));
+}
+
+/* Parking ticket styling */
+.tickets-card--parking {
+  background: linear-gradient(180deg, #ffffff 0%, #fff7ed 100%);
+}
+
+.tickets-card--parking .tickets-card__badge {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+}
+
+/* Badge */
+.tickets-card__badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #fff;
+}
+
+/* QR Code */
+.tickets-card__qr-container {
+  margin-top: 48px;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.tickets-card__qr {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.tickets-card__qr-placeholder {
+  color: #a3a3a3;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Details */
+.tickets-card__details {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.tickets-card__type {
+  font-size: 16px;
+  font-weight: 600;
+  color: #171717;
+  margin: 0 0 4px;
+}
+
+.tickets-card__holder {
+  font-size: 14px;
+  color: #525252;
+  margin: 0;
+}
+
+/* Ticket ID */
+.tickets-card__id {
+  margin-top: 16px;
+  font-size: 10px;
+  color: #a3a3a3;
+  font-family: 'SF Mono', 'Monaco', monospace;
+  letter-spacing: 0.5px;
+}
+
+/* Status */
+.tickets-card__status {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+}
+
+.tickets-card__status--used {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Swipe Hint
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tickets-swipe-hint {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #525252;
+  text-align: center;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Dot Indicators
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tickets-dots {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.tickets-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tickets-dot--active {
+  background: var(--event-primary, #32cd32);
+  transform: scale(1.2);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Footer
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.tickets-footer {
+  margin-top: auto;
+  padding-top: 24px;
+  text-align: center;
+}
+
+.tickets-footer p {
+  font-size: 12px;
+  color: #525252;
+  margin: 0 0 8px;
+}
+
+.tickets-footer strong {
+  color: var(--event-primary, #32cd32);
+}
+
+.tickets-footer__instructions {
+  font-size: 14px !important;
+  color: #737373 !important;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px 20px;
+  border-radius: 12px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Responsive
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@media (min-width: 768px) {
+  .tickets-page {
+    padding: 40px;
+  }
+  
+  .tickets-header__title {
+    font-size: 28px;
+  }
+  
+  .tickets-card-container {
+    max-width: 380px;
+  }
+  
+  .tickets-card__qr-container {
+    width: 240px;
+    height: 240px;
+  }
+}
+

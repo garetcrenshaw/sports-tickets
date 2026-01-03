@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <!-- Background -->
+  <rect width="400" height="500" fill="#0a0a0a"/>
+  
+  <!-- Outer gray border -->
+  <path d="M 50 50 Q 50 30 70 30 L 330 30 Q 350 30 350 50 L 350 450 Q 350 470 330 470 L 200 470 L 200 490 L 70 470 Q 50 470 50 450 Z" 
+        fill="none" stroke="#d3d3d3" stroke-width="8"/>
+  
+  <!-- Inner green border -->
+  <path d="M 70 60 Q 70 50 80 50 L 320 50 Q 330 50 330 60 L 330 440 Q 330 450 320 450 L 200 450 L 200 480 L 80 450 Q 70 450 70 440 Z" 
+        fill="none" stroke="#32cd32" stroke-width="4"/>
+  
+  <!-- Trophy (simplified) -->
+  <g transform="translate(200, 100)">
+    <!-- Trophy base -->
+    <rect x="-30" y="20" width="60" height="15" fill="#32cd32" rx="3"/>
+    <!-- Trophy cup -->
+    <path d="M -25 20 L -25 -20 Q -25 -30 -15 -30 L 15 -30 Q 25 -30 25 -20 L 25 20 Z" fill="#32cd32"/>
+    <!-- Trophy handles -->
+    <path d="M -25 -20 Q -35 -25 -35 -15 Q -35 -5 -25 0" fill="none" stroke="#32cd32" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 25 -20 Q 35 -25 35 -15 Q 35 -5 25 0" fill="none" stroke="#32cd32" stroke-width="4" stroke-linecap="round"/>
+    <!-- AIM text in trophy -->
+    <text x="0" y="-5" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">AIM</text>
+  </g>
+  
+  <!-- Bears (simplified silhouettes) -->
+  <circle cx="120" cy="130" r="15" fill="#808080"/>
+  <circle cx="280" cy="130" r="15" fill="#808080"/>
+  
+  <!-- SM symbol -->
+  <circle cx="340" cy="50" r="12" fill="#d3d3d3"/>
+  <text x="340" y="55" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="8" font-weight="bold">SM</text>
+  
+  <!-- SOCAL banner -->
+  <rect x="50" y="180" width="300" height="50" fill="#0a0a0a" rx="5"/>
+  <text x="200" y="210" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="32" font-weight="bold">SOCAL</text>
+  
+  <!-- CUP text -->
+  <text x="200" y="280" text-anchor="middle" fill="#32cd32" font-family="Arial, sans-serif" font-size="36" font-weight="bold">CUP</text>
+  
+  <!-- Stars -->
+  <g fill="#808080">
+    <path d="M 120 300 L 125 315 L 140 315 L 128 325 L 133 340 L 120 330 L 107 340 L 112 325 L 100 315 L 115 315 Z"/>
+    <path d="M 100 320 L 105 335 L 120 335 L 108 345 L 113 360 L 100 350 L 87 360 L 92 345 L 80 335 L 95 335 Z"/>
+    <path d="M 80 310 L 85 325 L 100 325 L 88 335 L 93 350 L 80 340 L 67 350 L 72 335 L 60 325 L 75 325 Z"/>
+    <path d="M 60 300 L 65 315 L 80 315 L 68 325 L 73 340 L 60 330 L 47 340 L 52 325 L 40 315 L 55 315 Z"/>
+    
+    <path d="M 280 300 L 285 315 L 300 315 L 288 325 L 293 340 L 280 330 L 267 340 L 272 325 L 260 315 L 275 315 Z"/>
+    <path d="M 300 320 L 305 335 L 320 335 L 308 345 L 313 360 L 300 350 L 287 360 L 292 345 L 280 335 L 295 335 Z"/>
+    <path d="M 320 310 L 325 325 L 340 325 L 328 335 L 333 350 L 320 340 L 307 350 L 312 335 L 300 325 L 315 325 Z"/>
+    <path d="M 340 300 L 345 315 L 360 315 L 348 325 L 353 340 L 340 330 L 327 340 L 332 325 L 320 315 L 335 315 Z"/>
+  </g>
+  
+  <!-- Triangle at bottom -->
+  <path d="M 200 380 L 180 420 L 220 420 Z" fill="none" stroke="white" stroke-width="3"/>
+</svg>
+

@@ -255,8 +255,10 @@ async function processCheckoutSession(session) {
   });
   console.log(`Found ${lineItems.data.length} line item(s)`);
 
-  const customerEmail = session.customer_details?.email || session.customer_email || 'unknown@example.com';
+  const customerEmail = session.customer_details?.email || session.customer_email || session.metadata?.buyerEmail || '';
   const buyerName = session.customer_details?.name || session.metadata?.buyerName || 'Guest';
+  const buyerPhone = session.metadata?.buyerPhone || ''; // Phone for SMS delivery
+  
   // Capture billing address details (zip code for analytics)
   const billingAddress = session.customer_details?.address || {};
   const billingZip = billingAddress.postal_code || null;
@@ -269,6 +271,7 @@ async function processCheckoutSession(session) {
   const marketingOptIn = marketingConsent === 'opt_in';
   
   console.log(`📍 Customer location: ${billingCity || 'N/A'}, ${billingState || 'N/A'} ${billingZip || 'N/A'}`);
+  console.log(`📱 Phone for SMS delivery: ${buyerPhone || 'Not provided'}`);
   if (marketingConsent !== null) {
     console.log(`📧 Marketing consent: ${marketingConsent} (opt-in: ${marketingOptIn})`);
   }
@@ -309,7 +312,7 @@ async function processCheckoutSession(session) {
       const ticketIndex = i + 1;
       const uniqueTicketId = `${session.id}-${ticketType.replace(/\s+/g, '_')}-${ticketIndex}`;
 
-      // Ticket record - qr_url will be populated by email processor
+      // Ticket record - qr_url will be populated by SMS/email processor
       ticketRecords.push({
         stripe_session_id: session.id,
         ticket_id: uniqueTicketId,
@@ -317,67 +320,143 @@ async function processCheckoutSession(session) {
         ticket_type: ticketType,
         buyer_name: buyerName,
         buyer_email: customerEmail,
+        buyer_phone: buyerPhone, // Phone for SMS delivery
         status: 'active',
-        qr_url: '', // Empty - will be populated when email is sent
+        qr_url: '', // Empty - will be populated when processed
         billing_zip: billingZip,
         billing_city: billingCity,
         billing_state: billingState,
-        marketing_consent: marketingOptIn // true if opted in, false if opted out, null if not collected
-      });
-
-      // Email queue record - NO qr_code_data, will be generated before sending
-      emailRecords.push({
-        ticket_id: uniqueTicketId,
-        recipient_email: customerEmail,
-        recipient_name: buyerName,
-        ticket_type: ticketType,
-        event_id: eventId,
-        status: 'pending',
-        retry_count: 0
+        marketing_consent: marketingOptIn
       });
     }
   }
 
-  console.log(`Prepared ${ticketRecords.length} tickets and ${emailRecords.length} email jobs`);
+  console.log(`Prepared ${ticketRecords.length} tickets`);
 
   // DEBUG: Log exact payload being sent to Supabase
   console.log('=== WEBHOOK DEBUG: EXACT COLUMN NAMES ===');
   console.log('First ticket record keys:', Object.keys(ticketRecords[0]));
-  console.log('First email record keys:', Object.keys(emailRecords[0]));
-  console.log('Inserting into email_queue:', JSON.stringify(emailRecords[0]));
   console.log('Inserting into tickets:', JSON.stringify(ticketRecords[0]));
   console.log('=== END DEBUG ===');
 
-  // PARALLEL INSERTS using Promise.all - much faster!
-  const [ticketResult, emailResult] = await Promise.all([
-    supabase.from('tickets').insert(ticketRecords),
-    supabase.from('email_queue').insert(emailRecords)
-  ]);
+  // Insert tickets
+  const ticketResult = await supabase.from('tickets').insert(ticketRecords);
 
   if (ticketResult.error) {
     console.error('❌ Ticket insert error:', ticketResult.error);
     console.error('Full error:', JSON.stringify(ticketResult.error, null, 2));
     throw new Error(`Failed to insert tickets: ${ticketResult.error.message}`);
-  } else {
-    console.log(`✅ ${ticketRecords.length} tickets inserted successfully`);
+  }
+  
+  console.log(`✅ ${ticketRecords.length} tickets inserted successfully`);
+
+  // Get event name for SMS
+  const { data: eventData } = await supabase
+    .from('events')
+    .select('event_name')
+    .eq('id', eventId)
+    .single();
+  
+  const eventName = eventData?.event_name || 'your event';
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SMS TICKET DELIVERY - Send text with ticket link
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (buyerPhone) {
+    console.log('📱 Sending SMS with ticket link to:', buyerPhone);
+    
+    try {
+      // Generate QR codes first
+      await generateQRCodes(ticketRecords, supabase);
+      
+      // Send SMS
+      const smsUrl = process.env.SITE_URL || 'https://gamedaytickets.io';
+      const response = await fetch(`${smsUrl}/api/send-sms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: buyerPhone,
+          buyerName: buyerName,
+          ticketCount: ticketRecords.length,
+          eventName: eventName,
+          orderId: session.id
+        })
+      });
+      
+      if (response.ok) {
+        console.log('✅ SMS sent successfully!');
+      } else {
+        console.error('⚠️ SMS send failed:', await response.text());
+      }
+    } catch (smsError) {
+      console.error('⚠️ SMS error (will fallback to email):', smsError.message);
+    }
   }
 
-  if (emailResult.error) {
-    console.error('❌ Email queue insert error:', emailResult.error);
-    console.error('Full error:', JSON.stringify(emailResult.error, null, 2));
-    throw new Error(`Failed to insert email queue jobs: ${emailResult.error.message}`);
-  } else {
-    console.log(`✅ ${emailRecords.length} email jobs queued successfully`);
-    console.log('Email queue record IDs:', emailResult.data?.map(r => r.id).join(', ') || 'N/A');
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EMAIL FALLBACK - If no phone provided, send email
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (!buyerPhone && customerEmail) {
+    console.log('📧 No phone provided, queuing email delivery to:', customerEmail);
     
-    // IMMEDIATE EMAIL TRIGGER - Don't wait for cron!
-    // Fire and forget - we don't await this
-    triggerEmailWorker().catch(err => {
-      console.log('⚠️ Immediate email trigger failed (cron will retry):', err.message);
-    });
+    // Build email queue records
+    const emailRecords = ticketRecords.map(ticket => ({
+      ticket_id: ticket.ticket_id,
+      recipient_email: customerEmail,
+      recipient_name: buyerName,
+      ticket_type: ticket.ticket_type,
+      event_id: eventId,
+      status: 'pending',
+      retry_count: 0
+    }));
+    
+    const emailResult = await supabase.from('email_queue').insert(emailRecords);
+    
+    if (emailResult.error) {
+      console.error('⚠️ Email queue error:', emailResult.error.message);
+    } else {
+      console.log(`✅ ${emailRecords.length} emails queued`);
+      // Trigger email worker
+      triggerEmailWorker();
+    }
   }
 
   console.log('=== BACKGROUND PROCESSING COMPLETE ===');
+}
+
+// Generate QR codes for all tickets and store in Supabase
+async function generateQRCodes(tickets, supabase) {
+  const QRCode = await import('qrcode');
+  
+  for (const ticket of tickets) {
+    try {
+      const qrBuffer = await QRCode.default.toBuffer(ticket.ticket_id);
+      const filePath = `tickets/${ticket.ticket_id}-${Date.now()}.png`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('qr-codes')
+        .upload(filePath, qrBuffer, {
+          contentType: 'image/png',
+          upsert: true
+        });
+      
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage
+          .from('qr-codes')
+          .getPublicUrl(filePath);
+        
+        // Update ticket with QR URL
+        await supabase
+          .from('tickets')
+          .update({ qr_url: urlData.publicUrl })
+          .eq('ticket_id', ticket.ticket_id);
+        
+        console.log(`✅ QR generated for ${ticket.ticket_id}`);
+      }
+    } catch (qrErr) {
+      console.error(`⚠️ QR generation failed for ${ticket.ticket_id}:`, qrErr.message);
+    }
+  }
 }
 
 // Trigger the email worker immediately (fire and forget)

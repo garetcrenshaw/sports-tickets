@@ -168,9 +168,24 @@ export default async function handler(req, res) {
           <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a;">
             <!-- Header -->
             <div style="background-color: #0a0a0a; background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); padding: 40px 30px; text-align: center; border-bottom: 3px solid #f97316;">
-              <h1 style="color: #FFFFFF; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
-                Refund Confirmed
+              <!--[if mso]>
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="padding: 40px 30px; text-align: center; background-color: #0a0a0a;">
+                    <font color="#FFFFFF" style="font-size: 32px; font-weight: 800;">
+                      Refund Confirmed
+                    </font>
+                  </td>
+                </tr>
+              </table>
+              <![endif]-->
+              <!--[if !mso]><!-->
+              <h1 style="color: #FFFFFF; color: rgb(255, 255, 255); -webkit-text-fill-color: #FFFFFF; -webkit-text-fill-color: rgb(255, 255, 255); margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                <span style="color: #FFFFFF !important; color: rgb(255, 255, 255) !important; -webkit-text-fill-color: #FFFFFF !important; -webkit-text-fill-color: rgb(255, 255, 255) !important;">
+                  Refund Confirmed
+                </span>
               </h1>
+              <!--<![endif]-->
               <p style="color: #f97316; margin: 12px 0 0; font-size: 16px; font-weight: 500;">
                 Your refund is on its way
               </p>
