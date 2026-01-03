@@ -70,6 +70,7 @@ export default async function handler(req, res) {
     // ═══════════════════════════════════════════════════════════════════════════
     
     // Fetch event pricing from Supabase
+    console.log('CREATE-CHECKOUT: Fetching event from database, eventId:', eventId);
     const { data: eventData, error: eventError } = await supabase
       .from('events')
       .select('id, event_name, has_admission, has_parking, stripe_admission_price_id, stripe_parking_price_id, admission_price, parking_price')
@@ -78,6 +79,17 @@ export default async function handler(req, res) {
 
     if (eventError) {
       console.error('CREATE-CHECKOUT: Database error fetching event:', eventError);
+    } else if (eventData) {
+      console.log('CREATE-CHECKOUT: Database event data:', {
+        id: eventData.id,
+        name: eventData.event_name,
+        admission_price: eventData.admission_price,
+        parking_price: eventData.parking_price,
+        stripe_admission_price_id: eventData.stripe_admission_price_id,
+        stripe_parking_price_id: eventData.stripe_parking_price_id,
+      });
+    } else {
+      console.warn('CREATE-CHECKOUT: No event data returned from database for eventId:', eventId);
     }
 
     // Fallback to legacy hardcoded pricing for events 1-3 if database lookup fails
@@ -94,9 +106,45 @@ export default async function handler(req, res) {
         parkingPrice: eventData.parking_price,
         eventName: eventData.event_name
       };
+      console.log('CREATE-CHECKOUT: Using Price IDs:', {
+        admission: pricing.admission,
+        parking: pricing.parking,
+      });
+      
+      // Verify prices in Stripe
+      if (pricing.admission) {
+        try {
+          const priceObj = await stripe.prices.retrieve(pricing.admission);
+          console.log('CREATE-CHECKOUT: Stripe admission price details:', {
+            id: priceObj.id,
+            amount: priceObj.unit_amount / 100,
+            currency: priceObj.currency,
+            active: priceObj.active,
+          });
+        } catch (err) {
+          console.error('CREATE-CHECKOUT: Error fetching admission price from Stripe:', err);
+        }
+      }
+      if (pricing.parking) {
+        try {
+          const priceObj = await stripe.prices.retrieve(pricing.parking);
+          console.log('CREATE-CHECKOUT: Stripe parking price details:', {
+            id: priceObj.id,
+            amount: priceObj.unit_amount / 100,
+            currency: priceObj.currency,
+            active: priceObj.active,
+          });
+        } catch (err) {
+          console.error('CREATE-CHECKOUT: Error fetching parking price from Stripe:', err);
+        }
+      }
     } else {
       // Legacy fallback for events 1-3 (can be removed once migrated)
       console.log('CREATE-CHECKOUT: Using legacy pricing for event ID:', eventId);
+      console.log('CREATE-CHECKOUT: Legacy Price IDs from env:', {
+        GA_PRICE_ID: process.env.GA_PRICE_ID,
+        PARKING_PRICE_ID: process.env.PARKING_PRICE_ID,
+      });
       const legacyPricing = {
         1: {
           admission: process.env.GA_PRICE_ID,
@@ -122,6 +170,10 @@ export default async function handler(req, res) {
         price: pricing.admission,
         quantity: admissionQuantity,
       });
+      console.log('CREATE-CHECKOUT: Added admission line item:', {
+        price: pricing.admission,
+        quantity: admissionQuantity,
+      });
     }
 
     // Add parking passes (only if this event has parking and quantity > 0)
@@ -130,7 +182,13 @@ export default async function handler(req, res) {
         price: pricing.parking,
         quantity: parkingQuantity,
       });
+      console.log('CREATE-CHECKOUT: Added parking line item:', {
+        price: pricing.parking,
+        quantity: parkingQuantity,
+      });
     }
+
+    console.log('CREATE-CHECKOUT: Final line items:', lineItems);
 
     // NOTE: Service fees removed - All-in pricing model (California compliant)
     // The all-in price in Stripe already includes platform fee + processing
