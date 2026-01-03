@@ -187,7 +187,7 @@ export default async function handler(req, res) {
       // Streamline checkout - remove unnecessary fields for digital tickets
       billing_address_collection: 'auto', // Only collect if required by payment method (most cards don't need it)
       phone_number_collection: {
-        enabled: false, // Don't require phone for digital tickets
+        enabled: true, // Collect phone for SMS ticket delivery
       },
       
       // Allow promotion codes if needed

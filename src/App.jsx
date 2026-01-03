@@ -786,7 +786,8 @@ function EventPage() {
   const event = EVENTS_DATA.find(e => e.id === parseInt(eventId)) || EVENTS_DATA[0]
   
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('') // Optional, for Stripe
   const [admissionQuantity, setAdmissionQuantity] = useState(0)
   const [parkingQuantity, setParkingQuantity] = useState(0)
   const [message, setMessage] = useState('')
@@ -804,8 +805,8 @@ function EventPage() {
   const parkingOptions = useMemo(() => Array.from({ length: 5 }, (_, i) => i), [])
 
   const handleCheckout = async () => {
-    if (!name || !email) {
-      setMessage('Add your name and email so we know where to send your passes.')
+    if (!name || !phone) {
+      setMessage('Add your name and phone number so we can send your tickets via SMS.')
       return
     }
 
@@ -825,7 +826,8 @@ function EventPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
-          email,
+          email: email || `${phone.replace(/\D/g, '')}@sms.local`, // Use phone-based email if no email provided
+          phone,
           eventId: event.id,
           admissionQuantity,
           parkingQuantity,
@@ -881,11 +883,20 @@ function EventPage() {
                 onChange={(e) => setName(e.target.value)}
               />
               <input
+                type="tel"
+                placeholder="Phone number (for SMS ticket delivery)"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+              <input
                 type="email"
-                placeholder={event.hasAdmission && event.hasParking ? "Email for tickets + parking" : event.hasAdmission ? "Email for tickets" : "Email for parking"}
+                placeholder="Email (optional)"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
+              <p style={{ fontSize: '14px', color: '#888', marginTop: '-8px', marginBottom: '8px' }}>
+                📱 Your tickets will be texted to your phone
+              </p>
             </div>
 
             {event.hasAdmission && (
