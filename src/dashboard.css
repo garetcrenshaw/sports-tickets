@@ -308,6 +308,43 @@
   color: #fca5a5;
 }
 
+/* Period Select Dropdown */
+.dashboard-header__period-select {
+  padding: 10px 16px;
+  background: linear-gradient(145deg, rgba(249, 115, 22, 0.2), rgba(249, 115, 22, 0.1));
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  border-radius: 10px;
+  color: #fdba74;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fdba74' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.dashboard-header__period-select:hover {
+  background: linear-gradient(145deg, rgba(249, 115, 22, 0.3), rgba(249, 115, 22, 0.15));
+  border-color: rgba(249, 115, 22, 0.6);
+}
+
+.dashboard-header__period-select:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
+}
+
+.dashboard-header__period-select option {
+  background: #1a1a1a;
+  color: white;
+  padding: 10px;
+}
+
 /* Dashboard Content */
 .dashboard-content {
   position: relative;
@@ -315,6 +352,35 @@
   max-width: 1400px;
   margin: 0 auto;
   padding: 32px;
+}
+
+/* Period Indicator Banner */
+.period-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(145deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.05));
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.period-indicator__label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+}
+
+.period-indicator__value {
+  color: #f97316;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.period-indicator__range {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
 }
 
 /* Event Info Bar */

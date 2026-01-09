@@ -48,6 +48,25 @@ const getFiscalYear = (date) => {
   return month >= 6 ? `FY ${year + 1}` : `FY ${year}`
 }
 
+// Get current fiscal year (July 1 - June 30)
+const getCurrentFiscalYear = () => {
+  const now = new Date()
+  const month = now.getMonth() // 0-11
+  const year = now.getFullYear()
+  // If July (6) or later, we're in FY (year+1), otherwise FY (year)
+  return month >= 6 ? year + 1 : year
+}
+
+// Generate fiscal year options (current, previous, and all-time)
+const getFiscalYearOptions = () => {
+  const currentFY = getCurrentFiscalYear()
+  return [
+    { value: `FY${currentFY}`, label: `FY ${currentFY}`, startDate: new Date(currentFY - 1, 6, 1), endDate: new Date(currentFY, 5, 30, 23, 59, 59) },
+    { value: `FY${currentFY - 1}`, label: `FY ${currentFY - 1}`, startDate: new Date(currentFY - 2, 6, 1), endDate: new Date(currentFY - 1, 5, 30, 23, 59, 59) },
+    { value: 'all', label: 'All Time', startDate: null, endDate: null }
+  ]
+}
+
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [events, setEvents] = useState([])
@@ -55,7 +74,15 @@ export default function Dashboard() {
   const [fiscalYearStats, setFiscalYearStats] = useState({})
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [selectedPeriod, setSelectedPeriod] = useState(() => {
+    // Load from localStorage or default to current FY
+    const saved = localStorage.getItem('dashboard_period')
+    const currentFY = getCurrentFiscalYear()
+    return saved || `FY${currentFY}`
+  })
   const navigate = useNavigate()
+  
+  const fiscalYearOptions = getFiscalYearOptions()
 
   useEffect(() => {
     checkAuth()
@@ -251,13 +278,82 @@ export default function Dashboard() {
     }).format(amount)
   }
 
-  // Calculate totals
-  const totalRevenue = Object.values(stats).reduce((sum, s) => sum + (s.revenue || 0), 0)
-  const totalFees = Object.values(stats).reduce((sum, s) => sum + (s.platformFees || 0), 0)
-  const totalNetRevenue = Object.values(stats).reduce((sum, s) => sum + (s.netRevenue || 0), 0)
-  const totalTickets = Object.values(stats).reduce((sum, s) => sum + (s.totalTickets || 0), 0)
-  const totalUniqueScanned = Object.values(stats).reduce((sum, s) => sum + (s.uniqueScanned || 0), 0)
-  const totalUniqueBuyers = Object.values(stats).reduce((sum, s) => sum + (s.uniqueEmails || 0), 0)
+  // Handle period change
+  const handlePeriodChange = (e) => {
+    const newPeriod = e.target.value
+    setSelectedPeriod(newPeriod)
+    localStorage.setItem('dashboard_period', newPeriod)
+  }
+
+  // Get the selected period's date range
+  const getSelectedPeriodRange = () => {
+    const option = fiscalYearOptions.find(opt => opt.value === selectedPeriod)
+    return option || fiscalYearOptions[2] // Default to 'all' if not found
+  }
+
+  // Filter tickets by selected period
+  const filterTicketsByPeriod = (tickets) => {
+    const { startDate, endDate } = getSelectedPeriodRange()
+    if (!startDate || !endDate) return tickets // 'All Time' - no filtering
+    
+    return tickets.filter(ticket => {
+      if (!ticket.created_at) return false
+      const ticketDate = new Date(ticket.created_at)
+      return ticketDate >= startDate && ticketDate <= endDate
+    })
+  }
+
+  // Calculate totals with period filtering
+  const calculateFilteredTotals = () => {
+    let filteredRevenue = 0
+    let filteredFees = 0
+    let filteredNetRevenue = 0
+    let filteredTickets = 0
+    let filteredUniqueScanned = 0
+    const uniqueBuyerEmails = new Set()
+
+    Object.entries(stats).forEach(([eventId, eventStats]) => {
+      if (!eventStats.tickets) return
+      
+      const filteredEventTickets = filterTicketsByPeriod(eventStats.tickets)
+      const event = events.find(e => String(e.id) === String(eventId))
+      
+      filteredEventTickets.forEach(ticket => {
+        const isParking = ticket.ticket_type?.toLowerCase().includes('parking')
+        const price = isParking ? (event?.parking_price || 15) : (event?.admission_price || 15)
+        
+        filteredRevenue += price
+        filteredFees += (price * PLATFORM_FEE_PERCENT) + PLATFORM_FEE_FLAT
+        
+        if (ticket.buyer_email) {
+          uniqueBuyerEmails.add(ticket.buyer_email)
+        }
+        
+        if (ticket.status === 'used') {
+          filteredUniqueScanned++
+        }
+      })
+      
+      filteredTickets += filteredEventTickets.length
+    })
+
+    filteredNetRevenue = filteredRevenue - filteredFees
+
+    return {
+      totalRevenue: filteredRevenue,
+      totalFees: filteredFees,
+      totalNetRevenue: filteredNetRevenue,
+      totalTickets: filteredTickets,
+      totalUniqueScanned: filteredUniqueScanned,
+      totalUniqueBuyers: uniqueBuyerEmails.size
+    }
+  }
+
+  const filteredTotals = calculateFilteredTotals()
+  const { totalRevenue, totalFees, totalNetRevenue, totalTickets, totalUniqueScanned, totalUniqueBuyers } = filteredTotals
+
+  // Get period label for display
+  const selectedPeriodLabel = fiscalYearOptions.find(opt => opt.value === selectedPeriod)?.label || 'All Time'
 
   if (loading) {
     return (
@@ -280,6 +376,17 @@ export default function Dashboard() {
           <span className="dashboard-header__user">{user?.email}</span>
         </div>
         <div className="dashboard-header__right">
+          <select 
+            value={selectedPeriod} 
+            onChange={handlePeriodChange}
+            className="dashboard-header__period-select"
+          >
+            {fiscalYearOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
           <Link to="/" className="dashboard-header__link">View Site</Link>
           <button onClick={handleLogout} className="dashboard-header__logout">
             Logout
@@ -288,6 +395,23 @@ export default function Dashboard() {
       </header>
 
       <main className="dashboard-content">
+        {/* Period Indicator Banner */}
+        <div className="period-indicator">
+          <span className="period-indicator__label">Showing data for:</span>
+          <span className="period-indicator__value">{selectedPeriodLabel}</span>
+          {selectedPeriod !== 'all' && (
+            <span className="period-indicator__range">
+              {(() => {
+                const option = fiscalYearOptions.find(opt => opt.value === selectedPeriod)
+                if (!option?.startDate) return ''
+                const start = option.startDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                const end = option.endDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                return `(${start} - ${end})`
+              })()}
+            </span>
+          )}
+        </div>
+
         {/* Overview Stats - Different views for Admin vs Event Operator */}
         {isAdmin ? (
           // ADMIN VIEW - Platform-wide stats
