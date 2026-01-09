@@ -203,6 +203,82 @@ const EVENTS_DATA = [
     hasParking: true,
     feeModel: 'all_in'
   },
+  // Coastal Youth Sports Events - 2025 Spring Season
+  {
+    id: 100,
+    name: 'Spring Championship Tournament',
+    date: 'Saturday, April 5',
+    time: '9:00 AM',
+    venue: 'Coastal Sports Complex',
+    city: 'Huntington Beach, CA',
+    category: 'Volleyball',
+    price: 20,
+    parkingPrice: 15,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in',
+    organizationId: 'coastal-youth-sports'
+  },
+  {
+    id: 101,
+    name: 'Elite Division Showcase',
+    date: 'Saturday, April 19',
+    time: '10:00 AM',
+    venue: 'Coastal Sports Complex',
+    city: 'Huntington Beach, CA',
+    category: 'Volleyball',
+    price: 22,
+    parkingPrice: 15,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in',
+    organizationId: 'coastal-youth-sports'
+  },
+  {
+    id: 102,
+    name: 'Youth League Finals',
+    date: 'Sunday, May 3',
+    time: '11:00 AM',
+    venue: 'Coastal Sports Complex',
+    city: 'Huntington Beach, CA',
+    category: 'Volleyball',
+    price: 18,
+    parkingPrice: 12,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in',
+    organizationId: 'coastal-youth-sports'
+  },
+  {
+    id: 103,
+    name: 'Regional Qualifier',
+    date: 'Saturday, May 17',
+    time: '9:00 AM',
+    venue: 'Coastal Sports Complex',
+    city: 'Huntington Beach, CA',
+    category: 'Volleyball',
+    price: 25,
+    parkingPrice: 15,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in',
+    organizationId: 'coastal-youth-sports'
+  },
+  {
+    id: 104,
+    name: 'Summer Kickoff Classic',
+    date: 'Saturday, June 7',
+    time: '8:00 AM',
+    venue: 'Coastal Sports Complex',
+    city: 'Huntington Beach, CA',
+    category: 'Volleyball',
+    price: 20,
+    parkingPrice: 15,
+    hasAdmission: true,
+    hasParking: true,
+    feeModel: 'all_in',
+    organizationId: 'coastal-youth-sports'
+  },
   {
     id: 9,
     name: 'SoCal Cup: 14/13 Tourney 4',
@@ -678,9 +754,13 @@ function EventsPage() {
   // Get all organizations (tournament organizers)
   // Filter out organizations that don't have events yet
   const organizations = Object.values(ORGANIZATIONS).filter(org => {
-    // Only show organizations that have events (for now, just SoCal Cup)
-    // You can add logic here to check if org has events
-    return org.id === 'socal-cup' // For now, only show SoCal Cup
+    // Show organizations that have events
+    // Check if org has events in EVENTS_DATA
+    const hasEvents = EVENTS_DATA.some(event => 
+      event.organizationId === org.id || 
+      (org.id === 'socal-cup' && !event.organizationId) // Legacy: SoCal Cup events don't have orgId
+    )
+    return hasEvents
   })
 
   // Filter organizations by search query
@@ -1019,7 +1099,8 @@ function PortalLayout() {
         '--portal-secondary': org.secondaryColor,
         '--portal-bg': org.backgroundColor,
         '--portal-accent': org.accentColor,
-        '--portal-font': org.fontFamily || 'var(--font-body)'
+        '--portal-font': org.fontFamily || 'var(--font-body)',
+        '--portal-headline-font': org.headlineFont || 'var(--font-display)'
       }}>
         {/* Organization Header - Consistent across all portal pages */}
         <header className="portal-header">
@@ -1113,12 +1194,24 @@ function PortalEvents() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Filter events (in production, filter by org)
-  // Filter events: search + hide past events (doors closed)
+  // Filter events by organization and search
+  // Filter events: search + hide past events (doors closed) + match organization
   const filteredEvents = filterPastEvents(EVENTS_DATA).filter(event => {
+    // Match organization: 
+    // - Events with organizationId must match exactly
+    // - Events without organizationId only show for 'socal-cup' (legacy)
+    let matchesOrg = false
+    if (event.organizationId) {
+      // Events with organizationId must match the current org
+      matchesOrg = event.organizationId === orgSlug
+    } else {
+      // Events without organizationId are legacy SoCal Cup events
+      matchesOrg = orgSlug === 'socal-cup'
+    }
+    
     const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           event.venue.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesSearch
+    return matchesOrg && matchesSearch
   })
 
   return (

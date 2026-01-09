@@ -53,7 +53,18 @@ export const ORGANIZATIONS = {
     backgroundColor: '#0a0a0a',
     accentColor: '#90ee90', // Light green accent
     fontFamily: 'Rubik' // For rotating bottom text
-  }
+  },
+  'coastal-youth-sports': {
+    id: 'coastal-youth-sports',
+    name: 'Coastal Youth Sports',
+    logo: '🏐', // Volleyball emoji - can be replaced with logo
+    season: '2025 Spring Season',
+    primaryColor: '#00d4aa', // Teal/turquoise green
+    secondaryColor: '#00b894', // Darker teal
+    backgroundColor: '#0a0a0a',
+    accentColor: '#55efc4', // Light teal accent
+    fontFamily: 'DM Sans' // Clean, modern font
+  },
 }
 
 // Helper to get organization or generate default
