@@ -438,10 +438,10 @@ export default function EventDashboard() {
             </div>
           </section>
         ) : (
-          // EVENT OPERATOR VIEW - Focus on revenue, attendees, and breakdown
+          // EVENT OPERATOR VIEW - Clean 3-card grid layout
           <section className="dashboard-overview dashboard-overview--operator-event">
-            {/* Total Revenue - Big and prominent at top */}
-            <div className="stat-card stat-card--revenue stat-card--large">
+            {/* Net Revenue - Primary metric */}
+            <div className="stat-card stat-card--revenue stat-card--primary">
               <div className="stat-card__icon-box stat-card__icon-box--green">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="12" y1="1" x2="12" y2="23"></line>
@@ -450,25 +450,11 @@ export default function EventDashboard() {
               </div>
               <div className="stat-card__content">
                 <span className="stat-card__value">{formatCurrency(venueRevenue)}</span>
-                <span className="stat-card__label">Total Revenue</span>
+                <span className="stat-card__label">Net Revenue</span>
               </div>
             </div>
 
-            {/* Unique Buyers */}
-            <div className="stat-card stat-card--customers">
-              <div className="stat-card__icon-box stat-card__icon-box--purple">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-              </div>
-              <div className="stat-card__content">
-                <span className="stat-card__value">{uniqueCustomers}</span>
-                <span className="stat-card__label">Unique Buyers</span>
-              </div>
-            </div>
-
-            {/* Total Attendees Coming */}
+            {/* Total Attendees */}
             <div className="stat-card stat-card--attendees">
               <div className="stat-card__icon-box stat-card__icon-box--blue">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -480,44 +466,13 @@ export default function EventDashboard() {
               </div>
               <div className="stat-card__content">
                 <span className="stat-card__value">{totalTickets}</span>
-                <span className="stat-card__label">Total Attendees Coming</span>
+                <span className="stat-card__label">Total Attendees</span>
               </div>
             </div>
 
-            {/* Ticket Breakdown - Admission */}
-            {admissionTickets > 0 && (
-              <div className="stat-card stat-card--admission">
-                <div className="stat-card__icon-box stat-card__icon-box--blue">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path>
-                  </svg>
-                </div>
-                <div className="stat-card__content">
-                  <span className="stat-card__value">{admissionTickets} Admission tickets</span>
-                  <span className="stat-card__label">{formatCurrency(admissionRevenue)}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Ticket Breakdown - Parking */}
-            {parkingTickets > 0 && (
-              <div className="stat-card stat-card--parking">
-                <div className="stat-card__icon-box stat-card__icon-box--orange">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <path d="M9 17V7h4a3 3 0 0 1 0 6H9"></path>
-                  </svg>
-                </div>
-                <div className="stat-card__content">
-                  <span className="stat-card__value">{parkingTickets} Parking passes</span>
-                  <span className="stat-card__label">{formatCurrency(parkingRevenue)}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Checked In - At the bottom */}
+            {/* Checked In */}
             <div className="stat-card stat-card--checkin">
-              <div className="stat-card__icon-box stat-card__icon-box--green">
+              <div className="stat-card__icon-box stat-card__icon-box--purple">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="20 6 9 17 4 12"></polyline>
                 </svg>
@@ -531,7 +486,7 @@ export default function EventDashboard() {
         )}
 
         {/* Breakdown Section */}
-        <section className="dashboard-breakdown">
+        <section className={`dashboard-breakdown ${!isAdmin ? 'dashboard-breakdown--operator' : ''}`}>
           {isAdmin && (
             <div className="breakdown-card">
               <h3>Ticket Breakdown</h3>
@@ -556,7 +511,7 @@ export default function EventDashboard() {
             </div>
           )}
           <div className="breakdown-card">
-            <h3>Financial Summary</h3>
+            <h3>{isAdmin ? 'Financial Summary' : 'Sales Summary'}</h3>
             {isAdmin ? (
               // ADMIN VIEW - Shows full breakdown with platform revenue
               isPassThrough ? (
@@ -611,35 +566,45 @@ export default function EventDashboard() {
                 </>
               )
             ) : (
-              // EVENT OPERATOR VIEW - Shows their financial breakdown
+              // EVENT OPERATOR VIEW - Clean, consolidated financial summary
               <>
-                <div className="breakdown-row">
+                {admissionTickets > 0 && (
+                  <div className="breakdown-row">
+                    <span>{admissionTickets} Admission {admissionTickets === 1 ? 'Ticket' : 'Tickets'} × {formatCurrency(admissionPrice)}</span>
+                    <span>{formatCurrency(admissionRevenue)}</span>
+                  </div>
+                )}
+                {parkingTickets > 0 && (
+                  <div className="breakdown-row">
+                    <span>{parkingTickets} Parking {parkingTickets === 1 ? 'Pass' : 'Passes'} × {formatCurrency(parkingPrice)}</span>
+                    <span>{formatCurrency(parkingRevenue)}</span>
+                  </div>
+                )}
+                <div className="breakdown-row breakdown-row--subtotal">
                   <span>Gross Sales</span>
                   <span>{formatCurrency(ticketRevenue)}</span>
                 </div>
                 {isPassThrough ? (
-                  // Pass-through: Fee is paid by buyer separately, show the amount
                   <div className="breakdown-row breakdown-row--fee-passthrough">
                     <span>Gameday Tickets Fee</span>
                     <span>{formatCurrency(yourRevenue)} <em>(paid by buyer)</em></span>
                   </div>
                 ) : (
-                  // Baked-in: Fee comes out of ticket price
                   <div className="breakdown-row breakdown-row--fee">
                     <span>Gameday Tickets Fee</span>
                     <span>-{formatCurrency(yourRevenue)}</span>
                   </div>
                 )}
-                <div className="breakdown-row breakdown-row--net-total">
-                  <span>Net Revenue</span>
-                  <span>{formatCurrency(venueRevenue)}</span>
-                </div>
                 {refundedTickets > 0 && (
                   <div className="breakdown-row breakdown-row--refund">
                     <span>Refunded Tickets</span>
-                    <span>{refundedTickets}</span>
+                    <span>-{refundedTickets}</span>
                   </div>
                 )}
+                <div className="breakdown-row breakdown-row--net-total">
+                  <span>Your Net Revenue</span>
+                  <span>{formatCurrency(venueRevenue)}</span>
+                </div>
               </>
             )}
           </div>
@@ -709,7 +674,7 @@ export default function EventDashboard() {
                     )}
                   </div>
                   <div className="attendees-row__actions">
-                    {ticket.status !== 'refunded' && (
+                    {isAdmin && ticket.status !== 'refunded' && (
                       <button 
                         className="refund-btn"
                         onClick={() => handleRefund(ticket)}
@@ -717,6 +682,9 @@ export default function EventDashboard() {
                       >
                         {refundingTicket === ticket.ticket_id ? 'Processing...' : 'Refund'}
                       </button>
+                    )}
+                    {!isAdmin && ticket.status === 'refunded' && (
+                      <span className="attendees-row__refunded-badge">Refunded</span>
                     )}
                   </div>
                 </div>
