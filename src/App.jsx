@@ -11,6 +11,7 @@ import TypographyGuide from './pages/TypographyGuide'
 import Tickets from './pages/Tickets'
 import { getOrganization, ORGANIZATIONS } from './config/organizations'
 import { filterPastEvents, parseEventDate } from './utils/eventFilters'
+import { EVENTS_DATA } from './config/events'
 import './App.css'
 import './dashboard.css'
 
@@ -119,248 +120,10 @@ function HamburgerMenu() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ALL-IN PRICING MODEL (California Compliant)
+// PRICING & EVENTS
+// All pricing is centralized in src/config/pricing.js
+// All events are centralized in src/config/events.js
 // ═══════════════════════════════════════════════════════════════════════════
-// Pricing: $18 admission + $19 parking (tax included, all-in pricing)
-// Customer sees: $18 admission, $19 parking (no tax breakdown shown)
-// - Business receives: $30.49 net total ($15.69 parking + $14.80 admission)
-// - Platform receives: $2.00 net total ($1.00 from each purchase)
-// - Tax is included in price but not shown separately to customer
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Events data - SoCal Cup Events Only
-// Note: Other events (Gameday Empire, Sportsplex) are separate and should be managed separately
-const EVENTS_DATA = [
-  // SoCal Cup Events - 2026 Season (All-In Pricing: $18 admission + $19 parking, tax included)
-  // Business gets $30.49 net total, Platform gets $2.00 net total ($1.00 from each)
-  {
-    id: 4,
-    name: 'SoCal Cup: 12-18 Friendly',
-    date: 'Friday, January 10',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18, // Admission price (tax included, no tax breakdown shown)
-    parkingPrice: 19, // Parking price (tax included, no tax breakdown shown)
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in' // California compliant - no separate fees
-  },
-  {
-    id: 5,
-    name: 'SoCal Cup: 14/13 Tourney 2',
-    date: 'Saturday, February 21',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 6,
-    name: 'SoCal Cup: 12 Tourney 2',
-    date: 'Sunday, February 22',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 7,
-    name: 'SoCal Cup: 14/13 Tourney 3',
-    date: 'Saturday, March 21',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 8,
-    name: 'SoCal Cup: 12 Tourney 3',
-    date: 'Sunday, March 22',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 9,
-    name: 'SoCal Cup: 14/13 Tourney 4',
-    date: 'Saturday, April 11',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 10,
-    name: 'SoCal Cup: 12 Tourney 4',
-    date: 'Sunday, April 12',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 11,
-    name: 'SoCal Cup: 14/13 Tourney 5',
-    date: 'Saturday, April 25',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 12,
-    name: 'SoCal Cup: 12 Tourney 5',
-    date: 'Sunday, April 26',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 13,
-    name: 'SoCal Cup: 14/13 Championship',
-    date: 'Saturday, May 16',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 14,
-    name: 'SoCal Cup: 12 Championship',
-    date: 'Sunday, May 17',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 15,
-    name: 'SoCal Cup: 15-18 Friendly',
-    date: 'Saturday, May 23',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 16,
-    name: 'SoCal Cup: 16/15 Tourney 3',
-    date: 'Saturday, May 30',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 17,
-    name: 'SoCal Cup: 18/17 Tourney 3',
-    date: 'Sunday, May 31',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 18,
-    name: 'SoCal Cup: 16/15 Spring Championship',
-    date: 'Saturday, June 6',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  },
-  {
-    id: 19,
-    name: 'SoCal Cup: 18/17 Spring Championship',
-    date: 'Sunday, June 7',
-    time: 'TBD',
-    venue: 'AIM Sportsplex',
-    city: 'Seal Beach, CA',
-    category: 'Volleyball',
-    price: 18,
-    parkingPrice: 19,
-    hasAdmission: true,
-    hasParking: true,
-    feeModel: 'all_in'
-  }
-]
-
-const GA_PRICE = 15
-const PARKING_PRICE = 15
 
 function HomePage() {
   return (
@@ -790,8 +553,7 @@ function EventPage() {
   const event = EVENTS_DATA.find(e => e.id === parseInt(eventId)) || EVENTS_DATA[0]
   
   const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('') // Optional, for Stripe
+  const [email, setEmail] = useState('')
   const [admissionQuantity, setAdmissionQuantity] = useState(0)
   const [parkingQuantity, setParkingQuantity] = useState(0)
   const [message, setMessage] = useState('')
@@ -809,8 +571,8 @@ function EventPage() {
   const parkingOptions = useMemo(() => Array.from({ length: 5 }, (_, i) => i), [])
 
   const handleCheckout = async () => {
-    if (!name || !phone) {
-      setMessage('Add your name and phone number so we can send your tickets via SMS.')
+    if (!name || !email) {
+      setMessage('Please enter your name and email address for ticket delivery.')
       return
     }
 
@@ -830,8 +592,7 @@ function EventPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name,
-          email: email || `${phone.replace(/\D/g, '')}@sms.local`, // Use phone-based email if no email provided
-          phone,
+          email,
           eventId: event.id,
           admissionQuantity,
           parkingQuantity,
@@ -887,20 +648,11 @@ function EventPage() {
                 onChange={(e) => setName(e.target.value)}
               />
               <input
-                type="tel"
-                placeholder="Phone number (for SMS ticket delivery)"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-              <input
                 type="email"
-                placeholder="Email (optional)"
+                placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <p style={{ fontSize: '14px', color: '#888', marginTop: '-8px', marginBottom: '8px' }}>
-                📱 Your tickets will be texted to your phone
-              </p>
             </div>
 
             {event.hasAdmission && (
@@ -1207,7 +959,6 @@ function PortalBuyPage() {
   
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
   const [admissionQuantity, setAdmissionQuantity] = useState(0)
   const [parkingQuantity, setParkingQuantity] = useState(0)
   const [message, setMessage] = useState('')
@@ -1221,8 +972,8 @@ function PortalBuyPage() {
   const canCheckout = subtotal > 0
 
   const handleCheckout = async () => {
-    if (!name || !phone) {
-      setMessage('Please enter your name and phone number.')
+    if (!name || !email) {
+      setMessage('Please enter your name and email address for ticket delivery.')
       return
     }
     if (admissionQuantity === 0 && parkingQuantity === 0) {
@@ -1240,7 +991,6 @@ function PortalBuyPage() {
         body: JSON.stringify({
           name,
           email,
-          phone, // Phone number for SMS ticket delivery
           eventId: event.id,
           admissionQuantity,
           parkingQuantity,
@@ -1313,20 +1063,12 @@ function PortalBuyPage() {
           className="portal-buy__input"
         />
         <input
-          type="tel"
-          placeholder="Phone Number (for ticket delivery)"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="portal-buy__input"
-        />
-        <input
           type="email"
-          placeholder="Email Address (optional)"
+          placeholder="Email Address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="portal-buy__input"
         />
-        <p className="portal-buy__email-note">📱 Your tickets will be texted to your phone</p>
       </div>
 
       {/* Ticket Selection - Second */}

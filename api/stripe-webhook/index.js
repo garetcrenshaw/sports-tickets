@@ -257,7 +257,7 @@ async function processCheckoutSession(session) {
 
   const customerEmail = session.customer_details?.email || session.customer_email || session.metadata?.buyerEmail || '';
   const buyerName = session.customer_details?.name || session.metadata?.buyerName || 'Guest';
-  const buyerPhone = session.metadata?.buyerPhone || ''; // Phone for SMS delivery
+  
   
   // Capture billing address details (zip code for analytics)
   const billingAddress = session.customer_details?.address || {};
@@ -271,7 +271,6 @@ async function processCheckoutSession(session) {
   const marketingOptIn = marketingConsent === 'opt_in';
   
   console.log(`📍 Customer location: ${billingCity || 'N/A'}, ${billingState || 'N/A'} ${billingZip || 'N/A'}`);
-  console.log(`📱 Phone for SMS delivery: ${buyerPhone || 'Not provided'}`);
   if (marketingConsent !== null) {
     console.log(`📧 Marketing consent: ${marketingConsent} (opt-in: ${marketingOptIn})`);
   }
@@ -312,21 +311,16 @@ async function processCheckoutSession(session) {
       const ticketIndex = i + 1;
       const uniqueTicketId = `${session.id}-${ticketType.replace(/\s+/g, '_')}-${ticketIndex}`;
 
-      // Ticket record - qr_url will be populated by SMS/email processor
+      // Ticket record - simple, just what we need
       ticketRecords.push({
         stripe_session_id: session.id,
         ticket_id: uniqueTicketId,
-        event_id: eventId,
+        event_id: eventId.toString(), // Convert to string - database ID is TEXT
         ticket_type: ticketType,
         buyer_name: buyerName,
         buyer_email: customerEmail,
-        buyer_phone: buyerPhone, // Phone for SMS delivery
         status: 'active',
-        qr_url: '', // Empty - will be populated when processed
-        billing_zip: billingZip,
-        billing_city: billingCity,
-        billing_state: billingState,
-        marketing_consent: marketingOptIn
+        qr_url: '' // Empty - will be populated when processed
       });
     }
   }
@@ -350,54 +344,26 @@ async function processCheckoutSession(session) {
   
   console.log(`✅ ${ticketRecords.length} tickets inserted successfully`);
 
-  // Get event name for SMS
+  // Get event name for email subject
+  // Note: id is TEXT in database, so convert eventId to string for comparison
   const { data: eventData } = await supabase
     .from('events')
     .select('event_name')
-    .eq('id', eventId)
+    .eq('id', eventId.toString())
     .single();
   
   const eventName = eventData?.event_name || 'your event';
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SMS TICKET DELIVERY - Send text with ticket link
+  // EMAIL TICKET DELIVERY - Always use Resend email delivery
   // ═══════════════════════════════════════════════════════════════════════════
-  if (buyerPhone) {
-    console.log('📱 Sending SMS with ticket link to:', buyerPhone);
-    
-    try {
-      // Generate QR codes first
-      await generateQRCodes(ticketRecords, supabase);
-      
-      // Send SMS
-      const smsUrl = process.env.SITE_URL || 'https://gamedaytickets.io';
-      const response = await fetch(`${smsUrl}/api/send-sms`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: buyerPhone,
-          buyerName: buyerName,
-          ticketCount: ticketRecords.length,
-          eventName: eventName,
-          orderId: session.id
-        })
-      });
-      
-      if (response.ok) {
-        console.log('✅ SMS sent successfully!');
-      } else {
-        console.error('⚠️ SMS send failed:', await response.text());
-      }
-    } catch (smsError) {
-      console.error('⚠️ SMS error (will fallback to email):', smsError.message);
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // EMAIL FALLBACK - If no phone provided, send email
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (!buyerPhone && customerEmail) {
-    console.log('📧 No phone provided, queuing email delivery to:', customerEmail);
+  // Generate QR codes first (required for email delivery)
+  console.log('📧 Generating QR codes for email delivery...');
+  await generateQRCodes(ticketRecords, supabase);
+  console.log('✅ QR codes generated');
+  
+  if (customerEmail) {
+    console.log('📧 Queuing email delivery to:', customerEmail);
     
     // Build email queue records
     const emailRecords = ticketRecords.map(ticket => ({
@@ -413,12 +379,44 @@ async function processCheckoutSession(session) {
     const emailResult = await supabase.from('email_queue').insert(emailRecords);
     
     if (emailResult.error) {
-      console.error('⚠️ Email queue error:', emailResult.error.message);
+      console.error('❌ Email queue error:', emailResult.error.message);
+      console.error('Full error:', JSON.stringify(emailResult.error, null, 2));
+      
+      // Capture in Sentry - email queue failures are critical
+      captureException(new Error(`Email queue insert failed: ${emailResult.error.message}`), {
+        tags: {
+          component: 'stripe-webhook',
+          critical: true,
+          stage: 'email-queue-insert',
+        },
+        extra: {
+          session_id: session.id,
+          customer_email: customerEmail,
+          ticket_count: ticketRecords.length,
+        },
+      });
     } else {
-      console.log(`✅ ${emailRecords.length} emails queued`);
-      // Trigger email worker
+      console.log(`✅ ${emailRecords.length} email(s) queued successfully`);
+      // Trigger email worker immediately
       triggerEmailWorker();
     }
+  } else {
+    console.error('⚠️ No email address provided - cannot deliver tickets');
+    console.error('⚠️ Customer email was:', customerEmail);
+    
+    // Capture in Sentry - missing email is critical
+    captureMessage('Checkout completed but no email address provided', {
+      level: 'warning',
+      tags: {
+        component: 'stripe-webhook',
+        critical: true,
+      },
+      extra: {
+        session_id: session.id,
+        buyer_name: buyerName,
+        ticket_count: ticketRecords.length,
+      },
+    });
   }
 
   console.log('=== BACKGROUND PROCESSING COMPLETE ===');

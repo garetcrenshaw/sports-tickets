@@ -1,53 +1,62 @@
-# Local environment variables template
-# Copy this file to .env.local and fill in your actual values
-# This file is gitignored for security
+# ═══════════════════════════════════════════════════════════════════════════
+# GAMEDAY TICKETS - Environment Variables
+# ═══════════════════════════════════════════════════════════════════════════
+# Copy this file to .env.local and fill in your actual values.
+# This file is gitignored for security.
 
-# Stripe
+# ═══════════════════════════════════════════════════════════════════════════
+# STRIPE - Payment Processing
+# ═══════════════════════════════════════════════════════════════════════════
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
 
-# Supabase (Backend - use service_role key for full access)
-SUPABASE_URL=https://xjvzehjpgbwiiuvsnflk.supabase.co
+# ═══════════════════════════════════════════════════════════════════════════
+# SUPABASE - Database
+# ═══════════════════════════════════════════════════════════════════════════
+# Backend - use service_role key for full access
+SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
 
-# Supabase (Frontend - use anon key, exposed to browser)
-VITE_SUPABASE_URL=https://xjvzehjpgbwiiuvsnflk.supabase.co
+# Frontend - use anon key, exposed to browser
+VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
-# Resend (for emails)
+# ═══════════════════════════════════════════════════════════════════════════
+# RESEND - Email Ticket Delivery (REQUIRED)
+# ═══════════════════════════════════════════════════════════════════════════
+# Get API key from: https://resend.com/api-keys
+# This is the PRIMARY method for ticket delivery
 RESEND_API_KEY=re_test_your_resend_api_key_here
 
-# Cron Security (for email worker authentication)
+# ═══════════════════════════════════════════════════════════════════════════
+# TWILIO - SMS Delivery (DISABLED - Optional for future use)
+# ═══════════════════════════════════════════════════════════════════════════
+# Currently not in use - system uses email delivery only
+# Get credentials from: https://console.twilio.com/
+# TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
+# TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
+
+# ═══════════════════════════════════════════════════════════════════════════
+# URLS
+# ═══════════════════════════════════════════════════════════════════════════
+# Production URL
+SITE_URL=https://gamedaytickets.io
+
+# Local development URL (uncomment for local dev)
+# SITE_URL=http://localhost:3000
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SECURITY
+# ═══════════════════════════════════════════════════════════════════════════
+# Cron job authentication
 CRON_SECRET=your_random_32_char_secret_here
 
-# Stripe Price IDs
-# Event 1 - Original Event (Admission + Parking)
-GA_PRICE_ID=price_your_ga_price_id
-PARKING_PRICE_ID=price_your_parking_price_id
+# Dashboard validation password
+VALIDATE_PASSWORD=your_validation_password
 
-# Event 2 - Sportsplex Showdown (Parking Only)
-SPORTSPLEX_SHOWDOWN_PARKING_PRICE_ID=price_your_sportsplex_showdown_parking_id
-
-# Event 3 - Sportsplex Event (Admission Only)
-SPORTSPLEX_EVENT_ADMISSION_PRICE_ID=price_your_sportsplex_event_admission_id
-
-# Validation Password
-VALIDATE_PASSWORD=gameday2024
-
-# Site URL (PERMANENT - NEVER CHANGES)
-NEXT_PUBLIC_URL=https://sports-tickets.vercel.app
-
-# Local development URL
-SITE_URL=http://localhost:3000
-
-# Vercel URL (automatically set in production)
-# VERCEL_URL=
-
-# Sentry Error Tracking (Optional - for production monitoring)
-# Get DSNs from https://sentry.io after creating projects
-SENTRY_DSN=https://[YOUR_BACKEND_DSN]@[ORG_ID].ingest.sentry.io/[PROJECT_ID]
-VITE_SENTRY_DSN=https://[YOUR_FRONTEND_DSN]@[ORG_ID].ingest.sentry.io/[PROJECT_ID]
-
-# Enable Sentry in development (set to 'true' to test locally)
-# SENTRY_ENABLE_DEV=false
-# VITE_SENTRY_ENABLE_DEV=false
+# ═══════════════════════════════════════════════════════════════════════════
+# SENTRY - Error Tracking (Optional)
+# ═══════════════════════════════════════════════════════════════════════════
+# SENTRY_DSN=https://[YOUR_BACKEND_DSN]@[ORG_ID].ingest.sentry.io/[PROJECT_ID]
+# VITE_SENTRY_DSN=https://[YOUR_FRONTEND_DSN]@[ORG_ID].ingest.sentry.io/[PROJECT_ID]

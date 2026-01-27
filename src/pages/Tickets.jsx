@@ -5,7 +5,7 @@ import '../tickets.css'
 /**
  * TICKET VIEWING PAGE
  * 
- * Accessed via SMS link: /tickets?order=SESSION_ID
+ * Accessed via email link: /tickets?order=SESSION_ID
  * Shows all tickets for an order in a swipeable card format
  * 
  * Features:
@@ -112,7 +112,7 @@ export default function Tickets() {
           <p>{error}</p>
           <p className="tickets-error__help">
             If you just made a purchase, your tickets may still be processing. 
-            Try again in a minute or check your text messages for a new link.
+            Try again in a minute or check your email for your ticket link.
           </p>
         </div>
       </div>

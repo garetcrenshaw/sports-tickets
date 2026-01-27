@@ -8,14 +8,13 @@ initSentryServer();
 /**
  * STREAMLINED CHECKOUT CONFIGURATION
  * 
- * This checkout is optimized for digital tickets to reduce friction:
- * - No phone number required (digital tickets don't need it)
+ * This checkout is optimized for digital tickets with EMAIL delivery:
+ * - Email required for ticket delivery (via Resend)
+ * - Phone optional - captured for owner's CRM/marketing
  * - Billing address only collected if payment method requires it
  * - Clear, concise product descriptions
  * - Auto-detects locale for better UX
  * - Simplified payment: Apple Pay (when available) and card only
- * - Removed Link, Klarna, Amazon Pay, Affirm, Cash App Pay for cleaner UX
- * - Marketing consent is optional (opt-in)
  * 
  * UPDATED: Now fetches Stripe Price IDs from events table for multi-event support
  * 
@@ -53,7 +52,6 @@ export default async function handler(req, res) {
     const { 
       name, 
       email, 
-      phone,
       eventId, 
       admissionQuantity, 
       parkingQuantity,
@@ -70,15 +68,35 @@ export default async function handler(req, res) {
     // ═══════════════════════════════════════════════════════════════════════════
     
     // Fetch event pricing from Supabase
-    console.log('CREATE-CHECKOUT: Fetching event from database, eventId:', eventId);
-    const { data: eventData, error: eventError } = await supabase
+    // Note: id is TEXT in database, so try both string and integer comparison
+    console.log('CREATE-CHECKOUT: Fetching event from database, eventId:', eventId, 'type:', typeof eventId);
+    
+    // Try string match first (database ID is TEXT)
+    let { data: eventData, error: eventError } = await supabase
       .from('events')
       .select('id, event_name, has_admission, has_parking, stripe_admission_price_id, stripe_parking_price_id, admission_price, parking_price')
-      .eq('id', eventId)
-      .single();
+      .eq('id', eventId.toString())
+      .maybeSingle(); // Use maybeSingle() instead of single() to avoid error if not found
+    
+    // If not found, try integer comparison (in case database has numeric IDs)
+    if (eventError || !eventData) {
+      console.log('CREATE-CHECKOUT: String match failed, trying integer comparison');
+      const { data: eventDataInt, error: eventErrorInt } = await supabase
+        .from('events')
+        .select('id, event_name, has_admission, has_parking, stripe_admission_price_id, stripe_parking_price_id, admission_price, parking_price')
+        .eq('id', eventId)
+        .maybeSingle();
+      
+      if (eventDataInt && !eventErrorInt) {
+        eventData = eventDataInt;
+        eventError = null;
+        console.log('CREATE-CHECKOUT: Found event with integer comparison');
+      }
+    }
 
     if (eventError) {
       console.error('CREATE-CHECKOUT: Database error fetching event:', eventError);
+      console.error('CREATE-CHECKOUT: EventId was:', eventId, 'as string:', eventId.toString());
     } else if (eventData) {
       console.log('CREATE-CHECKOUT: Database event data:', {
         id: eventData.id,
@@ -228,7 +246,6 @@ export default async function handler(req, res) {
       metadata: {
         buyerName: name,
         buyerEmail: email || '',
-        buyerPhone: phone || '', // Phone for SMS ticket delivery
         eventId: eventId?.toString(),
         admissionQuantity: admissionQuantity?.toString(),
         parkingQuantity: parkingQuantity?.toString(),
@@ -242,21 +259,16 @@ export default async function handler(req, res) {
       locale: 'auto',
       submit_type: 'pay', // Shows "Pay" button instead of "Subscribe"
       
-      // Streamline checkout - remove unnecessary fields for digital tickets
-      billing_address_collection: 'auto', // Only collect if required by payment method (most cards don't need it)
+      // Streamline checkout - minimal fields for digital tickets
+      billing_address_collection: 'auto', // Only collect if required by payment method
       phone_number_collection: {
-        enabled: true, // Collect phone for SMS ticket delivery
+        enabled: false, // Phone already collected in our form (optional field)
       },
       
       // Allow promotion codes if needed
       allow_promotion_codes: false, // Set to true if you want to allow discount codes
       
       // SIMPLIFIED PAYMENT METHODS - Only Apple Pay and Card
-      // This explicitly removes: Link, Klarna, Amazon Pay, Affirm, Cash App Pay
-      // Apple Pay will appear at the top on supported devices (iOS, macOS Safari)
-      // Card option will be available for all customers (including older customers)
-      // NOTE: You may also need to disable unwanted methods in Stripe Dashboard:
-      // Settings → Payment methods → Turn off Link, Klarna, Affirm, Cash App Pay
       payment_method_types: ['card'], // Apple Pay appears automatically with 'card' on supported devices
       
       // Payment method options
@@ -265,14 +277,6 @@ export default async function handler(req, res) {
           request_three_d_secure: 'automatic',
         },
       },
-      
-      // Marketing consent collection
-      // REQUIRES: Agree to Stripe ToS at https://dashboard.stripe.com/settings/checkout (LIVE MODE ONLY)
-      // TODO: Uncomment when ready to go live and enable in Stripe Dashboard
-      // Once enabled, consent data will be available in webhook at session.consent
-      // consent_collection: {
-      //   promotions: 'auto', // Let users opt-in to marketing emails
-      // },
       
       // Improve line item descriptions for clarity
       payment_intent_data: {
